@@ -11,7 +11,7 @@
       key: "booze",
       label: "Boozy",
       items: [
-        { name: "Margarita",            emoji: "🍋", ingredients: ["Tequila", "Triple Sec / Cointreau", "Lime", "Simple Syrup (opt.)", "Crushed Ice", "Salt rim"] },
+        { name: "Margarita",            emoji: "🍋‍🟩", ingredients: ["Tequila", "Triple Sec / Cointreau", "Lime", "Simple Syrup (opt.)", "Crushed Ice", "Salt rim"] },
         { name: "Spicy Margarita",      emoji: "🌶️", ingredients: ["Tequila", "Triple Sec / Cointreau", "Lime", "Fresh Chili (jalapeño/red)", "Simple Syrup / Agave", "Crushed Ice", "Salt or Tajín rim"] },
         { name: "Watermelon Margarita", emoji: "🍉", ingredients: ["Watermelon", "Tequila", "Triple Sec / Cointreau", "Lime", "Simple Syrup (opt.)", "Crushed Ice", "Salt rim"] },
       ],
