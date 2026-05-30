@@ -78,6 +78,7 @@
         { name: "Chicken", emoji: "🍗" },
         { name: "Lamb",    emoji: "🍖" },
         { name: "Burger",  emoji: "🍔" },
+        { name: "Chocolate Cake", emoji: "🍰" },
       ],
     },
   ];
