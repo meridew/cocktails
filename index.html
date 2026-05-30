@@ -90,8 +90,9 @@
   <div class="mx" id="mixology" role="dialog" aria-modal="true" aria-labelledby="mx-title" hidden>
     <div class="mx-inner">
       <div class="mx-head">
-        <h2 id="mx-title">🧪 Make a Drink</h2>
-        <button type="button" class="mx-close" id="mixology-close" aria-label="Close">✕</button>
+        <button type="button" class="mx-iconbtn mx-back" id="mx-back" aria-label="Go back a step" hidden>←</button>
+        <h2 id="mx-title">Make a Drink</h2>
+        <button type="button" class="mx-iconbtn mx-close" id="mixology-close" aria-label="Close">✕</button>
       </div>
       <!-- running list of what you've added so far -->
       <div class="mx-build" id="mx-build" aria-live="polite"></div>
@@ -99,7 +100,6 @@
       <div class="mx-step" id="mx-step"></div>
       <!-- the reveal card (what you've made) lives here -->
       <div class="mx-result" id="mx-result" hidden></div>
-      <button type="button" class="mx-restart" id="mx-restart" hidden>↺ Start over</button>
     </div>
   </div>
 

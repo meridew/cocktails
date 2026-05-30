@@ -805,7 +805,7 @@
     var buildEl   = $("mx-build");
     var stepEl    = $("mx-step");
     var resultEl  = $("mx-result");
-    var restartBtn = $("mx-restart");
+    var backBtn   = $("mx-back");
     if (!launchBtn || !overlay) { return; }
 
     // Emoji per base for the basket line (falls back to a cocktail glass).
@@ -822,6 +822,7 @@
     var skipped = [];         // category names the player declined
     var catIndex = 0;         // position in DATA.categoryOrder
     var revealed = null;      // the drink currently shown (for "add to order")
+    var trail = [];           // state snapshots powering the Back button
 
     // Lazy-load the data the first time the mode is opened.
     function ensureData(cb) {
@@ -860,6 +861,34 @@
       return recipes.filter(function (c) { return c.ingredients.indexOf(ing) !== -1; }).length;
     }
 
+    // ---- Back / history -------------------------------------------------
+    // Snapshot the screen we're on before the player acts, so Back can
+    // restore it. The engine is deterministic from this state, so restoring
+    // it and re-rendering reproduces the exact step (auto-folds included).
+    function pushTrail() {
+      trail.push({ base: base, picked: picked.slice(), skipped: skipped.slice(), catIndex: catIndex });
+    }
+    function updateBackBtn() { if (backBtn) { backBtn.hidden = trail.length === 0; } }
+    function goBack() {
+      if (!trail.length) { return; }
+      var s = trail.pop();
+      base = s.base; picked = s.picked.slice(); skipped = s.skipped.slice(); catIndex = s.catIndex; revealed = null;
+      resultEl.hidden = true; resultEl.innerHTML = "";
+      if (!base) { renderBaseScreen(); } else { nextStep(); }
+    }
+
+    // Called after every screen change: refresh the Back button, reset
+    // scroll, and move focus to the new heading for keyboard/screen readers.
+    function screenChanged() {
+      updateBackBtn();
+      overlay.scrollTop = 0;
+      var h = stepEl.querySelector(".mx-q") || resultEl.querySelector("h3") || stepEl.querySelector("h3");
+      if (h) {
+        h.setAttribute("tabindex", "-1");
+        try { h.focus({ preventScroll: true }); } catch (e) { h.focus(); }
+      }
+    }
+
     // ---- Render helpers -------------------------------------------------
     function renderBuild() {
       if (!base) { buildEl.innerHTML = ""; return; }
@@ -880,17 +909,23 @@
     }
 
     function start() {
-      base = null; picked = []; skipped = []; catIndex = 0; revealed = null;
+      base = null; picked = []; skipped = []; catIndex = 0; revealed = null; trail = [];
       resultEl.hidden = true; resultEl.innerHTML = "";
-      restartBtn.hidden = true;
       renderBuild();
       if (loadErr || !DATA) {
         stepEl.innerHTML = '<p class="mx-q">Couldn’t load the cocktail book. Please try again later.</p>';
+        updateBackBtn();
         return;
       }
+      renderBaseScreen();
+    }
+
+    function renderBaseScreen() {
+      renderBuild();
       stepEl.innerHTML = btnRow("Pick your base spirit", bases().map(function (b) {
         return { text: b, val: "base:" + b, count: DATA.cocktails.filter(function (c) { return c.base === b; }).length };
       }));
+      screenChanged();
     }
 
     function nextStep() {
@@ -930,7 +965,9 @@
           continue; // same category may offer more, else loop advances
         }
 
-        // A genuine choice — render it.
+        // A genuine choice — render it. Most-common options first so long
+        // lists (e.g. the spirits step) lead with the familiar picks.
+        opts.sort(function (a, b) { return countWith(recipes, b) - countWith(recipes, a) || a.localeCompare(b); });
         var choices = opts.map(function (ing) {
           return { text: ing, val: "add:" + ing, count: countWith(recipes, ing) };
         });
@@ -945,6 +982,7 @@
           (folded.length ? '<p class="mx-auto">Added <strong>' + folded.map(escapeHtml).join("</strong>, <strong>") + "</strong> — the only way forward.</p>" : "") +
           (exact ? '<p class="mx-sofar">Right now you’ve got a <strong>' + escapeHtml(exact.name) + '</strong>. Keep building, or stop here.</p>' : "") +
           btnRow(label, choices);
+        screenChanged();
         return;
       }
 
@@ -955,11 +993,11 @@
     function reveal(drink) {
       revealed = drink;
       stepEl.innerHTML = "";
-      restartBtn.hidden = true;   // the reveal card carries its own actions
       resultEl.hidden = false;
       if (!drink) {
-        resultEl.innerHTML = '<div class="mx-card"><h3>Hmm…</h3><p class="mx-blurb">That exact combination isn’t a classic we know — try another path!</p>' +
+        resultEl.innerHTML = '<div class="mx-card"><h3>Hmm…</h3><p class="mx-blurb">That exact combination isn’t a classic we know — step back and try another path!</p>' +
           '<div class="mx-result-actions"><button type="button" class="mx-again" data-mx="again">Start again ↺</button></div></div>';
+        screenChanged();
         return;
       }
       resultEl.innerHTML =
@@ -979,6 +1017,7 @@
             '<button type="button" class="mx-again" data-mx="again">Start again ↺</button>' +
           "</div>" +
         "</div>";
+      screenChanged();
     }
 
     // ---- Event wiring ---------------------------------------------------
@@ -986,10 +1025,10 @@
       var btn = e.target.closest(".mx-opt");
       if (!btn) { return; }
       var val = btn.getAttribute("data-val");
-      if (val.indexOf("base:") === 0) { base = val.slice(5); catIndex = 0; nextStep(); return; }
-      if (val === "stop") { reveal(exactMatch(reachable())); return; }
-      if (val.indexOf("skip:") === 0) { skipped.push(val.slice(5)); catIndex++; nextStep(); return; }
-      if (val.indexOf("add:") === 0) { picked.push(val.slice(4)); nextStep(); return; }
+      if (val.indexOf("base:") === 0) { pushTrail(); base = val.slice(5); catIndex = 0; nextStep(); return; }
+      if (val === "stop") { pushTrail(); reveal(exactMatch(reachable())); return; }
+      if (val.indexOf("skip:") === 0) { pushTrail(); skipped.push(val.slice(5)); catIndex++; nextStep(); return; }
+      if (val.indexOf("add:") === 0) { pushTrail(); picked.push(val.slice(4)); nextStep(); return; }
     });
 
     // Reveal-card actions (add to order / start again).
@@ -1010,10 +1049,9 @@
 
     function open() {
       ensureData(function () {
-        start();
         overlay.hidden = false;
         document.body.style.overflow = "hidden";
-        closeBtn.focus();
+        start();   // start() renders + moves focus into the panel
       });
     }
     function close() {
@@ -1025,9 +1063,15 @@
 
     launchBtn.addEventListener("click", open);
     closeBtn.addEventListener("click", close);
-    restartBtn.addEventListener("click", start);
+    if (backBtn) { backBtn.addEventListener("click", goBack); }
     overlay.addEventListener("click", function (e) { if (e.target === overlay) { close(); } });
-    document.addEventListener("keydown", function (e) { if (e.key === "Escape" && !overlay.hidden) { close(); } });
+    document.addEventListener("keydown", function (e) {
+      if (overlay.hidden) { return; }
+      if (e.key === "Escape") { close(); }
+      else if (e.key === "Backspace" && trail.length && !/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName || "")) {
+        e.preventDefault(); goBack();
+      }
+    });
     function checkHash() { if (location.hash === "#make") { open(); } }
     window.addEventListener("hashchange", checkHash);
     checkHash();
