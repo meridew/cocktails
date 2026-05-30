@@ -32,7 +32,7 @@
 }
 
 * { box-sizing: border-box; }
-html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; overflow-x: hidden; }
 body {
   margin: 0;
   font-family: "Space Grotesk", system-ui, sans-serif;
@@ -119,16 +119,12 @@ h1 {
 
 /* ---------------- CHIP NAV (sticky category jumper) ---------------- */
 .chipbar {
-  position: sticky; top: 0; z-index: 200;
-  display: flex; gap: 8px; margin: 0 0 22px; padding: 10px 0;
-  overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch;
-  background: var(--yellow);
+  display: flex; flex-wrap: wrap; gap: 8px; margin: 2px 0 24px; padding: 0;
 }
-.chipbar::-webkit-scrollbar { display: none; }
 .chip {
   flex: 0 0 auto; display: inline-flex; align-items: center; gap: 6px;
   padding: 9px 14px; border: 3px solid var(--ink); border-radius: 999px;
-  background: #fff; color: var(--ink); white-space: nowrap;
+  background: #fff; color: var(--ink); white-space: nowrap; box-shadow: 2px 2px 0 var(--ink);
   font-family: "Bungee", sans-serif; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.5px;
   cursor: pointer; touch-action: manipulation; transition: background .15s, color .15s, transform .08s;
 }
@@ -138,7 +134,7 @@ h1 {
 .chip:active { transform: scale(0.96); }
 
 /* ---------------- MENU SECTIONS + CARDS ---------------- */
-.menu-section { scroll-margin-top: 64px; margin-bottom: 8px; }
+.menu-section { scroll-margin-top: 14px; margin-bottom: 8px; }
 .menu-section[hidden] { display: none; }
 .section-head {
   font-family: "Archivo Black", sans-serif; text-transform: uppercase;
@@ -308,7 +304,7 @@ footer { text-align: center; margin-top: 40px; font-family: "Bungee", sans-serif
   .kicker { font-size: 1.05rem; letter-spacing: 2px; padding: 8px 18px; }
   h1 { letter-spacing: -2px; text-shadow: 4px 4px 0 var(--pink), 8px 8px 0 var(--cyan), 12px 12px 0 var(--ink); }
   .sub { border-width: 4px; box-shadow: 7px 7px 0 var(--ink); }
-  .chipbar { gap: 10px; justify-content: center; flex-wrap: wrap; overflow-x: visible; }
+  .chipbar { gap: 10px; }
   .menu { gap: 22px; margin-bottom: 44px; }
   .cocktail { border-width: 5px; border-radius: 18px; padding: 22px 24px; box-shadow: 10px 10px 0 var(--ink); }
   .card { border-radius: 22px; padding: 34px 26px; box-shadow: 12px 12px 0 var(--pink); }
