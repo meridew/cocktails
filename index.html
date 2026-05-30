@@ -26,8 +26,7 @@
       <button type="button" class="surprise" id="surprise">🎲 Bartender's choice</button>
     </header>
 
-    <!-- Sticky category jumper + the full menu are rendered from data in app.js -->
-    <nav class="chipbar" id="chipbar" aria-label="Jump to menu section"></nav>
+    <!-- The full menu is rendered from data in app.js -->
     <div id="menu-sections"></div>
 
     <section class="card" id="order-form">
@@ -52,7 +51,7 @@
       </form>
     </section>
 
-    <footer>★ POURED VIA GITHUB PAGES ★</footer>
+    <footer>★ POURED VIA GITHUB PAGES ★ · <button type="button" class="bartender-link" id="bartender-open">Bartender</button></footer>
   </div>
 
   <!-- Floating basket pill: shows the running count, jumps to the order -->
@@ -92,6 +91,20 @@
       <div class="celebrate-msg" id="celebrate-msg">Your drinks are on the way. 🍹</div>
       <button type="button" class="send" id="order-again">Start another order 🍸</button>
     </div>
+  </div>
+
+  <!-- Bartender mode: a local order queue (orders saved on THIS device) -->
+  <div class="bartender" id="bartender" role="dialog" aria-modal="true" aria-labelledby="bartender-title" hidden>
+    <div class="bartender-head">
+      <h2 id="bartender-title">🍸 Bartender</h2>
+      <button type="button" class="bartender-close" id="bartender-close" aria-label="Close bartender mode">✕</button>
+    </div>
+    <div class="bartender-bar">
+      <label class="bt-toggle"><input type="checkbox" id="bt-show-done" /> Show completed</label>
+      <button type="button" id="bt-export">⬇ Export JSON</button>
+      <button type="button" id="bt-clear">Clear completed</button>
+    </div>
+    <div class="bartender-list" id="bartender-list"></div>
   </div>
 
   <script src="app.js" defer></script>

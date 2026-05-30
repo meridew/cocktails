@@ -76,6 +76,7 @@
   var FAV_KEY   = "cocktail_favs";
   var LAST_KEY  = "cocktail_last_order";
   var THEME_KEY = "cocktail_theme";
+  var ORDERS_KEY = "cocktail_orders";
 
   var $ = function (id) { return document.getElementById(id); };
 
@@ -86,7 +87,6 @@
   var submitBtn  = $("submit-btn");
   var basketEl   = $("basket");
   var orderField = $("order-field");
-  var chipbar    = $("chipbar");
   var sectionsEl = $("menu-sections");
   var surpriseBtn = $("surprise");
   var themeBtn    = $("theme-btn");
@@ -111,6 +111,16 @@
   var czRecipe = $("cz-recipe");
   var czAdd    = $("cz-add");
   var czClose  = $("cz-close");
+
+  // bartender mode
+  var bartender     = $("bartender");
+  var btTitle       = $("bartender-title");
+  var bartenderList = $("bartender-list");
+  var btOpen        = $("bartender-open");
+  var btClose       = $("bartender-close");
+  var btShowDone    = $("bt-show-done");
+  var btExport      = $("bt-export");
+  var btClear       = $("bt-clear");
 
   // ---- Helpers ----------------------------------------------------------
   function reducedMotion() {
@@ -354,7 +364,7 @@
   });
 
   // ---- Favourites -------------------------------------------------------
-  var favSection, favMenu, favChip;
+  var favSection, favMenu;
 
   function toggleFav(id) {
     var i = favs.indexOf(id);
@@ -374,26 +384,11 @@
     var refs = favs.map(function (id) { return itemIndex[id]; }).filter(Boolean);
     var has = refs.length > 0;
     favSection.hidden = !has;
-    favChip.hidden = !has;
     favMenu.innerHTML = "";
     refs.forEach(function (r) { favMenu.appendChild(buildCard(r.item, r.section)); });
   }
 
-  // ---- Build chip nav + the full menu ----------------------------------
-  var chipRefs = []; // [{ key, chip, sec }]
-
-  function buildChip(key, emoji, label) {
-    var chip = document.createElement("button");
-    chip.type = "button";
-    chip.className = "chip";
-    chip.innerHTML = '<span class="emoji" aria-hidden="true">' + emoji + "</span>" + label;
-    chip.addEventListener("click", function () {
-      var sec = $("section-" + key);
-      if (sec) { sec.scrollIntoView({ behavior: reducedMotion() ? "auto" : "smooth", block: "start" }); }
-    });
-    chipbar.appendChild(chip);
-    return chip;
-  }
+  // ---- Build the full menu (sections stacked top to bottom) ------------
   function buildSection(key, emoji, label) {
     var sec = document.createElement("section");
     sec.className = "menu-section";
@@ -411,34 +406,16 @@
   }
 
   // Favourites lives first (shown only once you've starred something).
-  favChip = buildChip("favourites", "⭐", "Favourites");
   var favBuilt = buildSection("favourites", "⭐", "Your Favourites");
   favSection = favBuilt.sec;
   favMenu = favBuilt.menu;
-  chipRefs.push({ key: "favourites", chip: favChip, sec: favSection });
 
   SECTIONS.forEach(function (section) {
-    var chip = buildChip(section.key, section.emoji, section.label);
     var built = buildSection(section.key, section.emoji, section.label);
     section.items.forEach(function (item) { built.menu.appendChild(buildCard(item, section)); });
-    chipRefs.push({ key: section.key, chip: chip, sec: built.sec });
   });
 
   renderFavourites();
-
-  // ---- Scroll-spy: highlight the chip for the section you're in --------
-  if ("IntersectionObserver" in window) {
-    var spy = new IntersectionObserver(function (entries) {
-      entries.forEach(function (en) {
-        if (!en.isIntersecting) { return; }
-        var id = en.target.id;
-        chipRefs.forEach(function (r) {
-          r.chip.setAttribute("aria-current", ("section-" + r.key) === id ? "true" : "false");
-        });
-      });
-    }, { rootMargin: "-72px 0px -65% 0px", threshold: 0 });
-    chipRefs.forEach(function (r) { spy.observe(r.sec); });
-  }
 
   // ---- 🎲 Bartender's choice: add a random drink (rolls options too) ---
   surpriseBtn.addEventListener("click", function () {
@@ -547,8 +524,10 @@
         if (!res.ok) { throw new Error("Bad response"); }
         var orderedName = nameInput.value.trim();
         var orderedLines = basket.slice();
+        var orderedNote = ($("note").value || "").trim();
         lastOrder = orderedLines.slice();
         lsSet(LAST_KEY, JSON.stringify(lastOrder));
+        saveOrderRecord(orderedName, orderedLines, orderedNote);
         basket = [];
         renderBasket();           // clears the list + disables the button
         form.reset();
@@ -608,7 +587,7 @@
     overlayBurst.innerHTML = "";
     document.body.style.overflow = "";
     window.scrollTo({ top: 0, behavior: reducedMotion() ? "auto" : "smooth" });
-    if (chipRefs.length) { chipRefs[0].chip.focus(); } // back at the top
+    surpriseBtn.focus(); // back at the top
   }
 
   function fireBurst() {
@@ -642,6 +621,113 @@
   document.addEventListener("keydown", function (e) {
     if (e.key === "Escape" && !overlay.hidden) { closeCelebrate(); }
   });
+
+  // ---- Bartender mode: a local order queue (THIS device only) ----------
+  function getOrders() { return lsJSON(ORDERS_KEY); }
+  function setOrders(o) { lsSet(ORDERS_KEY, JSON.stringify(o)); }
+
+  function saveOrderRecord(name, lines, note) {
+    var orders = getOrders();
+    orders.push({
+      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+      name: name || "(no name)",
+      items: lines.map(function (l) { return { name: l.name, qty: l.qty }; }),
+      note: note || "",
+      ts: Date.now(),
+      status: "pending",
+    });
+    setOrders(orders);
+  }
+
+  function fmtTime(ts) {
+    try { return new Date(ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }); }
+    catch (e) { return ""; }
+  }
+
+  function renderOrders() {
+    var orders = getOrders().slice().sort(function (a, b) { return b.ts - a.ts; });
+    var pending = orders.filter(function (o) { return o.status !== "done"; });
+    var view = btShowDone.checked ? orders : pending;
+
+    btTitle.textContent = "🍸 Bartender" + (pending.length ? " (" + pending.length + ")" : "");
+
+    if (!view.length) {
+      bartenderList.innerHTML = '<p class="bt-empty">' +
+        (btShowDone.checked ? "No orders saved on this device yet." : "No pending orders. 🎉") + "</p>";
+      return;
+    }
+    bartenderList.innerHTML = view.map(function (o) {
+      var done = o.status === "done";
+      var items = o.items.map(function (it) { return "<li>" + it.qty + "× " + escapeHtml(it.name) + "</li>"; }).join("");
+      return (
+        '<article class="bt-order' + (done ? " done" : "") + '">' +
+          '<div class="bt-order-head"><span class="bt-name">' + escapeHtml(o.name) + "</span>" +
+            '<span class="bt-time">' + fmtTime(o.ts) + "</span></div>" +
+          '<ul class="bt-items">' + items + "</ul>" +
+          (o.note ? '<p class="bt-note">📝 ' + escapeHtml(o.note) + "</p>" : "") +
+          '<div class="bt-actions">' +
+            '<button type="button" class="bt-toggle-done" data-id="' + escapeHtml(o.id) + '">' + (done ? "↩ Reopen" : "✓ Complete") + "</button>" +
+            '<button type="button" class="bt-del" data-id="' + escapeHtml(o.id) + '" aria-label="Delete order">🗑</button>' +
+          "</div>" +
+        "</article>"
+      );
+    }).join("");
+  }
+
+  bartenderList.addEventListener("click", function (e) {
+    var doneBtn = e.target.closest(".bt-toggle-done");
+    var delBtn = e.target.closest(".bt-del");
+    if (doneBtn) {
+      var id = doneBtn.getAttribute("data-id");
+      var orders = getOrders();
+      orders.forEach(function (o) { if (o.id === id) { o.status = (o.status === "done") ? "pending" : "done"; } });
+      setOrders(orders);
+      renderOrders();
+    } else if (delBtn) {
+      setOrders(getOrders().filter(function (o) { return o.id !== delBtn.getAttribute("data-id"); }));
+      renderOrders();
+    }
+  });
+
+  function openBartender() {
+    bartender.hidden = false;
+    document.body.style.overflow = "hidden";
+    renderOrders();
+    btClose.focus();
+  }
+  function closeBartender() {
+    bartender.hidden = true;
+    document.body.style.overflow = "";
+    if (location.hash === "#bartender") {
+      history.replaceState(null, "", location.pathname + location.search);
+    }
+  }
+  function exportOrders() {
+    var blob = new Blob([JSON.stringify(getOrders(), null, 2)], { type: "application/json" });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url;
+    a.download = "cocktail-orders-" + new Date().toISOString().slice(0, 10) + ".json";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+  }
+
+  btOpen.addEventListener("click", openBartender);
+  btClose.addEventListener("click", closeBartender);
+  btShowDone.addEventListener("change", renderOrders);
+  btExport.addEventListener("click", exportOrders);
+  btClear.addEventListener("click", function () {
+    setOrders(getOrders().filter(function (o) { return o.status !== "done"; }));
+    renderOrders();
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && !bartender.hidden) { closeBartender(); }
+  });
+  function checkBartenderHash() { if (location.hash === "#bartender") { openBartender(); } }
+  window.addEventListener("hashchange", checkBartenderHash);
+  checkBartenderHash();
 
   // Paint the (empty) basket once at startup.
   renderBasket();
