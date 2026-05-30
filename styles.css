@@ -83,7 +83,7 @@ h1 {
    A single bordered pill that holds both options. No sticky,
    no gradient hack — it reads clearly as one control. */
 .tabs {
-  display: flex; gap: 6px; margin: 0 0 24px; padding: 6px;
+  display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 0 0 24px; padding: 6px;
   background: #fff; border: var(--border) solid var(--ink);
   border-radius: var(--radius); box-shadow: 5px 5px 0 var(--ink);
 }
@@ -138,7 +138,7 @@ h1 {
 .order.added { background: var(--lime); color: var(--ink); }
 
 /* visible keyboard focus for every interactive control */
-:where(.tab, .order, .qty-btn, button.send, .basket-pill, .basket-clear):focus-visible {
+:where(.tab, .order, .qty-btn, button.send, .basket-pill, .basket-clear, .btn-no, .btn-yes):focus-visible {
   outline: 3px solid var(--cyan); outline-offset: 3px;
 }
 
@@ -183,7 +183,7 @@ footer { text-align: center; margin-top: 40px; font-family: "Bungee", sans-serif
   .kicker { font-size: 1.05rem; letter-spacing: 2px; padding: 8px 18px; }
   h1 { letter-spacing: -2px; text-shadow: 4px 4px 0 var(--pink), 8px 8px 0 var(--cyan), 12px 12px 0 var(--ink); }
   .sub { border-width: 4px; box-shadow: 7px 7px 0 var(--ink); }
-  .tabs { gap: 8px; box-shadow: 6px 6px 0 var(--ink); }
+  .tabs { gap: 8px; box-shadow: 6px 6px 0 var(--ink); grid-template-columns: repeat(4, 1fr); }
   .menu { gap: 22px; margin-bottom: 48px; }
   .cocktail { border-width: 5px; border-radius: 18px; padding: 22px 24px; box-shadow: 10px 10px 0 var(--ink); }
   .card { border-radius: 22px; padding: 34px 26px; box-shadow: 12px 12px 0 var(--pink); }
@@ -307,6 +307,38 @@ footer { text-align: center; margin-top: 40px; font-family: "Bungee", sans-serif
   font-weight: 700; font-size: 0.95rem;
   background: var(--ink); color: var(--yellow); border-radius: 8px; padding: 5px 11px;
 }
+
+/* ---------------- "HAD ENOUGH?" CONFIRM GATE ---------------- */
+.confirm {
+  position: fixed; inset: 0; z-index: 1100;
+  display: flex; align-items: center; justify-content: center; padding: 24px;
+  background: rgba(10, 10, 18, 0.92);
+  -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px);
+}
+.confirm[hidden] { display: none; }
+.confirm-card {
+  width: 100%; max-width: 420px; text-align: center;
+  background: #fff; color: var(--ink);
+  border: 5px solid var(--ink); border-radius: 22px; box-shadow: 10px 10px 0 var(--cyan);
+  padding: 30px 24px; animation: pop 0.3s cubic-bezier(0.2, 1.4, 0.4, 1) both;
+}
+.confirm-card h2 {
+  font-family: "Archivo Black", sans-serif; text-transform: uppercase;
+  margin: 0 0 20px; font-size: clamp(1.4rem, 6.5vw, 2.1rem); line-height: 1;
+  text-shadow: 2px 2px 0 var(--pink);
+}
+.confirm-actions { display: grid; gap: 12px; }
+.btn-no, .btn-yes {
+  min-height: 52px; padding: 14px;
+  font-family: "Bungee", sans-serif; font-size: clamp(0.85rem, 4vw, 1.05rem);
+  text-transform: uppercase; letter-spacing: 0.5px;
+  border: 4px solid var(--ink); border-radius: 12px;
+  cursor: pointer; touch-action: manipulation; transition: transform 0.08s;
+}
+.btn-no  { background: var(--lime); color: var(--ink); } /* No → send the order */
+.btn-yes { background: #fff;        color: var(--ink); } /* Yes → back out */
+.btn-no:active, .btn-yes:active { transform: translateY(2px); }
+@media (min-width: 420px) { .confirm-actions { grid-template-columns: 1fr 1fr; } }
 
 /* ---------- Respect reduced-motion preference ---------- */
 @media (prefers-reduced-motion: reduce) {

@@ -40,6 +40,17 @@
         { name: "Pomegranate & Elderflower", emoji: "🌸", ingredients: ["Fresh Mint", "Lime", "Pomegranate Juice", "Elderflower Cordial", "Sparkling Mineral Water", "Crushed Ice"] },
       ],
     },
+    {
+      key: "food",
+      label: "Food",
+      tabEmoji: "🍔",
+      tabNote: "Mains",
+      items: [
+        { name: "Chicken", emoji: "🍗", ingredients: ["Grilled Chicken", "Lemon & Herbs", "Fries", "Slaw"] },
+        { name: "Lamb",    emoji: "🍖", ingredients: ["Slow-Cooked Lamb", "Rosemary", "Roast Potatoes", "Mint Sauce"] },
+        { name: "Burger",  emoji: "🍔", ingredients: ["Beef Patty", "Cheese", "Lettuce & Tomato", "Brioche Bun", "Fries"] },
+      ],
+    },
   ];
 
   var NAME_KEY = "cocktail_name";
@@ -65,6 +76,11 @@
   var overlayMsg    = $("celebrate-msg");
   var overlayBurst  = $("celebrate-burst");
   var orderAgainBtn = $("order-again");
+
+  // "had enough?" confirm gate
+  var confirmOverlay = $("confirm");
+  var confirmNo      = $("confirm-no");
+  var confirmYes     = $("confirm-yes");
 
   function reducedMotion() {
     return window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -114,7 +130,7 @@
 
     if (!basket.length) {
       basketEl.innerHTML =
-        '<p class="basket-empty">Your order is empty — tap <strong>Add to order</strong> on any drink above. 🍸</p>';
+        '<p class="basket-empty">Your order is empty — tap <strong>Add to order</strong> on anything above. 🍸</p>';
     } else {
       var rows = basket.map(function (l) {
         return (
@@ -136,8 +152,8 @@
     // Send button reflects the running count.
     submitBtn.disabled = count === 0;
     submitBtn.textContent = count === 0
-      ? "Add a drink first"
-      : "Send " + count + (count === 1 ? " drink 🍹" : " drinks 🍹");
+      ? "Add something first"
+      : "Send order (" + count + ") 🍹";
 
     pillCount.textContent = count;
     orderField.value = orderSummary();
@@ -261,7 +277,7 @@
     var count = totalCount();
     pill.hidden = count === 0 || orderInView;
     pill.setAttribute("aria-label",
-      "View your order — " + count + (count === 1 ? " drink" : " drinks"));
+      "View your order — " + count + (count === 1 ? " item" : " items"));
   }
   pill.addEventListener("click", function () {
     formCard.scrollIntoView({ behavior: reducedMotion() ? "auto" : "smooth", block: "start" });
@@ -285,14 +301,18 @@
   }
   nameInput.addEventListener("change", rememberName);
 
-  // ---- Submit the whole basket via AJAX --------------------------------
+  // ---- Submit flow: confirm gate, then POST the basket via AJAX --------
   form.addEventListener("submit", function (e) {
-    e.preventDefault();
+    e.preventDefault(); // native validation has already ensured a name is present
     if (!basket.length) {
       statusEl.className = "status err";
-      statusEl.textContent = "ADD A DRINK FIRST!";
+      statusEl.textContent = "ADD SOMETHING FIRST!";
       return;
     }
+    openConfirm(); // cheeky "had enough?" gate before we actually send
+  });
+
+  function submitOrder() {
     rememberName();
     orderField.value = orderSummary();
     submitBtn.disabled = true;
@@ -308,31 +328,53 @@
         if (!res.ok) { throw new Error("Bad response"); }
         var orderedName = nameInput.value.trim();
         var orderedLines = basket.slice();
-        var orderedCount = totalCount();
         basket = [];
         renderBasket();           // clears the list + disables the button
         form.reset();
         nameInput.value = orderedName; // keep their name for the next round
         statusEl.className = "status";
         statusEl.textContent = "";
-        celebrate(orderedName, orderedLines, orderedCount);
+        celebrate(orderedName, orderedLines);
       })
       .catch(function () {
         statusEl.className = "status err";
         statusEl.textContent = "OOPS — try that again!";
         submitBtn.disabled = false;
       });
+  }
+
+  // ---- "Had enough already?" confirmation gate -------------------------
+  function openConfirm() {
+    confirmOverlay.hidden = false;
+    document.body.style.overflow = "hidden";
+    confirmNo.focus(); // default to the friendly "no, send it" action
+  }
+  function backOut() {
+    confirmOverlay.hidden = true;
+    document.body.style.overflow = "";
+    submitBtn.focus();
+  }
+  confirmNo.addEventListener("click", function () {  // "No" → I haven't, send it
+    confirmOverlay.hidden = true;
+    document.body.style.overflow = "";
+    submitOrder();
+  });
+  confirmYes.addEventListener("click", backOut);     // "Yes" → I've had enough, back out
+  confirmOverlay.addEventListener("click", function (e) {
+    if (e.target === confirmOverlay) { backOut(); } // tap the backdrop to back out
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && !confirmOverlay.hidden) { backOut(); }
   });
 
   // ---- Success celebration --------------------------------------------
-  function celebrate(name, lines, count) {
+  function celebrate(name, lines) {
     overlayTitle.textContent = name ? "Cheers, " + name + "! 🥂" : "Cheers! 🥂";
     var list = lines
       .map(function (l) { return "<li>" + l.qty + "× " + escapeHtml(l.name) + "</li>"; })
       .join("");
     overlayMsg.innerHTML =
-      "Your <strong>" + count + (count === 1 ? " drink" : " drinks") + "</strong> " +
-      (count === 1 ? "is" : "are") + " on the way. 🍹" +
+      "Your order is on the way. 🍹" +
       '<ul class="celebrate-order">' + list + "</ul>";
     overlay.hidden = false;
     document.body.style.overflow = "hidden"; // lock background scroll while open
