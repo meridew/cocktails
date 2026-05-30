@@ -1,0 +1,319 @@
+{
+  "_about": "Data for the 'build-a-drink' discovery flow. Each cocktail is written ONCE as a base spirit + an unordered set of ingredients. The app derives the decision tree from this: after the base, it asks about ingredient CATEGORIES in the priority order below, only ever offering choices that keep at least one real recipe reachable, then reveals what you've made. Add a cocktail = add one entry here.",
+
+  "categoryOrder": ["modifier", "citrus", "juice", "sweetener", "bitters", "top", "aromatic"],
+  "categoryLabels": {
+    "modifier": "A liqueur or modifier?",
+    "citrus": "A squeeze of citrus?",
+    "juice": "A fruit juice?",
+    "sweetener": "Something sweet?",
+    "bitters": "A dash of bitters?",
+    "top": "Top it off?",
+    "aromatic": "A finishing touch?"
+  },
+
+  "ingredients": {
+    "Sweet Vermouth": "modifier", "Dry Vermouth": "modifier", "Campari": "modifier",
+    "Aperol": "modifier", "Triple Sec": "modifier", "Orange Curaçao": "modifier",
+    "Maraschino Liqueur": "modifier", "Green Chartreuse": "modifier", "Yellow Chartreuse": "modifier",
+    "Crème de Violette": "modifier", "Crème de Mûre": "modifier", "Crème de Cacao": "modifier",
+    "Elderflower Cordial": "modifier", "Coffee Liqueur": "modifier", "Bénédictine": "modifier",
+    "Absinthe": "modifier", "Peach Schnapps": "modifier",
+
+    "Lime Juice": "citrus", "Lemon Juice": "citrus", "Grapefruit Juice": "citrus",
+
+    "Cranberry Juice": "juice", "Orange Juice": "juice", "Pineapple Juice": "juice",
+    "Tomato Juice": "juice", "Passion Fruit Purée": "juice",
+
+    "Simple Syrup": "sweetener", "Agave Syrup": "sweetener", "Sugar Cube": "sweetener",
+    "Grenadine": "sweetener", "Orgeat": "sweetener", "Honey Syrup": "sweetener",
+    "Coconut Cream": "sweetener",
+
+    "Angostura Bitters": "bitters", "Orange Bitters": "bitters", "Peychaud's Bitters": "bitters",
+
+    "Soda Water": "top", "Tonic Water": "top", "Ginger Beer": "top", "Cola": "top",
+    "Grapefruit Soda": "top", "Champagne": "top", "Espresso": "top", "Ginger Ale": "top",
+
+    "Mint": "aromatic", "Fresh Chili": "aromatic", "Egg White": "aromatic", "Cream": "aromatic",
+    "Hot Sauce": "aromatic", "Worcestershire Sauce": "aromatic", "Cucumber": "aromatic"
+  },
+
+  "cocktails": [
+    {
+      "id": "gin-tonic", "name": "Gin & Tonic", "base": "Gin",
+      "ingredients": ["Tonic Water"],
+      "garnish": "Lime wedge (or lemon)", "ice": "Cubes, plenty", "glass": "Highball / copa",
+      "blurb": "The effortless classic — crisp, bitter, endlessly refreshing."
+    },
+    {
+      "id": "negroni", "name": "Negroni", "base": "Gin",
+      "ingredients": ["Sweet Vermouth", "Campari"],
+      "garnish": "Orange peel", "ice": "One large cube", "glass": "Rocks",
+      "blurb": "Equal parts, beautifully bitter. The aperitivo benchmark."
+    },
+    {
+      "id": "martini", "name": "Dry Martini", "base": "Gin",
+      "ingredients": ["Dry Vermouth"],
+      "garnish": "Olive or lemon twist", "ice": "Stirred, served up", "glass": "Martini",
+      "blurb": "Cold, clean, ceremonial. Gin's purest stage."
+    },
+    {
+      "id": "tom-collins", "name": "Tom Collins", "base": "Gin",
+      "ingredients": ["Lemon Juice", "Simple Syrup", "Soda Water"],
+      "garnish": "Lemon slice & cherry", "ice": "Cubes", "glass": "Collins",
+      "blurb": "A gin sour lengthened with soda — tall and sparkling."
+    },
+    {
+      "id": "gimlet", "name": "Gimlet", "base": "Gin",
+      "ingredients": ["Lime Juice", "Simple Syrup"],
+      "garnish": "Lime wheel", "ice": "Shaken, served up", "glass": "Coupe",
+      "blurb": "Gin and lime, sharp and direct. Nothing to hide behind."
+    },
+    {
+      "id": "aviation", "name": "Aviation", "base": "Gin",
+      "ingredients": ["Maraschino Liqueur", "Crème de Violette", "Lemon Juice"],
+      "garnish": "Cherry", "ice": "Shaken, served up", "glass": "Coupe",
+      "blurb": "A pale violet pre-Prohibition beauty."
+    },
+    {
+      "id": "french-75", "name": "French 75", "base": "Gin",
+      "ingredients": ["Lemon Juice", "Simple Syrup", "Champagne"],
+      "garnish": "Lemon twist", "ice": "Shaken, then topped", "glass": "Flute",
+      "blurb": "Gin sour with a champagne crown. Dangerously elegant."
+    },
+    {
+      "id": "bramble", "name": "Bramble", "base": "Gin",
+      "ingredients": ["Lemon Juice", "Simple Syrup", "Crème de Mûre"],
+      "garnish": "Blackberry & lemon", "ice": "Crushed", "glass": "Rocks",
+      "blurb": "Gin sour drizzled with blackberry liqueur. Late-summer in a glass."
+    },
+    {
+      "id": "southside", "name": "Southside", "base": "Gin",
+      "ingredients": ["Lime Juice", "Simple Syrup", "Mint"],
+      "garnish": "Mint sprig", "ice": "Shaken, served up", "glass": "Coupe",
+      "blurb": "A minty gin sour — like a Mojito's dressed-up cousin."
+    },
+    {
+      "id": "last-word", "name": "Last Word", "base": "Gin",
+      "ingredients": ["Green Chartreuse", "Maraschino Liqueur", "Lime Juice"],
+      "garnish": "Cherry", "ice": "Shaken, served up", "glass": "Coupe",
+      "blurb": "Equal parts and herbaceous. Complex, balanced, unforgettable."
+    },
+    {
+      "id": "elderflower-collins", "name": "Elderflower Collins", "base": "Gin",
+      "ingredients": ["Elderflower Cordial", "Lemon Juice", "Soda Water"],
+      "garnish": "Lemon & cucumber", "ice": "Cubes", "glass": "Collins",
+      "blurb": "Floral, fragrant, garden-party perfect."
+    },
+    {
+      "id": "moscow-mule", "name": "Moscow Mule", "base": "Vodka",
+      "ingredients": ["Lime Juice", "Ginger Beer"],
+      "garnish": "Lime wedge", "ice": "Cubes", "glass": "Copper mug",
+      "blurb": "Spicy, zesty, fizzy. Best served properly cold."
+    },
+    {
+      "id": "cosmopolitan", "name": "Cosmopolitan", "base": "Vodka",
+      "ingredients": ["Triple Sec", "Lime Juice", "Cranberry Juice"],
+      "garnish": "Lime wheel or flamed orange", "ice": "Shaken, served up", "glass": "Martini",
+      "blurb": "Tart, pink and iconic. The '90s never tasted so good."
+    },
+    {
+      "id": "espresso-martini", "name": "Espresso Martini", "base": "Vodka",
+      "ingredients": ["Coffee Liqueur", "Espresso", "Simple Syrup"],
+      "garnish": "Three coffee beans", "ice": "Shaken hard, served up", "glass": "Martini",
+      "blurb": "The pick-me-up that picks you back up. Velvety crema essential."
+    },
+    {
+      "id": "vodka-martini", "name": "Vodka Martini", "base": "Vodka",
+      "ingredients": ["Dry Vermouth"],
+      "garnish": "Olive or lemon twist", "ice": "Stirred (or shaken), up", "glass": "Martini",
+      "blurb": "Clean and bracing. Shaken if you're feeling Bond."
+    },
+    {
+      "id": "bloody-mary", "name": "Bloody Mary", "base": "Vodka",
+      "ingredients": ["Tomato Juice", "Lemon Juice", "Hot Sauce", "Worcestershire Sauce"],
+      "garnish": "Celery, the works", "ice": "Cubes", "glass": "Highball",
+      "blurb": "Savoury, spicy, brunch's medicine cabinet."
+    },
+    {
+      "id": "screwdriver", "name": "Screwdriver", "base": "Vodka",
+      "ingredients": ["Orange Juice"],
+      "garnish": "Orange slice", "ice": "Cubes", "glass": "Highball",
+      "blurb": "Two ingredients, zero fuss. Breakfast's guilty pleasure."
+    },
+    {
+      "id": "sea-breeze", "name": "Sea Breeze", "base": "Vodka",
+      "ingredients": ["Cranberry Juice", "Grapefruit Juice"],
+      "garnish": "Lime wedge", "ice": "Cubes", "glass": "Highball",
+      "blurb": "Cranberry and grapefruit — tart, coastal, easy-going."
+    },
+    {
+      "id": "white-russian", "name": "White Russian", "base": "Vodka",
+      "ingredients": ["Coffee Liqueur", "Cream"],
+      "garnish": "None", "ice": "Cubes", "glass": "Rocks",
+      "blurb": "Coffee, cream, vodka. Dessert that abides."
+    },
+    {
+      "id": "black-russian", "name": "Black Russian", "base": "Vodka",
+      "ingredients": ["Coffee Liqueur"],
+      "garnish": "None", "ice": "Cubes", "glass": "Rocks",
+      "blurb": "The White Russian before the cream. Dark and simple."
+    },
+    {
+      "id": "cucumber-collins", "name": "Cucumber Cooler", "base": "Vodka",
+      "ingredients": ["Lime Juice", "Simple Syrup", "Soda Water", "Cucumber"],
+      "garnish": "Cucumber ribbon", "ice": "Cubes", "glass": "Collins",
+      "blurb": "Crisp, clean and spa-day refreshing."
+    },
+    {
+      "id": "margarita", "name": "Margarita", "base": "Tequila",
+      "ingredients": ["Triple Sec", "Lime Juice", "Agave Syrup"],
+      "garnish": "Salt rim & lime wheel", "ice": "Shaken; up or rocks", "glass": "Coupe / rocks",
+      "blurb": "Tequila's sharpest, brightest classic."
+    },
+    {
+      "id": "tommys-margarita", "name": "Tommy's Margarita", "base": "Tequila",
+      "ingredients": ["Lime Juice", "Agave Syrup"],
+      "garnish": "Lime wheel", "ice": "Shaken, on the rocks", "glass": "Rocks",
+      "blurb": "No orange liqueur — just tequila, lime and agave. Purist's choice."
+    },
+    {
+      "id": "spicy-margarita", "name": "Spicy Margarita", "base": "Tequila",
+      "ingredients": ["Triple Sec", "Lime Juice", "Agave Syrup", "Fresh Chili"],
+      "garnish": "Tajín rim & chili slice", "ice": "Shaken, on the rocks", "glass": "Rocks",
+      "blurb": "The Margarita with a kick that lingers."
+    },
+    {
+      "id": "paloma", "name": "Paloma", "base": "Tequila",
+      "ingredients": ["Lime Juice", "Grapefruit Soda"],
+      "garnish": "Grapefruit & lime", "ice": "Cubes", "glass": "Highball",
+      "blurb": "Mexico's everyday favourite — bubbly, tart, sunny."
+    },
+    {
+      "id": "tequila-sunrise", "name": "Tequila Sunrise", "base": "Tequila",
+      "ingredients": ["Orange Juice", "Grenadine"],
+      "garnish": "Orange & cherry", "ice": "Cubes", "glass": "Highball",
+      "blurb": "Let the grenadine sink for that sunrise gradient."
+    },
+    {
+      "id": "daiquiri", "name": "Daiquiri", "base": "Rum",
+      "ingredients": ["Lime Juice", "Simple Syrup"],
+      "garnish": "Lime wheel", "ice": "Shaken, served up", "glass": "Coupe",
+      "blurb": "Three ingredients in perfect tension. The bartender's litmus test."
+    },
+    {
+      "id": "mojito", "name": "Mojito", "base": "Rum",
+      "ingredients": ["Lime Juice", "Simple Syrup", "Mint", "Soda Water"],
+      "garnish": "Mint bouquet", "ice": "Crushed", "glass": "Highball",
+      "blurb": "Muddled mint and lime, lengthened with soda. Havana in a glass."
+    },
+    {
+      "id": "pina-colada", "name": "Piña Colada", "base": "Rum",
+      "ingredients": ["Pineapple Juice", "Coconut Cream"],
+      "garnish": "Pineapple wedge & cherry", "ice": "Blended or crushed", "glass": "Hurricane",
+      "blurb": "If you like getting caught in the rain."
+    },
+    {
+      "id": "dark-n-stormy", "name": "Dark 'n' Stormy", "base": "Rum",
+      "ingredients": ["Lime Juice", "Ginger Beer"],
+      "garnish": "Lime wedge", "ice": "Cubes", "glass": "Highball",
+      "blurb": "Dark rum floated over spicy ginger beer. Brooding and brilliant."
+    },
+    {
+      "id": "cuba-libre", "name": "Cuba Libre", "base": "Rum",
+      "ingredients": ["Lime Juice", "Cola"],
+      "garnish": "Lime wedge", "ice": "Cubes", "glass": "Highball",
+      "blurb": "Rum and coke, but the lime makes it a cocktail. Honest."
+    },
+    {
+      "id": "mai-tai", "name": "Mai Tai", "base": "Rum",
+      "ingredients": ["Orange Curaçao", "Lime Juice", "Orgeat"],
+      "garnish": "Mint & lime shell", "ice": "Crushed", "glass": "Rocks / tiki",
+      "blurb": "The tiki titan — nutty orgeat, orange and lime."
+    },
+    {
+      "id": "hurricane", "name": "Hurricane", "base": "Rum",
+      "ingredients": ["Passion Fruit Purée", "Lime Juice", "Orange Juice", "Grenadine"],
+      "garnish": "Orange & cherry", "ice": "Cubes", "glass": "Hurricane",
+      "blurb": "New Orleans' fruity, ruby-red storm."
+    },
+    {
+      "id": "old-fashioned", "name": "Old Fashioned", "base": "Whiskey",
+      "ingredients": ["Sugar Cube", "Angostura Bitters"],
+      "garnish": "Orange peel & cherry", "ice": "One large cube", "glass": "Rocks",
+      "blurb": "Spirit, sugar, bitters, ice. The original cocktail, undefeated."
+    },
+    {
+      "id": "whiskey-sour", "name": "Whiskey Sour", "base": "Whiskey",
+      "ingredients": ["Lemon Juice", "Simple Syrup", "Egg White"],
+      "garnish": "Cherry & orange", "ice": "Shaken, on the rocks", "glass": "Rocks",
+      "blurb": "Tart, silky, balanced. Egg white optional but luxurious."
+    },
+    {
+      "id": "manhattan", "name": "Manhattan", "base": "Whiskey",
+      "ingredients": ["Sweet Vermouth", "Angostura Bitters"],
+      "garnish": "Cherry", "ice": "Stirred, served up", "glass": "Coupe",
+      "blurb": "Rye, vermouth, bitters. Sophistication, stirred."
+    },
+    {
+      "id": "boulevardier", "name": "Boulevardier", "base": "Whiskey",
+      "ingredients": ["Sweet Vermouth", "Campari"],
+      "garnish": "Orange peel", "ice": "One large cube", "glass": "Rocks",
+      "blurb": "A Negroni in a whiskey coat. Warmer, deeper, bitter."
+    },
+    {
+      "id": "mint-julep", "name": "Mint Julep", "base": "Whiskey",
+      "ingredients": ["Simple Syrup", "Mint"],
+      "garnish": "Mint bouquet", "ice": "Crushed, mounded", "glass": "Julep cup",
+      "blurb": "Bourbon and mint over a frosty mountain of crushed ice. Derby day."
+    },
+    {
+      "id": "sazerac", "name": "Sazerac", "base": "Whiskey",
+      "ingredients": ["Sugar Cube", "Absinthe", "Peychaud's Bitters"],
+      "garnish": "Lemon peel (expressed, discarded)", "ice": "Stirred, served down", "glass": "Rocks",
+      "blurb": "An absinthe-rinsed New Orleans legend. Aromatic and bold."
+    },
+    {
+      "id": "whiskey-highball", "name": "Whiskey Highball", "base": "Whiskey",
+      "ingredients": ["Soda Water"],
+      "garnish": "Lemon peel", "ice": "Cubes, tall", "glass": "Highball",
+      "blurb": "Whisky and soda, ice-cold. The Japanese art of less."
+    },
+    {
+      "id": "sidecar", "name": "Sidecar", "base": "Brandy",
+      "ingredients": ["Triple Sec", "Lemon Juice"],
+      "garnish": "Sugar rim & lemon twist", "ice": "Shaken, served up", "glass": "Coupe",
+      "blurb": "Cognac sour with orange liqueur. Roaring-twenties poise."
+    },
+    {
+      "id": "brandy-alexander", "name": "Brandy Alexander", "base": "Brandy",
+      "ingredients": ["Crème de Cacao", "Cream"],
+      "garnish": "Grated nutmeg", "ice": "Shaken, served up", "glass": "Coupe",
+      "blurb": "Chocolatey, creamy, after-dinner indulgence."
+    },
+    {
+      "id": "brandy-old-fashioned", "name": "Brandy Old Fashioned", "base": "Brandy",
+      "ingredients": ["Sugar Cube", "Angostura Bitters"],
+      "garnish": "Orange & cherry", "ice": "One large cube", "glass": "Rocks",
+      "blurb": "Wisconsin's beloved take on the original. Smooth and mellow."
+    },
+    {
+      "id": "mezcal-margarita", "name": "Mezcal Margarita", "base": "Mezcal",
+      "ingredients": ["Triple Sec", "Lime Juice", "Agave Syrup"],
+      "garnish": "Salt rim & lime", "ice": "Shaken, on the rocks", "glass": "Rocks",
+      "blurb": "A Margarita with smoke curling through it."
+    },
+    {
+      "id": "naked-and-famous", "name": "Naked & Famous", "base": "Mezcal",
+      "ingredients": ["Yellow Chartreuse", "Aperol", "Lime Juice"],
+      "garnish": "None", "ice": "Shaken, served up", "glass": "Coupe",
+      "blurb": "Equal parts smoke, herb, bitter and citrus. A modern equal-parts marvel."
+    },
+    {
+      "id": "mezcal-paloma", "name": "Mezcal Paloma", "base": "Mezcal",
+      "ingredients": ["Lime Juice", "Grapefruit Soda"],
+      "garnish": "Grapefruit wedge", "ice": "Cubes", "glass": "Highball",
+      "blurb": "The Paloma, gone smoky. Bright and beguiling."
+    }
+  ]
+}
