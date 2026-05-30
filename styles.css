@@ -46,13 +46,18 @@ body {
   overflow: hidden; pointer-events: none;
 }
 .confetti span {
-  position: absolute; top: -12vh;
-  line-height: 1; will-change: transform;
-  animation-name: fall; animation-timing-function: linear; animation-iteration-count: infinite;
+  position: absolute; left: 0; top: 0;
+  line-height: 1; will-change: transform, opacity;
+  /* fast in, then decelerate — like being fired from a popper */
+  animation-name: shoot;
+  animation-timing-function: cubic-bezier(0.12, 0.66, 0.3, 1);
+  animation-iteration-count: infinite;
 }
-@keyframes fall {
-  0%   { transform: translate(0, -12vh) rotate(0deg); }
-  100% { transform: translate(calc(var(--dir, 1) * 9vw), 114vh) rotate(calc(var(--dir, 1) * 360deg)); }
+@keyframes shoot {
+  0%   { transform: translate(var(--x0), var(--y0)) rotate(var(--r0)); opacity: 0; }
+  7%   { opacity: var(--op, 0.9); }
+  80%  { opacity: var(--op, 0.9); }
+  100% { transform: translate(var(--x1), var(--y1)) rotate(var(--r1)); opacity: 0; }
 }
 
 /* ---------------- HEADER ---------------- */

@@ -233,32 +233,55 @@
     if (e.key === "Escape" && !overlay.hidden) { closeCelebrate(); }
   });
 
-  // ---- Background confetti: flying cocktails & ingredients -------------
+  // ---- Background confetti cannon: emojis blast in from the edges -----
   (function buildConfetti() {
-    // Honour motion preferences — skip the whole effect.
-    if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      return;
-    }
-    var ICONS = ["🍸", "🍹", "🍋", "🍉", "🌶️", "🌿", "🧊", "🍊", "🫚", "🌸", "🥂", "🍃", "🧉", "🍆", "🍌", "🍑"];
-    var COUNT = 30;
+    if (reducedMotion()) { return; } // skip the whole effect for motion-sensitive users
+
+    var ICONS = [
+      "🍸", "🍹", "🍋‍🟩", "🍉", "🌶️", "🌿", "🧊", "🍊", "🫚", "🌸",
+      "🥂", "🍃", "🧉", "🥃", "🫧", "🍆", "🍌", "🍑",
+    ];
+    // High volume — a touch lighter on small screens to stay smooth.
+    var COUNT = window.innerWidth < 600 ? 80 : 110;
+
     var layer = document.createElement("div");
     layer.className = "confetti";
     layer.setAttribute("aria-hidden", "true");
 
+    var rand = function (min, max) { return min + Math.random() * (max - min); };
     var html = "";
+
     for (var i = 0; i < COUNT; i++) {
-      var icon  = ICONS[Math.floor(Math.random() * ICONS.length)];
-      var left  = Math.random() * 100;            // vw start position
-      var size  = 16 + Math.random() * 26;        // px
-      var dur   = 9 + Math.random() * 12;         // s per fall
-      var delay = -Math.random() * dur;           // negative => already mid-flight on load
-      var op    = 0.65 + Math.random() * 0.35;   // bolder: 0.65–1.0 (they sit behind everything)
-      var dir   = Math.random() < 0.5 ? 1 : -1;   // drift/spin direction
+      var icon = ICONS[Math.floor(Math.random() * ICONS.length)];
+
+      // Launch just off a random edge of the screen (the "cannon" mouth).
+      var edge = Math.floor(Math.random() * 4);
+      var x0, y0;
+      if (edge === 0)      { x0 = rand(0, 100);  y0 = -15; }   // top
+      else if (edge === 1) { x0 = 115;           y0 = rand(0, 100); } // right
+      else if (edge === 2) { x0 = rand(0, 100);  y0 = 115; }   // bottom
+      else                 { x0 = -15;           y0 = rand(0, 100); } // left
+
+      // Fire toward the interior and overshoot to the far side, with gravity bias.
+      var tx = rand(20, 80), ty = rand(20, 80);
+      var k = rand(1.8, 2.7);
+      var x1 = x0 + (tx - x0) * k;
+      var y1 = y0 + (ty - y0) * k + rand(10, 30); // sag downward as momentum dies
+
+      var r0 = rand(0, 360);
+      var r1 = r0 + (Math.random() < 0.5 ? -1 : 1) * rand(360, 1080);
+      var size = rand(15, 40);
+      var op = rand(0.7, 1);
+      var dur = rand(2.6, 6);       // aggressive, fast crossings
+      var delay = -Math.random() * dur; // negative => barrage already in progress on load
+
       html +=
-        '<span style="left:' + left + "vw;font-size:" + size + "px;opacity:" + op +
-        ";animation-duration:" + dur + "s;animation-delay:" + delay +
-        "s;--dir:" + dir + '">' + icon + "</span>";
+        '<span style="font-size:' + size + "px;--x0:" + x0 + "vw;--y0:" + y0 +
+        "vh;--x1:" + x1 + "vw;--y1:" + y1 + "vh;--r0:" + r0 + "deg;--r1:" + r1 +
+        "deg;--op:" + op + ";animation-duration:" + dur + "s;animation-delay:" +
+        delay + 's">' + icon + "</span>";
     }
+
     layer.innerHTML = html;
     document.body.insertBefore(layer, document.body.firstChild);
   })();
