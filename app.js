@@ -795,33 +795,45 @@
     var restartBtn = $("mx-restart");
     if (!launchBtn || !overlay) { return; }
 
+    // Emoji per base for the basket line (falls back to a cocktail glass).
+    var BASE_EMOJI = {
+      Gin: "🍸", Vodka: "🍸", Tequila: "🌵", Mezcal: "🔥", Rum: "🏝️",
+      Whiskey: "🥃", Scotch: "🥃", Brandy: "🍇", Cachaça: "🌿", Pisco: "🍇",
+      Champagne: "🥂", Prosecco: "🥂"
+    };
+
     var DATA = null;          // loaded cocktails.json
     var loadErr = false;
     var base = null;          // chosen base spirit
     var picked = [];          // chosen ingredients (in order)
+    var skipped = [];         // category names the player declined
     var catIndex = 0;         // position in DATA.categoryOrder
+    var revealed = null;      // the drink currently shown (for "add to order")
 
     // Lazy-load the data the first time the mode is opened.
     function ensureData(cb) {
-      if (DATA) { cb(); return; }
-      if (loadErr) { cb(); return; }
+      if (DATA || loadErr) { cb(); return; }
       fetch("cocktails.json")
         .then(function (r) { if (!r.ok) { throw new Error("bad"); } return r.json(); })
         .then(function (j) { DATA = j; cb(); })
         .catch(function () { loadErr = true; cb(); });
     }
 
+    function catOf(ing) { return DATA.ingredients[ing]; }
     function bases() {
       var seen = {}, out = [];
       DATA.cocktails.forEach(function (c) { if (!seen[c.base]) { seen[c.base] = 1; out.push(c.base); } });
       return out;
     }
-    // Recipes still reachable: right base, and every ingredient picked so
-    // far is in the recipe (recipe is a superset of what we've chosen).
+    // Recipes still in play: right base, contains everything we've picked,
+    // and doesn't need anything from a category we've declined.
     function reachable() {
       return DATA.cocktails.filter(function (c) {
         if (c.base !== base) { return false; }
-        return picked.every(function (p) { return c.ingredients.indexOf(p) !== -1; });
+        if (!picked.every(function (p) { return c.ingredients.indexOf(p) !== -1; })) { return false; }
+        return !c.ingredients.some(function (i) {
+          return skipped.indexOf(catOf(i)) !== -1 && picked.indexOf(i) === -1;
+        });
       });
     }
     // An exact match = a recipe whose ingredient set equals our picks.
@@ -830,6 +842,10 @@
         if (recipes[i].ingredients.length === picked.length) { return recipes[i]; }
       }
       return null;
+    }
+    // How many reachable recipes would survive adding this ingredient?
+    function countWith(recipes, ing) {
+      return recipes.filter(function (c) { return c.ingredients.indexOf(ing) !== -1; }).length;
     }
 
     // ---- Render helpers -------------------------------------------------
@@ -840,17 +856,19 @@
       buildEl.innerHTML = '<div class="mx-build-row">' + chips + "</div>";
     }
 
+    // options: [{ text, val, count }]
     function btnRow(label, options) {
-      // options: [{ text, val }]; the click value is read by the caller.
       var html = '<p class="mx-q">' + escapeHtml(label) + "</p><div class=\"mx-opts\">";
       html += options.map(function (o) {
-        return '<button type="button" class="mx-opt" data-val="' + escapeHtml(o.val) + '">' + escapeHtml(o.text) + "</button>";
+        var count = o.count ? '<span class="mx-count">' + o.count + "</span>" : "";
+        return '<button type="button" class="mx-opt' + (o.cls ? " " + o.cls : "") +
+          '" data-val="' + escapeHtml(o.val) + '"><span>' + escapeHtml(o.text) + "</span>" + count + "</button>";
       }).join("");
       return html + "</div>";
     }
 
     function start() {
-      base = null; picked = []; catIndex = 0;
+      base = null; picked = []; skipped = []; catIndex = 0; revealed = null;
       resultEl.hidden = true; resultEl.innerHTML = "";
       restartBtn.hidden = true;
       renderBuild();
@@ -858,61 +876,80 @@
         stepEl.innerHTML = '<p class="mx-q">Couldn’t load the cocktail book. Please try again later.</p>';
         return;
       }
-      stepEl.innerHTML = btnRow("Pick your base spirit", bases().map(function (b) { return { text: b, val: b }; }));
+      stepEl.innerHTML = btnRow("Pick your base spirit", bases().map(function (b) {
+        return { text: b, val: "base:" + b, count: DATA.cocktails.filter(function (c) { return c.base === b; }).length };
+      }));
     }
 
     function nextStep() {
       renderBuild();
-      var recipes = reachable();
+      var folded = [];   // ingredients we auto-added because they were forced
 
-      // Nothing matches (shouldn't happen, but stay safe).
-      if (!recipes.length) { reveal(null); return; }
-
-      // Advance through categories, offering only ingredients that keep a
-      // recipe reachable. Skip categories with no live options.
+      // Walk categories. Auto-fold any step that's a single forced ingredient
+      // (no real choice), so the player only ever sees genuine branches.
       while (catIndex < DATA.categoryOrder.length) {
+        var recipes = reachable();
+        if (!recipes.length) { reveal(null); return; }
         var cat = DATA.categoryOrder[catIndex];
-        // candidate ingredients in this category, present in some reachable
-        // recipe, not already picked, and which keep >=1 recipe alive.
+
+        // Unpicked ingredients of this category present in a reachable recipe.
         var seen = {}, opts = [];
         recipes.forEach(function (c) {
           c.ingredients.forEach(function (ing) {
-            if (picked.indexOf(ing) !== -1) { return; }
-            if (DATA.ingredients[ing] !== cat) { return; }
-            if (seen[ing]) { return; }
-            seen[ing] = 1;
-            opts.push(ing);
+            if (picked.indexOf(ing) === -1 && catOf(ing) === cat && !seen[ing]) { seen[ing] = 1; opts.push(ing); }
           });
         });
 
+        if (!opts.length) { catIndex++; continue; }   // nothing here
+
         var exact = exactMatch(recipes);
+        // Can we move on without picking here? (some recipe needs nothing more
+        // from this category — i.e. it's optional.)
+        var canSkip = recipes.some(function (c) {
+          return c.ingredients.every(function (i) { return catOf(i) !== cat || picked.indexOf(i) !== -1; });
+        });
 
-        if (!opts.length) { catIndex++; continue; } // nothing here, move on
+        // Forced single: one option, not optional, no drink completed yet.
+        // Fold it in silently rather than asking a non-question.
+        if (opts.length === 1 && !canSkip && !exact) {
+          picked.push(opts[0]);
+          folded.push(opts[0]);
+          renderBuild();
+          continue; // same category may offer more, else loop advances
+        }
 
-        // Build the question. Always allow "None / next".
-        var choices = opts.map(function (ing) { return { text: "+ " + ing, val: "add:" + ing }; });
-        choices.push({ text: exact ? "Stop here ✓" : "None / next", val: "skip" });
+        // A genuine choice — render it.
+        var choices = opts.map(function (ing) {
+          return { text: ing, val: "add:" + ing, count: countWith(recipes, ing) };
+        });
+        if (exact) {
+          choices.push({ text: "Stop here — my " + exact.name, val: "stop", cls: "mx-opt-stop" });
+        } else if (canSkip) {
+          choices.push({ text: "None of these", val: "skip:" + cat, cls: "mx-opt-skip" });
+        }
 
         var label = DATA.categoryLabels[cat] || "Add something?";
         stepEl.innerHTML =
-          (exact ? '<p class="mx-sofar">So far you’ve made a <strong>' + escapeHtml(exact.name) + '</strong> — keep going, or stop here.</p>' : "") +
+          (folded.length ? '<p class="mx-auto">Added <strong>' + folded.map(escapeHtml).join("</strong>, <strong>") + "</strong> — the only way forward.</p>" : "") +
+          (exact ? '<p class="mx-sofar">Right now you’ve got a <strong>' + escapeHtml(exact.name) + '</strong>. Keep building, or stop here.</p>' : "") +
           btnRow(label, choices);
         return;
       }
 
-      // Ran out of categories — reveal whatever we've matched.
-      reveal(exactMatch(recipes) || recipes[0]);
+      // Out of categories — reveal the match.
+      reveal(exactMatch(reachable()));
     }
 
     function reveal(drink) {
+      revealed = drink;
       stepEl.innerHTML = "";
-      restartBtn.hidden = false;
+      restartBtn.hidden = true;   // the reveal card carries its own actions
+      resultEl.hidden = false;
       if (!drink) {
-        resultEl.hidden = false;
-        resultEl.innerHTML = '<div class="mx-card"><h3>Hmm…</h3><p>That combination isn’t a classic we know — try again!</p></div>';
+        resultEl.innerHTML = '<div class="mx-card"><h3>Hmm…</h3><p class="mx-blurb">That exact combination isn’t a classic we know — try another path!</p>' +
+          '<div class="mx-result-actions"><button type="button" class="mx-again" data-mx="again">Start again ↺</button></div></div>';
         return;
       }
-      resultEl.hidden = false;
       resultEl.innerHTML =
         '<div class="mx-card mx-reveal">' +
           '<p class="mx-congrats">You’ve made a…</p>' +
@@ -925,8 +962,11 @@
             (drink.ice ? "<dt>Ice</dt><dd>" + escapeHtml(drink.ice) + "</dd>" : "") +
             (drink.glass ? "<dt>Glass</dt><dd>" + escapeHtml(drink.glass) + "</dd>" : "") +
           "</dl>" +
+          '<div class="mx-result-actions">' +
+            '<button type="button" class="mx-add" data-mx="add">Add to my order 🧺</button>' +
+            '<button type="button" class="mx-again" data-mx="again">Start again ↺</button>' +
+          "</div>" +
         "</div>";
-      if (!reducedMotion() && typeof fireMxBurst === "function") { /* reserved */ }
     }
 
     // ---- Event wiring ---------------------------------------------------
@@ -934,23 +974,25 @@
       var btn = e.target.closest(".mx-opt");
       if (!btn) { return; }
       var val = btn.getAttribute("data-val");
-      if (!base) {            // first click chooses the base
-        base = val;
-        catIndex = 0;
-        nextStep();
-        return;
-      }
-      if (val === "skip") {   // "None / next" or "Stop here"
-        var recipes = reachable();
-        var exact = exactMatch(recipes);
-        catIndex++;
-        if (exact) { reveal(exact); } else { nextStep(); }
-        return;
-      }
-      if (val.indexOf("add:") === 0) {
-        picked.push(val.slice(4));
-        // stay on the same category in case it offers more, else nextStep advances
-        nextStep();
+      if (val.indexOf("base:") === 0) { base = val.slice(5); catIndex = 0; nextStep(); return; }
+      if (val === "stop") { reveal(exactMatch(reachable())); return; }
+      if (val.indexOf("skip:") === 0) { skipped.push(val.slice(5)); catIndex++; nextStep(); return; }
+      if (val.indexOf("add:") === 0) { picked.push(val.slice(4)); nextStep(); return; }
+    });
+
+    // Reveal-card actions (add to order / start again).
+    resultEl.addEventListener("click", function (e) {
+      var btn = e.target.closest("[data-mx]");
+      if (!btn) { return; }
+      if (btn.getAttribute("data-mx") === "again") { start(); return; }
+      if (btn.getAttribute("data-mx") === "add" && revealed) {
+        addLine({
+          id: "mix-" + revealed.id, base: revealed.base, name: revealed.name,
+          emoji: BASE_EMOJI[revealed.base] || "🍸"
+        });
+        btn.textContent = "Added to your order ✓";
+        btn.classList.add("is-added");
+        btn.disabled = true;
       }
     });
 

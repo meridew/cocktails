@@ -635,6 +635,7 @@ footer {
 .mx-opts { display: grid; gap: 10px; }
 .mx-opt {
   width: 100%; min-height: 54px; padding: 14px 16px; text-align: left;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
   font-family: var(--font-accent); font-weight: var(--fw-accent);
   font-size: clamp(0.85rem, 3.6vw, 1rem); text-transform: uppercase; letter-spacing: var(--ls-accent);
   background: var(--seg-bg); color: var(--seg-text);
@@ -642,8 +643,35 @@ footer {
   cursor: pointer; touch-action: manipulation; transition: background .15s, color .15s, border-color .15s, transform .08s;
 }
 .mx-opt:active { transform: translateY(1px); }
-.mx-opt[data-val="skip"] { color: var(--text-soft); }
+.mx-opt > span:first-child { min-width: 0; }
+/* "N drinks reachable this way" badge */
+.mx-count {
+  flex: none; min-width: 1.6em; text-align: center; padding: 2px 7px;
+  font-size: 0.7rem; border-radius: 999px; background: var(--surface-2); color: var(--text-soft);
+}
+.mx-opt-stop { border-color: var(--accent); color: var(--accent); }
+.mx-opt-stop .mx-count, .mx-opt-skip { color: var(--text-soft); }
+.mx-opt-skip { background: transparent; }
 @media (hover: hover) and (pointer: fine) { .mx-opt:hover { border-color: var(--accent); } }
+/* note shown when the engine auto-folds a forced step */
+.mx-auto {
+  font-family: var(--font-body); font-size: 0.85rem; color: var(--text-soft);
+  margin: 0 0 12px; padding: 8px 12px; border-left: 3px solid var(--accent); background: var(--surface-2);
+  border-radius: 0 var(--radius) var(--radius) 0;
+}
+.mx-auto strong { color: var(--text); }
+/* reveal-card action buttons */
+.mx-result-actions { display: grid; gap: 10px; margin-top: 18px; }
+.mx-add, .mx-again {
+  width: 100%; min-height: 52px; padding: 14px;
+  font-family: var(--font-accent); font-weight: var(--fw-accent);
+  font-size: 0.9rem; text-transform: uppercase; letter-spacing: var(--ls-accent);
+  border-radius: var(--radius); cursor: pointer; touch-action: manipulation;
+}
+.mx-add { background: var(--accent); color: var(--accent-text); border: var(--border) solid var(--accent); }
+.mx-add.is-added { background: var(--surface-2); color: var(--text-soft); border-color: var(--line-2); }
+.mx-again { background: transparent; color: var(--text); border: var(--border) solid var(--line-2); }
+.mx-add:active, .mx-again:active { transform: translateY(2px); }
 /* the reveal */
 .mx-card {
   background: var(--surface); color: var(--text);
