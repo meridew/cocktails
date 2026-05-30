@@ -143,7 +143,8 @@ h1 {
 }
 .cocktail h3 {
   font-family: "Archivo Black", sans-serif; text-transform: uppercase; margin: 0 0 10px; padding-right: 44px;
-  font-size: clamp(1.2rem, 5.2vw, 1.7rem); letter-spacing: -0.5px; line-height: 0.95;
+  font-size: clamp(1.05rem, 4.3vw, 1.45rem); letter-spacing: -0.3px; line-height: 1.05;
+  min-height: 2.1em; /* reserve two lines so every card title block is uniform height */
   display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
 }
 .cocktail h3 .emoji { font-family: "Space Grotesk", sans-serif; }
