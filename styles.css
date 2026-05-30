@@ -1,0 +1,181 @@
+/* ============================================================
+   COCKTAILS — mobile-first styles.
+   Base rules target phones; ≥600px progressively enhances.
+   ============================================================ */
+:root {
+  --pink:   #ff2e88;
+  --yellow: #ffe600;
+  --cyan:   #00e5ff;
+  --lime:   #acff00;
+  --orange: #ff7a00;
+  --ink:    #0a0a12;
+
+  /* shared design tokens — tweak once, applies everywhere (DRY) */
+  --radius: 16px;
+  --border: 4px;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  font-family: "Space Grotesk", system-ui, sans-serif;
+  color: var(--ink);
+  background: var(--yellow);
+  background-image:
+    repeating-linear-gradient(45deg, rgba(0,0,0,0.04) 0 22px, transparent 22px 44px),
+    radial-gradient(circle at 15% 10%, var(--cyan) 0, transparent 38%),
+    radial-gradient(circle at 88% 18%, var(--pink) 0, transparent 40%),
+    radial-gradient(circle at 50% 95%, var(--lime) 0, transparent 45%);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+.wrap {
+  width: 100%; max-width: 760px; margin: 0 auto;
+  padding:
+    calc(20px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right))
+    calc(64px + env(safe-area-inset-bottom)) calc(16px + env(safe-area-inset-left));
+}
+
+/* ---------------- HEADER ---------------- */
+header { text-align: center; margin: 6px 0 24px; }
+.kicker {
+  display: inline-block; background: var(--ink); color: var(--yellow);
+  font-family: "Bungee", sans-serif; font-size: 0.8rem; letter-spacing: 1.5px;
+  padding: 7px 15px; border-radius: 999px; transform: rotate(-3deg); margin-bottom: 12px;
+}
+h1 {
+  font-family: "Archivo Black", sans-serif; font-size: clamp(2.8rem, 16vw, 7rem);
+  line-height: 0.86; margin: 0; text-transform: uppercase; color: #fff; letter-spacing: -1px;
+  text-shadow: 2px 2px 0 var(--pink), 4px 4px 0 var(--cyan), 6px 6px 0 var(--ink);
+}
+.sub {
+  font-family: "Bungee", sans-serif; margin: 18px auto 0; max-width: 460px;
+  font-size: clamp(0.95rem, 4.2vw, 1.4rem); color: var(--ink); background: #fff;
+  border: 3px solid var(--ink); padding: 10px 14px; box-shadow: 4px 4px 0 var(--ink);
+  transform: rotate(1.2deg);
+}
+
+/* ---------------- TABS (segmented toggle) ----------------
+   A single bordered pill that holds both options. No sticky,
+   no gradient hack — it reads clearly as one control. */
+.tabs {
+  display: flex; gap: 6px; margin: 0 0 24px; padding: 6px;
+  background: #fff; border: var(--border) solid var(--ink);
+  border-radius: var(--radius); box-shadow: 5px 5px 0 var(--ink);
+}
+.tab {
+  flex: 1 1 0; min-height: 54px; padding: 6px;
+  font-family: "Bungee", sans-serif; font-size: clamp(0.82rem, 3.6vw, 1.05rem);
+  text-transform: uppercase; line-height: 1.05;
+  background: transparent; color: var(--ink);
+  border: none; border-radius: 11px; cursor: pointer; touch-action: manipulation;
+  transition: background 0.15s, color 0.15s, transform 0.08s;
+}
+.tab small { display: block; font-size: 0.62em; opacity: 0.65; letter-spacing: 0.5px; }
+.tab[aria-selected="true"] { background: var(--ink); color: var(--yellow); }
+.tab[aria-selected="true"] small { opacity: 0.8; }
+.tab:active { transform: scale(0.97); }
+
+/* ---------------- MENU PANELS + CARDS ---------------- */
+.panel { display: none; }
+.panel.active { display: block; }
+.menu { display: grid; gap: 16px; margin-bottom: 40px; }
+.cocktail {
+  background: #fff; border: var(--border) solid var(--ink); border-radius: var(--radius);
+  padding: 16px 18px; box-shadow: 6px 6px 0 var(--ink);
+}
+.cocktail:nth-child(3n+1) { background: var(--cyan); }
+.cocktail:nth-child(3n+2) { background: var(--lime); }
+.cocktail:nth-child(3n+3) { background: var(--pink); }
+.cocktail h3 {
+  font-family: "Archivo Black", sans-serif; text-transform: uppercase; margin: 0 0 10px;
+  font-size: clamp(1.35rem, 7vw, 2.1rem); letter-spacing: -0.5px; line-height: 0.95;
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+}
+.cocktail h3 .emoji { font-family: "Space Grotesk", sans-serif; }
+.ingredients { display: flex; flex-wrap: wrap; gap: 7px; margin: 0 0 14px; padding: 0; list-style: none; }
+.ingredients li {
+  font-weight: 700; font-size: clamp(0.78rem, 3.3vw, 0.95rem);
+  background: var(--ink); color: #fff; padding: 5px 11px; border-radius: 999px;
+}
+/* per-card call to action */
+.order {
+  width: 100%; min-height: 48px; padding: 12px;
+  font-family: "Bungee", sans-serif; font-size: clamp(0.8rem, 3.4vw, 0.95rem);
+  text-transform: uppercase; letter-spacing: 0.5px;
+  background: var(--ink); color: #fff;
+  border: 3px solid var(--ink); border-radius: 11px;
+  cursor: pointer; touch-action: manipulation;
+  transition: transform 0.08s, background 0.15s, color 0.15s;
+}
+.order:active { transform: translateY(2px); }
+
+/* ---------------- ORDER FORM ---------------- */
+.card {
+  background: var(--ink); border: var(--border) solid var(--ink); border-radius: 18px;
+  padding: 26px 20px; box-shadow: 7px 7px 0 var(--pink); scroll-margin-top: 16px;
+}
+.card h2 {
+  font-family: "Archivo Black", sans-serif; text-transform: uppercase; color: var(--yellow);
+  margin: 0 0 6px; font-size: clamp(1.9rem, 10vw, 3rem); line-height: 0.9; text-shadow: 2px 2px 0 var(--pink);
+}
+.card .hint { color: var(--cyan); font-weight: 700; margin: 0 0 22px; font-size: 1rem; }
+label {
+  display: block; font-family: "Bungee", sans-serif; font-size: 0.8rem; letter-spacing: 1px;
+  text-transform: uppercase; margin: 0 0 8px; color: #fff;
+}
+input, select, textarea {
+  width: 100%; padding: 15px 16px; margin-bottom: 20px; background: #fff; color: var(--ink);
+  border: var(--border) solid #fff; border-radius: 12px; font-size: 16px; font-family: inherit; font-weight: 700;
+}
+input:focus, select:focus, textarea:focus { outline: none; border-color: var(--yellow); box-shadow: 0 0 0 4px var(--yellow); }
+textarea { resize: vertical; min-height: 76px; }
+/* brief attention flash when a drink is picked from a card */
+select.flash { animation: ring 0.45s ease 2; }
+@keyframes ring {
+  0%, 100% { box-shadow: 0 0 0 0 var(--pink); border-color: #fff; }
+  50%      { box-shadow: 0 0 0 5px var(--pink); border-color: var(--pink); }
+}
+button.send {
+  width: 100%; padding: 18px; min-height: 56px; background: var(--yellow); color: var(--ink);
+  font-family: "Bungee", sans-serif; font-size: clamp(1.2rem, 5.5vw, 1.7rem);
+  text-transform: uppercase; letter-spacing: 1px; border: var(--border) solid #fff; border-radius: 14px;
+  cursor: pointer; touch-action: manipulation; box-shadow: 0 0 0 0 var(--cyan);
+  transition: transform 0.1s ease, box-shadow 0.1s ease, background 0.15s;
+}
+button.send:active { transform: translateY(2px); background: #fff; }
+button.send:disabled { opacity: 0.6; cursor: default; transform: none; }
+.status { margin-top: 18px; text-align: center; font-family: "Bungee", sans-serif; font-size: 1.05rem; min-height: 1.4em; }
+.status.ok  { color: var(--lime); }
+.status.err { color: var(--pink); }
+
+footer { text-align: center; margin-top: 40px; font-family: "Bungee", sans-serif; font-size: 0.8rem; color: var(--ink); transform: rotate(-1deg); }
+
+/* ---------- Enhance for tablets / large phones (≥600px) ---------- */
+@media (min-width: 600px) {
+  header { margin-bottom: 30px; }
+  .kicker { font-size: 1.05rem; letter-spacing: 2px; padding: 8px 18px; }
+  h1 { letter-spacing: -2px; text-shadow: 4px 4px 0 var(--pink), 8px 8px 0 var(--cyan), 12px 12px 0 var(--ink); }
+  .sub { border-width: 4px; box-shadow: 7px 7px 0 var(--ink); }
+  .tabs { gap: 8px; box-shadow: 6px 6px 0 var(--ink); }
+  .menu { gap: 22px; margin-bottom: 48px; }
+  .cocktail { border-width: 5px; border-radius: 18px; padding: 22px 24px; box-shadow: 10px 10px 0 var(--ink); }
+  .card { border-radius: 22px; padding: 34px 26px; box-shadow: 12px 12px 0 var(--pink); }
+  .card h2 { text-shadow: 3px 3px 0 var(--pink); }
+  button.send { padding: 20px; border-width: 5px; }
+}
+
+/* ---------- Hover only where a real pointer exists ---------- */
+@media (hover: hover) and (pointer: fine) {
+  .tab:not([aria-selected="true"]):hover { background: rgba(10,10,18,0.08); }
+  .cocktail:hover { transform: translate(-3px,-3px); box-shadow: 13px 13px 0 var(--ink); transition: transform .12s, box-shadow .12s; }
+  .order:hover { background: #fff; color: var(--ink); }
+  button.send:hover { transform: translateY(-3px); box-shadow: 0 8px 0 var(--cyan); background: #fff; }
+}
+
+/* ---------- Respect reduced-motion preference ---------- */
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
+}
