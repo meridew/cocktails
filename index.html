@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>COCKTAILS!!!</title>
-  <meta name="description" content="Four killer cocktails — shout your name, get a drink." />
+  <meta name="description" content="Margaritas & mocktails — pick one, shout your name, get a drink." />
   <meta name="theme-color" content="#ffe600" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -23,10 +23,7 @@
       --ink:    #0a0a12;
     }
     * { box-sizing: border-box; }
-    html {
-      scroll-behavior: smooth;
-      -webkit-text-size-adjust: 100%;
-    }
+    html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
     body {
       margin: 0;
       font-family: "Space Grotesk", system-ui, sans-serif;
@@ -40,172 +37,128 @@
       min-height: 100vh;
       overflow-x: hidden;
     }
-    /* Phone base: snug padding + safe-area insets for notched devices */
     .wrap {
-      width: 100%;
-      max-width: 760px;
-      margin: 0 auto;
+      width: 100%; max-width: 760px; margin: 0 auto;
       padding:
         calc(20px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right))
         calc(64px + env(safe-area-inset-bottom)) calc(16px + env(safe-area-inset-left));
     }
 
     /* HEADER */
-    header { text-align: center; margin: 6px 0 34px; }
+    header { text-align: center; margin: 6px 0 26px; }
     .kicker {
-      display: inline-block;
-      background: var(--ink); color: var(--yellow);
-      font-family: "Bungee", sans-serif;
-      font-size: 0.8rem; letter-spacing: 1.5px;
-      padding: 7px 15px; border-radius: 999px;
-      transform: rotate(-3deg);
-      margin-bottom: 12px;
+      display: inline-block; background: var(--ink); color: var(--yellow);
+      font-family: "Bungee", sans-serif; font-size: 0.8rem; letter-spacing: 1.5px;
+      padding: 7px 15px; border-radius: 999px; transform: rotate(-3deg); margin-bottom: 12px;
     }
     h1 {
-      font-family: "Archivo Black", sans-serif;
-      font-size: clamp(2.8rem, 16vw, 7rem);
-      line-height: 0.86;
-      margin: 0;
-      text-transform: uppercase;
-      color: #fff;
-      letter-spacing: -1px;
-      /* smaller shadow on phones so it never overflows the viewport */
+      font-family: "Archivo Black", sans-serif; font-size: clamp(2.8rem, 16vw, 7rem);
+      line-height: 0.86; margin: 0; text-transform: uppercase; color: #fff; letter-spacing: -1px;
       text-shadow: 2px 2px 0 var(--pink), 4px 4px 0 var(--cyan), 6px 6px 0 var(--ink);
     }
     .sub {
-      font-family: "Bungee", sans-serif;
-      margin: 18px auto 0; max-width: 460px;
-      font-size: clamp(0.95rem, 4.2vw, 1.4rem);
-      color: var(--ink);
-      background: #fff;
-      border: 3px solid var(--ink);
-      padding: 10px 14px;
-      box-shadow: 4px 4px 0 var(--ink);
+      font-family: "Bungee", sans-serif; margin: 18px auto 0; max-width: 460px;
+      font-size: clamp(0.95rem, 4.2vw, 1.4rem); color: var(--ink); background: #fff;
+      border: 3px solid var(--ink); padding: 10px 14px; box-shadow: 4px 4px 0 var(--ink);
       transform: rotate(1.2deg);
     }
 
-    /* MENU */
-    .menu { display: grid; gap: 16px; margin-bottom: 44px; }
+    /* TABS */
+    .tabs {
+      display: flex; gap: 10px; margin: 0 0 24px;
+      position: sticky; top: 0; z-index: 5;
+      padding: 12px 0; background: linear-gradient(var(--yellow) 70%, transparent);
+    }
+    .tab {
+      flex: 1 1 0; min-height: 56px;
+      font-family: "Bungee", sans-serif; font-size: clamp(0.85rem, 3.6vw, 1.1rem);
+      text-transform: uppercase; line-height: 1.05;
+      background: #fff; color: var(--ink);
+      border: 4px solid var(--ink); border-radius: 14px;
+      box-shadow: 4px 4px 0 var(--ink); cursor: pointer; touch-action: manipulation;
+      transition: transform 0.1s ease, box-shadow 0.1s ease, background 0.15s, color 0.15s;
+    }
+    .tab small { display: block; font-size: 0.6em; opacity: 0.7; letter-spacing: 0.5px; }
+    .tab[aria-selected="true"] { background: var(--ink); color: var(--yellow); box-shadow: 4px 4px 0 var(--pink); transform: translateY(-2px); }
+    .tab:active { transform: translateY(1px); box-shadow: 2px 2px 0 var(--ink); }
+
+    /* PANELS + CARDS */
+    .panel { display: none; }
+    .panel.active { display: block; }
+    .menu { display: grid; gap: 16px; margin-bottom: 40px; }
     .cocktail {
-      background: #fff;
-      border: 4px solid var(--ink);
-      border-radius: 16px;
-      padding: 16px 18px;
-      display: flex; justify-content: space-between; align-items: center;
-      gap: 14px; flex-wrap: wrap;
+      background: #fff; border: 4px solid var(--ink); border-radius: 16px; padding: 16px 18px;
       box-shadow: 6px 6px 0 var(--ink);
-      transition: transform 0.12s ease, box-shadow 0.12s ease;
     }
-    /* touch feedback (hover does nothing on phones) */
-    .cocktail:active { transform: translate(-2px,-2px); box-shadow: 8px 8px 0 var(--ink); }
-    .cocktail:nth-child(1) { background: var(--cyan); }
-    .cocktail:nth-child(2) { background: var(--lime); }
-    .cocktail:nth-child(3) { background: var(--orange); }
-    .cocktail:nth-child(4) { background: var(--pink); }
-    .cocktail > div:first-child { flex: 1 1 60%; min-width: 0; }
+    .cocktail:nth-child(3n+1) { background: var(--cyan); }
+    .cocktail:nth-child(3n+2) { background: var(--lime); }
+    .cocktail:nth-child(3n+3) { background: var(--pink); }
     .cocktail h3 {
-      font-family: "Archivo Black", sans-serif;
-      text-transform: uppercase;
-      margin: 0 0 5px;
-      font-size: clamp(1.35rem, 7vw, 2.1rem);
-      letter-spacing: -0.5px;
-      line-height: 0.95;
+      font-family: "Archivo Black", sans-serif; text-transform: uppercase; margin: 0 0 10px;
+      font-size: clamp(1.35rem, 7vw, 2.1rem); letter-spacing: -0.5px; line-height: 0.95;
+      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
     }
-    .cocktail p {
-      margin: 0; font-weight: 700;
-      font-size: clamp(0.88rem, 3.8vw, 1.05rem);
-    }
-    .price {
-      font-family: "Bungee", sans-serif;
-      font-size: clamp(1.25rem, 6vw, 2rem);
-      background: var(--ink); color: #fff;
-      padding: 5px 12px; border-radius: 10px;
-      white-space: nowrap;
-      transform: rotate(-4deg);
+    .cocktail h3 .emoji { font-family: "Space Grotesk", sans-serif; }
+    .ingredients { display: flex; flex-wrap: wrap; gap: 7px; margin: 0; padding: 0; list-style: none; }
+    .ingredients li {
+      font-weight: 700; font-size: clamp(0.78rem, 3.3vw, 0.95rem);
+      background: var(--ink); color: #fff; padding: 5px 11px; border-radius: 999px;
     }
 
     /* FORM */
     .card {
-      background: var(--ink);
-      border: 4px solid var(--ink);
-      border-radius: 18px;
-      padding: 26px 20px;
-      box-shadow: 7px 7px 0 var(--pink);
+      background: var(--ink); border: 4px solid var(--ink); border-radius: 18px;
+      padding: 26px 20px; box-shadow: 7px 7px 0 var(--pink);
     }
     .card h2 {
-      font-family: "Archivo Black", sans-serif;
-      text-transform: uppercase;
-      color: var(--yellow);
-      margin: 0 0 6px;
-      font-size: clamp(1.9rem, 10vw, 3rem);
-      line-height: 0.9;
-      text-shadow: 2px 2px 0 var(--pink);
+      font-family: "Archivo Black", sans-serif; text-transform: uppercase; color: var(--yellow);
+      margin: 0 0 6px; font-size: clamp(1.9rem, 10vw, 3rem); line-height: 0.9; text-shadow: 2px 2px 0 var(--pink);
     }
     .card .hint { color: var(--cyan); font-weight: 700; margin: 0 0 22px; font-size: 1rem; }
     label {
-      display: block; font-family: "Bungee", sans-serif;
-      font-size: 0.8rem; letter-spacing: 1px; text-transform: uppercase;
-      margin: 0 0 8px; color: #fff;
+      display: block; font-family: "Bungee", sans-serif; font-size: 0.8rem; letter-spacing: 1px;
+      text-transform: uppercase; margin: 0 0 8px; color: #fff;
     }
     input, select, textarea {
-      width: 100%; padding: 15px 16px; margin-bottom: 20px;
-      background: #fff; color: var(--ink);
-      border: 4px solid #fff; border-radius: 12px;
-      font-size: 16px; /* 16px keeps iOS Safari from auto-zooming on focus */
-      font-family: inherit; font-weight: 700;
+      width: 100%; padding: 15px 16px; margin-bottom: 20px; background: #fff; color: var(--ink);
+      border: 4px solid #fff; border-radius: 12px; font-size: 16px; font-family: inherit; font-weight: 700;
     }
-    input:focus, select:focus, textarea:focus {
-      outline: none; border-color: var(--yellow);
-      box-shadow: 0 0 0 4px var(--yellow);
-    }
+    input:focus, select:focus, textarea:focus { outline: none; border-color: var(--yellow); box-shadow: 0 0 0 4px var(--yellow); }
     textarea { resize: vertical; min-height: 76px; }
-    button {
-      width: 100%; padding: 18px;
-      min-height: 56px; /* comfortable thumb target */
-      background: var(--yellow);
-      color: var(--ink);
-      font-family: "Bungee", sans-serif;
-      font-size: clamp(1.2rem, 5.5vw, 1.7rem);
-      text-transform: uppercase; letter-spacing: 1px;
-      border: 4px solid #fff; border-radius: 14px; cursor: pointer;
-      touch-action: manipulation;
-      box-shadow: 0 0 0 0 var(--cyan);
+    button.send {
+      width: 100%; padding: 18px; min-height: 56px; background: var(--yellow); color: var(--ink);
+      font-family: "Bungee", sans-serif; font-size: clamp(1.2rem, 5.5vw, 1.7rem);
+      text-transform: uppercase; letter-spacing: 1px; border: 4px solid #fff; border-radius: 14px;
+      cursor: pointer; touch-action: manipulation; box-shadow: 0 0 0 0 var(--cyan);
       transition: transform 0.1s ease, box-shadow 0.1s ease, background 0.15s;
     }
-    button:active { transform: translateY(2px); box-shadow: 0 0 0 0 var(--cyan); background: #fff; }
-    button:disabled { opacity: 0.6; cursor: default; transform: none; box-shadow: none; }
+    button.send:active { transform: translateY(2px); background: #fff; }
+    button.send:disabled { opacity: 0.6; cursor: default; transform: none; }
     .status { margin-top: 18px; text-align: center; font-family: "Bungee", sans-serif; font-size: 1.05rem; min-height: 1.4em; }
     .status.ok  { color: var(--lime); }
     .status.err { color: var(--pink); }
 
-    footer {
-      text-align: center; margin-top: 44px;
-      font-family: "Bungee", sans-serif; font-size: 0.8rem;
-      color: var(--ink); transform: rotate(-1deg);
-    }
+    footer { text-align: center; margin-top: 40px; font-family: "Bungee", sans-serif; font-size: 0.8rem; color: var(--ink); transform: rotate(-1deg); }
 
     /* ---------- Enhance for tablets / large phones (≥600px) ---------- */
     @media (min-width: 600px) {
-      .wrap { padding-top: 30px; padding-bottom: 80px; }
-      header { margin-bottom: 44px; }
-      .kicker { font-size: 1.05rem; letter-spacing: 2px; padding: 8px 18px; margin-bottom: 14px; }
+      header { margin-bottom: 32px; }
+      .kicker { font-size: 1.05rem; letter-spacing: 2px; padding: 8px 18px; }
       h1 { letter-spacing: -2px; text-shadow: 4px 4px 0 var(--pink), 8px 8px 0 var(--cyan), 12px 12px 0 var(--ink); }
-      .sub { margin-top: 22px; border-width: 4px; padding: 10px 16px; box-shadow: 7px 7px 0 var(--ink); }
-      .menu { gap: 22px; margin-bottom: 56px; }
-      .cocktail { border-width: 5px; border-radius: 18px; padding: 22px 24px; gap: 18px; box-shadow: 10px 10px 0 var(--ink); }
-      .price { padding: 6px 14px; border-radius: 12px; }
+      .sub { border-width: 4px; box-shadow: 7px 7px 0 var(--ink); }
+      .tabs { gap: 14px; }
+      .menu { gap: 22px; margin-bottom: 48px; }
+      .cocktail { border-width: 5px; border-radius: 18px; padding: 22px 24px; box-shadow: 10px 10px 0 var(--ink); }
       .card { border-radius: 22px; padding: 34px 26px; box-shadow: 12px 12px 0 var(--pink); }
       .card h2 { text-shadow: 3px 3px 0 var(--pink); }
-      .card .hint { font-size: 1.05rem; margin-bottom: 26px; }
-      label { font-size: 0.85rem; }
-      input, select, textarea { padding: 15px 16px; border-radius: 12px; }
-      button { padding: 20px; border-width: 5px; }
+      button.send { padding: 20px; border-width: 5px; }
     }
 
-    /* ---------- Hover effects only where a real pointer exists ---------- */
+    /* ---------- Hover only where a real pointer exists ---------- */
     @media (hover: hover) and (pointer: fine) {
-      .cocktail:hover { transform: translate(-3px,-3px); box-shadow: 13px 13px 0 var(--ink); }
-      button:hover { transform: translateY(-3px); box-shadow: 0 8px 0 var(--cyan); background: #fff; }
+      .tab:hover { transform: translateY(-3px); box-shadow: 6px 6px 0 var(--ink); }
+      .cocktail:hover { transform: translate(-3px,-3px); box-shadow: 13px 13px 0 var(--ink); transition: transform .12s, box-shadow .12s; }
+      button.send:hover { transform: translateY(-3px); box-shadow: 0 8px 0 var(--cyan); background: #fff; }
     }
   </style>
 </head>
@@ -217,11 +170,25 @@
       <p class="sub">PICK ONE. YELL YOUR NAME. WE POUR.</p>
     </header>
 
-    <section class="menu" id="menu" aria-label="Cocktail menu"></section>
+    <div class="tabs" role="tablist" aria-label="Menu sections">
+      <button class="tab" role="tab" id="tab-booze" aria-controls="panel-booze" aria-selected="true">
+        🍸 Boozy <small>Margaritas</small>
+      </button>
+      <button class="tab" role="tab" id="tab-free" aria-controls="panel-free" aria-selected="false">
+        🌱 Alcohol-Free <small>Mocktails</small>
+      </button>
+    </div>
+
+    <section class="panel active" id="panel-booze" role="tabpanel" aria-labelledby="tab-booze">
+      <div class="menu" id="menu-booze"></div>
+    </section>
+    <section class="panel" id="panel-free" role="tabpanel" aria-labelledby="tab-free" hidden>
+      <div class="menu" id="menu-free"></div>
+    </section>
 
     <section class="card">
       <h2>Gimme<br>a drink</h2>
-      <p class="hint">▶ Drop your name + pick your poison.</p>
+      <p class="hint">▶ Drop your name + pick your poison (or non-poison).</p>
 
       <form id="request-form" action="https://formspree.io/f/xwvzzjab" method="POST">
         <label for="name">Your name</label>
@@ -231,9 +198,9 @@
         <select id="cocktail" name="cocktail" required></select>
 
         <label for="note">Note (optional)</label>
-        <textarea id="note" name="note" placeholder="No ice! Extra lime! Make it strong!"></textarea>
+        <textarea id="note" name="note" placeholder="No ice! Extra lime! Make it spicy!"></textarea>
 
-        <button type="submit" id="submit-btn">Send it 🍹</button>
+        <button type="submit" class="send" id="submit-btn">Send it 🍹</button>
         <p class="status" id="status" role="status" aria-live="polite"></p>
       </form>
     </section>
@@ -242,28 +209,70 @@
   </div>
 
   <script>
-    // Single source of truth for the menu — renders the list AND the dropdown.
-    const COCKTAILS = [
-      { name: "Margarita",     desc: "Tequila, lime, triple sec, salt rim.",        price: "$12" },
-      { name: "Negroni",       desc: "Gin, Campari, sweet vermouth, orange peel.",  price: "$13" },
-      { name: "Old Fashioned", desc: "Bourbon, bitters, sugar, orange.",            price: "$13" },
-      { name: "Mojito",        desc: "White rum, mint, lime, soda.",                price: "$11" },
-    ];
+    // Single source of truth — drives the menu cards AND the request dropdown.
+    const MENU = {
+      booze: {
+        emoji: "🍸",
+        items: [
+          { name: "Margarita", emoji: "🍋", ingredients: ["Tequila", "Triple Sec / Cointreau", "Lime", "Simple Syrup (opt.)", "Crushed Ice", "Salt rim"] },
+          { name: "Spicy Margarita", emoji: "🌶️", ingredients: ["Tequila", "Triple Sec / Cointreau", "Lime", "Fresh Chili (jalapeño/red)", "Simple Syrup / Agave", "Crushed Ice", "Salt or Tajín rim"] },
+          { name: "Watermelon Margarita", emoji: "🍉", ingredients: ["Watermelon", "Tequila", "Triple Sec / Cointreau", "Lime", "Simple Syrup (opt.)", "Crushed Ice", "Salt rim"] },
+        ],
+      },
+      free: {
+        emoji: "🌱",
+        items: [
+          { name: "Virgin Mojito", emoji: "🌿", ingredients: ["Fresh Mint", "Lime", "Simple Syrup / Sugar", "Sparkling Mineral Water", "Crushed Ice"] },
+          { name: "Virgin Moscow Mule", emoji: "🫚", ingredients: ["Ginger Beer", "Lime", "Fresh Ginger (opt.)", "Crushed Ice"] },
+          { name: "Nojito + Elderflower", emoji: "🌸", ingredients: ["Fresh Mint", "Lime", "Elderflower Cordial", "Sparkling Mineral Water", "Crushed Ice"] },
+        ],
+      },
+    };
 
-    const menu = document.getElementById("menu");
     const select = document.getElementById("cocktail");
-    COCKTAILS.forEach(function (c) {
-      const item = document.createElement("article");
-      item.className = "cocktail";
-      item.innerHTML =
-        '<div><h3>' + c.name + '</h3><p>' + c.desc + '</p></div>' +
-        '<div class="price">' + c.price + '</div>';
-      menu.appendChild(item);
 
-      const opt = document.createElement("option");
-      opt.value = c.name;
-      opt.textContent = c.name;
-      select.appendChild(opt);
+    function renderSection(key, groupLabel) {
+      const menuEl = document.getElementById("menu-" + key);
+      const optgroup = document.createElement("optgroup");
+      optgroup.label = groupLabel;
+
+      MENU[key].items.forEach(function (c) {
+        // Card
+        const card = document.createElement("article");
+        card.className = "cocktail";
+        const chips = c.ingredients.map(function (i) { return "<li>" + i + "</li>"; }).join("");
+        card.innerHTML =
+          '<h3><span class="emoji">' + c.emoji + '</span>' + c.name + '</h3>' +
+          '<ul class="ingredients">' + chips + '</ul>';
+        menuEl.appendChild(card);
+
+        // Dropdown option
+        const opt = document.createElement("option");
+        opt.value = c.name + " (" + groupLabel + ")";
+        opt.textContent = c.emoji + " " + c.name;
+        optgroup.appendChild(opt);
+      });
+
+      select.appendChild(optgroup);
+    }
+
+    renderSection("booze", "Boozy");
+    renderSection("free", "Alcohol-Free");
+
+    // TAB switching
+    const tabs = [
+      { btn: document.getElementById("tab-booze"), panel: document.getElementById("panel-booze") },
+      { btn: document.getElementById("tab-free"),  panel: document.getElementById("panel-free")  },
+    ];
+    tabs.forEach(function (t) {
+      t.btn.addEventListener("click", function () {
+        tabs.forEach(function (o) {
+          const on = o === t;
+          o.btn.setAttribute("aria-selected", on ? "true" : "false");
+          o.panel.classList.toggle("active", on);
+          o.panel.hidden = !on;
+        });
+      });
     });
 
     // AJAX submit so the visitor stays on the page and sees a thank-you.
@@ -273,11 +282,6 @@
 
     form.addEventListener("submit", async function (e) {
       e.preventDefault();
-      if (form.action.indexOf("YOUR_FORM_ID") !== -1) {
-        statusEl.className = "status err";
-        statusEl.textContent = "Form not configured yet — set your Formspree ID.";
-        return;
-      }
       btn.disabled = true;
       statusEl.className = "status";
       statusEl.textContent = "SENDING…";
