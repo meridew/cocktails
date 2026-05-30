@@ -2,13 +2,18 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>COCKTAILS!!!</title>
   <meta name="description" content="Four killer cocktails — shout your name, get a drink." />
+  <meta name="theme-color" content="#ffe600" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Bungee&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet" />
   <style>
+    /* ============================================================
+       MOBILE-FIRST: base styles target phones.
+       Larger screens are progressively enhanced via min-width.
+       ============================================================ */
     :root {
       --pink:   #ff2e88;
       --yellow: #ffe600;
@@ -18,7 +23,10 @@
       --ink:    #0a0a12;
     }
     * { box-sizing: border-box; }
-    html { scroll-behavior: smooth; }
+    html {
+      scroll-behavior: smooth;
+      -webkit-text-size-adjust: 100%;
+    }
     body {
       margin: 0;
       font-family: "Space Grotesk", system-ui, sans-serif;
@@ -32,78 +40,86 @@
       min-height: 100vh;
       overflow-x: hidden;
     }
-    .wrap { max-width: 760px; margin: 0 auto; padding: 28px 18px 90px; }
+    /* Phone base: snug padding + safe-area insets for notched devices */
+    .wrap {
+      width: 100%;
+      max-width: 760px;
+      margin: 0 auto;
+      padding:
+        calc(20px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right))
+        calc(64px + env(safe-area-inset-bottom)) calc(16px + env(safe-area-inset-left));
+    }
 
     /* HEADER */
-    header { text-align: center; margin: 10px 0 44px; }
+    header { text-align: center; margin: 6px 0 34px; }
     .kicker {
       display: inline-block;
       background: var(--ink); color: var(--yellow);
       font-family: "Bungee", sans-serif;
-      font-size: clamp(0.8rem, 3vw, 1.1rem);
-      letter-spacing: 2px;
-      padding: 8px 18px; border-radius: 999px;
+      font-size: 0.8rem; letter-spacing: 1.5px;
+      padding: 7px 15px; border-radius: 999px;
       transform: rotate(-3deg);
-      margin-bottom: 14px;
+      margin-bottom: 12px;
     }
     h1 {
       font-family: "Archivo Black", sans-serif;
-      font-size: clamp(3rem, 14vw, 7rem);
+      font-size: clamp(2.8rem, 16vw, 7rem);
       line-height: 0.86;
       margin: 0;
       text-transform: uppercase;
       color: #fff;
-      letter-spacing: -2px;
-      text-shadow:
-        4px 4px 0 var(--pink),
-        8px 8px 0 var(--cyan),
-        12px 12px 0 var(--ink);
+      letter-spacing: -1px;
+      /* smaller shadow on phones so it never overflows the viewport */
+      text-shadow: 2px 2px 0 var(--pink), 4px 4px 0 var(--cyan), 6px 6px 0 var(--ink);
     }
     .sub {
       font-family: "Bungee", sans-serif;
-      margin: 22px auto 0; max-width: 460px;
-      font-size: clamp(1rem, 4vw, 1.4rem);
+      margin: 18px auto 0; max-width: 460px;
+      font-size: clamp(0.95rem, 4.2vw, 1.4rem);
       color: var(--ink);
       background: #fff;
-      border: 4px solid var(--ink);
-      padding: 10px 16px;
-      box-shadow: 7px 7px 0 var(--ink);
+      border: 3px solid var(--ink);
+      padding: 10px 14px;
+      box-shadow: 4px 4px 0 var(--ink);
       transform: rotate(1.2deg);
     }
 
     /* MENU */
-    .menu { display: grid; gap: 22px; margin-bottom: 56px; }
+    .menu { display: grid; gap: 16px; margin-bottom: 44px; }
     .cocktail {
       background: #fff;
-      border: 5px solid var(--ink);
-      border-radius: 18px;
-      padding: 22px 24px;
-      display: flex; justify-content: space-between; align-items: center; gap: 18px;
-      box-shadow: 10px 10px 0 var(--ink);
+      border: 4px solid var(--ink);
+      border-radius: 16px;
+      padding: 16px 18px;
+      display: flex; justify-content: space-between; align-items: center;
+      gap: 14px; flex-wrap: wrap;
+      box-shadow: 6px 6px 0 var(--ink);
       transition: transform 0.12s ease, box-shadow 0.12s ease;
     }
-    .cocktail:hover { transform: translate(-3px,-3px); box-shadow: 13px 13px 0 var(--ink); }
+    /* touch feedback (hover does nothing on phones) */
+    .cocktail:active { transform: translate(-2px,-2px); box-shadow: 8px 8px 0 var(--ink); }
     .cocktail:nth-child(1) { background: var(--cyan); }
     .cocktail:nth-child(2) { background: var(--lime); }
     .cocktail:nth-child(3) { background: var(--orange); }
     .cocktail:nth-child(4) { background: var(--pink); }
+    .cocktail > div:first-child { flex: 1 1 60%; min-width: 0; }
     .cocktail h3 {
       font-family: "Archivo Black", sans-serif;
       text-transform: uppercase;
-      margin: 0 0 6px;
-      font-size: clamp(1.4rem, 6vw, 2.1rem);
+      margin: 0 0 5px;
+      font-size: clamp(1.35rem, 7vw, 2.1rem);
       letter-spacing: -0.5px;
       line-height: 0.95;
     }
     .cocktail p {
       margin: 0; font-weight: 700;
-      font-size: clamp(0.9rem, 3.4vw, 1.05rem);
+      font-size: clamp(0.88rem, 3.8vw, 1.05rem);
     }
     .price {
       font-family: "Bungee", sans-serif;
-      font-size: clamp(1.4rem, 6vw, 2rem);
+      font-size: clamp(1.25rem, 6vw, 2rem);
       background: var(--ink); color: #fff;
-      padding: 6px 14px; border-radius: 12px;
+      padding: 5px 12px; border-radius: 10px;
       white-space: nowrap;
       transform: rotate(-4deg);
     }
@@ -111,31 +127,32 @@
     /* FORM */
     .card {
       background: var(--ink);
-      border: 5px solid var(--ink);
-      border-radius: 22px;
-      padding: 34px 26px;
-      box-shadow: 12px 12px 0 var(--pink);
+      border: 4px solid var(--ink);
+      border-radius: 18px;
+      padding: 26px 20px;
+      box-shadow: 7px 7px 0 var(--pink);
     }
     .card h2 {
       font-family: "Archivo Black", sans-serif;
       text-transform: uppercase;
       color: var(--yellow);
       margin: 0 0 6px;
-      font-size: clamp(1.8rem, 8vw, 3rem);
+      font-size: clamp(1.9rem, 10vw, 3rem);
       line-height: 0.9;
-      text-shadow: 3px 3px 0 var(--pink);
+      text-shadow: 2px 2px 0 var(--pink);
     }
-    .card .hint { color: var(--cyan); font-weight: 700; margin: 0 0 26px; font-size: 1.05rem; }
+    .card .hint { color: var(--cyan); font-weight: 700; margin: 0 0 22px; font-size: 1rem; }
     label {
       display: block; font-family: "Bungee", sans-serif;
-      font-size: 0.85rem; letter-spacing: 1px; text-transform: uppercase;
+      font-size: 0.8rem; letter-spacing: 1px; text-transform: uppercase;
       margin: 0 0 8px; color: #fff;
     }
     input, select, textarea {
-      width: 100%; padding: 15px 16px; margin-bottom: 22px;
+      width: 100%; padding: 15px 16px; margin-bottom: 20px;
       background: #fff; color: var(--ink);
       border: 4px solid #fff; border-radius: 12px;
-      font-size: 1.05rem; font-family: inherit; font-weight: 700;
+      font-size: 16px; /* 16px keeps iOS Safari from auto-zooming on focus */
+      font-family: inherit; font-weight: 700;
     }
     input:focus, select:focus, textarea:focus {
       outline: none; border-color: var(--yellow);
@@ -143,27 +160,52 @@
     }
     textarea { resize: vertical; min-height: 76px; }
     button {
-      width: 100%; padding: 20px;
+      width: 100%; padding: 18px;
+      min-height: 56px; /* comfortable thumb target */
       background: var(--yellow);
       color: var(--ink);
       font-family: "Bungee", sans-serif;
-      font-size: clamp(1.2rem, 5vw, 1.7rem);
+      font-size: clamp(1.2rem, 5.5vw, 1.7rem);
       text-transform: uppercase; letter-spacing: 1px;
-      border: 5px solid #fff; border-radius: 14px; cursor: pointer;
+      border: 4px solid #fff; border-radius: 14px; cursor: pointer;
+      touch-action: manipulation;
       box-shadow: 0 0 0 0 var(--cyan);
       transition: transform 0.1s ease, box-shadow 0.1s ease, background 0.15s;
     }
-    button:hover { transform: translateY(-3px); box-shadow: 0 8px 0 var(--cyan); background: #fff; }
-    button:active { transform: translateY(0); box-shadow: 0 0 0 0 var(--cyan); }
+    button:active { transform: translateY(2px); box-shadow: 0 0 0 0 var(--cyan); background: #fff; }
     button:disabled { opacity: 0.6; cursor: default; transform: none; box-shadow: none; }
-    .status { margin-top: 20px; text-align: center; font-family: "Bungee", sans-serif; font-size: 1.1rem; min-height: 1.4em; }
+    .status { margin-top: 18px; text-align: center; font-family: "Bungee", sans-serif; font-size: 1.05rem; min-height: 1.4em; }
     .status.ok  { color: var(--lime); }
     .status.err { color: var(--pink); }
 
     footer {
-      text-align: center; margin-top: 50px;
-      font-family: "Bungee", sans-serif; font-size: 0.85rem;
+      text-align: center; margin-top: 44px;
+      font-family: "Bungee", sans-serif; font-size: 0.8rem;
       color: var(--ink); transform: rotate(-1deg);
+    }
+
+    /* ---------- Enhance for tablets / large phones (≥600px) ---------- */
+    @media (min-width: 600px) {
+      .wrap { padding-top: 30px; padding-bottom: 80px; }
+      header { margin-bottom: 44px; }
+      .kicker { font-size: 1.05rem; letter-spacing: 2px; padding: 8px 18px; margin-bottom: 14px; }
+      h1 { letter-spacing: -2px; text-shadow: 4px 4px 0 var(--pink), 8px 8px 0 var(--cyan), 12px 12px 0 var(--ink); }
+      .sub { margin-top: 22px; border-width: 4px; padding: 10px 16px; box-shadow: 7px 7px 0 var(--ink); }
+      .menu { gap: 22px; margin-bottom: 56px; }
+      .cocktail { border-width: 5px; border-radius: 18px; padding: 22px 24px; gap: 18px; box-shadow: 10px 10px 0 var(--ink); }
+      .price { padding: 6px 14px; border-radius: 12px; }
+      .card { border-radius: 22px; padding: 34px 26px; box-shadow: 12px 12px 0 var(--pink); }
+      .card h2 { text-shadow: 3px 3px 0 var(--pink); }
+      .card .hint { font-size: 1.05rem; margin-bottom: 26px; }
+      label { font-size: 0.85rem; }
+      input, select, textarea { padding: 15px 16px; border-radius: 12px; }
+      button { padding: 20px; border-width: 5px; }
+    }
+
+    /* ---------- Hover effects only where a real pointer exists ---------- */
+    @media (hover: hover) and (pointer: fine) {
+      .cocktail:hover { transform: translate(-3px,-3px); box-shadow: 13px 13px 0 var(--ink); }
+      button:hover { transform: translateY(-3px); box-shadow: 0 8px 0 var(--cyan); background: #fff; }
     }
   </style>
 </head>
@@ -183,7 +225,7 @@
 
       <form id="request-form" action="https://formspree.io/f/xwvzzjab" method="POST">
         <label for="name">Your name</label>
-        <input type="text" id="name" name="name" placeholder="DANIEL" required />
+        <input type="text" id="name" name="name" placeholder="DANIEL" autocomplete="name" required />
 
         <label for="cocktail">Cocktail</label>
         <select id="cocktail" name="cocktail" required></select>
