@@ -785,6 +785,19 @@
   //  The tree is DERIVED, not stored: at each step we offer only the
   //  ingredients that keep at least one real recipe reachable.
   // ====================================================================
+  // Shared one-time loader for the cocktail catalogue, used by both the
+  // Make-a-Drink flow and the Ask-the-bar / agent tooling below.
+  var _cocktailPromise = null;
+  function loadCocktails() {
+    if (!_cocktailPromise) {
+      _cocktailPromise = fetch("cocktails.json").then(function (r) {
+        if (!r.ok) { throw new Error("bad response"); }
+        return r.json();
+      });
+    }
+    return _cocktailPromise;
+  }
+
   (function mixology() {
     var launchBtn = $("mixology-open");
     var overlay   = $("mixology");
@@ -813,8 +826,7 @@
     // Lazy-load the data the first time the mode is opened.
     function ensureData(cb) {
       if (DATA || loadErr) { cb(); return; }
-      fetch("cocktails.json")
-        .then(function (r) { if (!r.ok) { throw new Error("bad"); } return r.json(); })
+      loadCocktails()
         .then(function (j) { DATA = j; cb(); })
         .catch(function () { loadErr = true; cb(); });
     }
@@ -1019,6 +1031,376 @@
     function checkHash() { if (location.hash === "#make") { open(); } }
     window.addEventListener("hashchange", checkHash);
     checkHash();
+  })();
+
+  // ====================================================================
+  //  THE BAR'S BRAIN  — one query/flavour layer over cocktails.json, with
+  //  four faces: a natural-language finder, voice input, agent tools
+  //  (WebMCP), and schema.org structured data. Each is a thin wrapper.
+  // ====================================================================
+  (function barBrain() {
+    var BASE_EMOJI = {
+      Gin: "🍸", Vodka: "🍸", Tequila: "🌵", Mezcal: "🔥", Rum: "🏝️", Whiskey: "🥃",
+      Scotch: "🥃", Brandy: "🍇", Cachaça: "🌿", Pisco: "🍇", Champagne: "🥂", Prosecco: "🥂"
+    };
+    // Flavour vocabulary the finder understands, with everyday synonyms.
+    var SYN = {
+      smoky: ["smoky", "smokey", "smoke", "peaty", "peat"],
+      bitter: ["bitter", "amaro", "aperitivo", "negroni"],
+      sweet: ["sweet", "dessert", "sugary", "pudding"],
+      sour: ["sour", "tart", "zesty", "zingy", "sharp", "citrus", "citrusy", "acidic", "tangy"],
+      creamy: ["creamy", "cream", "rich", "velvety", "smooth"],
+      fruity: ["fruity", "fruit", "berry", "berries"],
+      tropical: ["tropical", "tiki", "beach", "holiday", "summer", "summery", "coconut"],
+      spicy: ["spicy", "spice", "hot", "chili", "chilli", "heat", "fiery", "ginger"],
+      refreshing: ["refreshing", "refresh", "fresh", "crisp", "cooling", "light", "thirst", "thirsty"],
+      sparkling: ["sparkling", "fizzy", "fizz", "bubbly", "bubbles", "celebrate", "celebratory", "celebration"],
+      strong: ["strong", "boozy", "stiff", "spirit-forward", "stirred", "serious", "potent", "spiritforward"],
+      coffee: ["coffee", "espresso", "caffeine"],
+      herbal: ["herbal", "herby", "botanical", "herb"],
+      "long": ["long", "tall", "highball", "sessionable", "session"],
+      savoury: ["savoury", "savory", "umami", "brunch"]
+    };
+    var BASE_SYN = {
+      Gin: ["gin"], Vodka: ["vodka"], Tequila: ["tequila"], Mezcal: ["mezcal"], Rum: ["rum"],
+      Whiskey: ["whiskey", "whisky", "bourbon", "rye"], Scotch: ["scotch"],
+      Brandy: ["brandy", "cognac"], Cachaça: ["cachaça", "cachaca"], Pisco: ["pisco"],
+      Champagne: ["champagne"], Prosecco: ["prosecco", "spritz"]
+    };
+    var NEGATE = ["no", "not", "without", "hold", "skip", "avoid", "less", "minus"];
+
+    var DATA = null, tagIndex = {}, ingKeywords = {}, nameKeywords = {}, aiAvailable = false;
+    // Generic words that don't usefully identify an ingredient/drink alone.
+    var ING_STOP = { juice: 1, syrup: 1, liqueur: 1, bitters: 1, cream: 1, water: 1, soda: 1,
+      sec: 1, puree: 1, fresh: 1, white: 1, wine: 1, brine: 1, rim: 1, twist: 1,
+      cube: 1, sauce: 1, beer: 1, ale: 1, blanc: 1, dry: 1 };
+    var NAME_STOP = { with: 1, and: 1, the: 1, royale: 1, cocktail: 1, twist: 1 };
+
+    // Fold accents and lowercase, so "piña"/"pina", "crème"/"creme" all match.
+    function fold(s) {
+      return s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]/g, "");
+    }
+    function tokens(s) { return s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").split(/[^a-z0-9]+/).filter(Boolean); }
+
+    // Index distinctive words of ingredients and of cocktail names.
+    function buildKeywordIndexes() {
+      ingKeywords = {}; nameKeywords = {};
+      Object.keys(DATA.ingredients).forEach(function (name) {
+        tokens(name).forEach(function (tok) {
+          if (tok.length >= 4 && !ING_STOP[tok]) { (ingKeywords[tok] = ingKeywords[tok] || []).push(name); }
+        });
+      });
+      DATA.cocktails.forEach(function (c) {
+        tokens(c.name).forEach(function (tok) {
+          if (tok.length >= 4 && !NAME_STOP[tok]) { (nameKeywords[tok] = nameKeywords[tok] || []).push(c.id); }
+        });
+      });
+    }
+
+    // Derive flavour tags for one cocktail from its structure + ingredients.
+    function deriveTags(c) {
+      var ing = c.ingredients, cat = DATA.ingredients, t = {};
+      function any(arr) { return arr.some(function (x) { return ing.indexOf(x) !== -1; }); }
+      function hasCat(k) { return ing.some(function (i) { return cat[i] === k; }); }
+      function add(x) { t[x] = 1; }
+      var citrus = hasCat("citrus"), juice = hasCat("juice"), top = hasCat("top"), sweet = hasCat("sweetener");
+      if (!citrus && !juice && !top) { add("strong"); }
+      if (top) { add("long"); add("refreshing"); }
+      if (citrus) { add("sour"); }
+      if (c.base === "Mezcal" || c.base === "Scotch") { add("smoky"); }
+      if (c.base === "Champagne" || c.base === "Prosecco") { add("sparkling"); add("refreshing"); }
+      if (any(["Campari", "Aperol", "Amaro"])) { add("bitter"); }
+      if (any(["Green Chartreuse", "Yellow Chartreuse", "Bénédictine", "Absinthe", "Crème de Menthe", "Drambuie"])) { add("herbal"); }
+      if (any(["Cream", "Coconut Cream", "Irish Cream", "Crème de Cacao"])) { add("creamy"); }
+      if (any(["Pineapple Juice", "Passion Fruit Purée", "Coconut Cream", "Orgeat"])) { add("tropical"); }
+      if (any(["Cranberry Juice", "Orange Juice", "Peach Purée", "Strawberry Purée", "Pineapple Juice", "Passion Fruit Purée", "Grenadine"])) { add("fruity"); }
+      if (any(["Fresh Chili", "Hot Sauce", "Ginger Beer", "Ginger Ale", "Fresh Ginger"])) { add("spicy"); }
+      if (any(["Mint", "Cucumber"])) { add("refreshing"); }
+      if (any(["Champagne"])) { add("sparkling"); }
+      if (any(["Coffee Liqueur", "Espresso", "Coffee"])) { add("coffee"); }
+      if (any(["Tomato Juice", "Worcestershire Sauce", "Hot Sauce", "Olive Brine"])) { add("savoury"); }
+      if (any(["Grenadine", "Orgeat", "Coconut Cream", "Crème de Cacao", "Irish Cream", "Coffee Liqueur", "Peach Purée", "Strawberry Purée", "Raspberry Syrup"]) || (sweet && !citrus)) { add("sweet"); }
+      return Object.keys(t);
+    }
+
+    // Parse a free-text request into a scoring intent.
+    function parseQuery(q) {
+      var lower = q.toLowerCase();
+      var words = tokens(q);
+      var intent = { bases: {}, want: {}, avoid: {}, wantIng: [], avoidIng: [], names: {}, exact: {}, surprise: false, action: null };
+      if (/^(add|order|get|give|pour|make me|i'?ll have|can i (get|have)) /.test(lower.trim())) { intent.action = "add"; }
+      if (/\b(surprise|random|anything|whatever|dealer'?s? choice|you (choose|pick|decide))\b/.test(lower)) { intent.surprise = true; }
+
+      function negatedAt(idx) {
+        for (var k = Math.max(0, idx - 2); k < idx; k++) { if (NEGATE.indexOf(words[k]) !== -1) { return true; } }
+        return false;
+      }
+      words.forEach(function (w, i) {
+        var neg = negatedAt(i);
+        var singular = w.length > 4 && w.charAt(w.length - 1) === "s" ? w.slice(0, -1) : w;
+        Object.keys(SYN).forEach(function (tag) {
+          if (SYN[tag].indexOf(w) !== -1) { (neg ? intent.avoid : intent.want)[tag] = 1; }
+        });
+        Object.keys(BASE_SYN).forEach(function (b) {
+          if (BASE_SYN[b].map(fold).indexOf(w) !== -1 && !neg) { intent.bases[b] = 1; }
+        });
+        // Distinctive ingredient words, e.g. "elderflower", "tonic", "passion".
+        var ik = ingKeywords[w] || ingKeywords[singular];
+        if (ik) { ik.forEach(function (name) { (neg ? intent.avoidIng : intent.wantIng).push(name); }); }
+        // Cocktail-name words, e.g. "margarita(s)", "negroni", "gibson".
+        var nk = nameKeywords[w] || nameKeywords[singular];
+        if (nk && !neg) { nk.forEach(function (id) { intent.names[id] = 1; }); }
+      });
+      // Whole-name match (accent/space-insensitive) pins the exact drink,
+      // e.g. "a dirty martini" -> Dirty Martini, not Dry Martini.
+      var fq = fold(q);
+      if (fq.length >= 4) {
+        DATA.cocktails.forEach(function (c) { if (fq.indexOf(fold(c.name)) !== -1) { intent.exact[c.id] = 1; } });
+      }
+      return intent;
+    }
+
+    // Score a cocktail against an intent. -Infinity means "excluded".
+    function score(c, intent) {
+      if (Object.keys(intent.bases).length && !intent.bases[c.base]) { return -Infinity; }
+      var tags = tagIndex[c.id];
+      var i;
+      for (i = 0; i < intent.avoidIng.length; i++) { if (c.ingredients.indexOf(intent.avoidIng[i]) !== -1) { return -Infinity; } }
+      var avoidTags = Object.keys(intent.avoid);
+      for (i = 0; i < avoidTags.length; i++) { if (tags.indexOf(avoidTags[i]) !== -1) { return -Infinity; } }
+      var s = 0;
+      if (intent.exact[c.id]) { s += 8 + fold(c.name).length / 100; }  // whole-name match; prefer the more specific (longer) name
+      else if (intent.names[c.id]) { s += 5; }    // a name-word match still ranks high
+      Object.keys(intent.want).forEach(function (t) { if (tags.indexOf(t) !== -1) { s += 2; } });
+      intent.wantIng.forEach(function (ing) { if (c.ingredients.indexOf(ing) !== -1) { s += 3; } });
+      if (intent.bases[c.base]) { s += 1; }
+      return s;
+    }
+
+    // Core search used by every face. Returns up to `n` cocktails.
+    function search(intent, n) {
+      n = n || 5;
+      if (intent.surprise && !Object.keys(intent.want).length && !Object.keys(intent.bases).length && !intent.wantIng.length && !Object.keys(intent.names).length && !Object.keys(intent.exact).length) {
+        var pool = DATA.cocktails.slice();
+        for (var m = pool.length - 1; m > 0; m--) { var j = Math.floor(Math.random() * (m + 1)); var tmp = pool[m]; pool[m] = pool[j]; pool[j] = tmp; }
+        return pool.slice(0, n);
+      }
+      var scored = DATA.cocktails.map(function (c) { return { c: c, s: score(c, intent) }; })
+        .filter(function (x) { return x.s > -Infinity; });
+      var anySignal = scored.some(function (x) { return x.s > 0; });
+      if (!anySignal) {
+        // No usable signal — return a varied sample rather than nothing.
+        scored.sort(function () { return Math.random() - 0.5; });
+      } else {
+        scored.sort(function (a, b) { return b.s - a.s || a.c.ingredients.length - b.c.ingredients.length; });
+      }
+      return scored.slice(0, n).map(function (x) { return x.c; });
+    }
+
+    // Optional on-device AI (Chrome's Prompt API) to widen the intent.
+    // Always falls back to the local parse; never blocks the UI for long.
+    function enrichWithAI(q, intent) {
+      try {
+        var LM = (typeof self !== "undefined" && self.LanguageModel) ||
+                 (typeof window !== "undefined" && window.ai && (window.ai.languageModel || window.ai));
+        if (!LM || typeof LM.create !== "function") { return Promise.resolve(intent); }
+        var vocab = Object.keys(SYN).join(", ");
+        var prompt = "Flavour tags: " + vocab + ".\nFrom that list only, choose the tags that best match this drink request: \"" + q +
+          "\".\nReply with ONLY a comma-separated list of matching tags, nothing else.";
+        var work = LM.create().then(function (session) {
+          return session.prompt(prompt).then(function (out) {
+            try { session.destroy && session.destroy(); } catch (e) {}
+            String(out || "").toLowerCase().split(/[,\n]/).forEach(function (raw) {
+              var tag = raw.trim();
+              if (SYN[tag]) { intent.want[tag] = 1; }
+            });
+            aiAvailable = true;
+            return intent;
+          });
+        });
+        return Promise.race([work, new Promise(function (res) { setTimeout(function () { res(intent); }, 4000); })])
+          ["catch"](function () { return intent; });
+      } catch (e) { return Promise.resolve(intent); }
+    }
+
+    function lineFor(c) { return { id: "ask-" + c.id, base: c.base, name: c.name, emoji: BASE_EMOJI[c.base] || "🍸" }; }
+
+    // ---- Face 1 & 2: the Ask-the-bar finder + voice input --------------
+    var section = $("askbar"), form = $("askbar-form"), input = $("askbar-input"),
+        results = $("askbar-results"), micBtn = $("askbar-mic");
+
+    function renderResults(list, q, viaVoice) {
+      if (!list.length) {
+        results.innerHTML = '<p class="ask-empty">No match — try “smoky”, “fruity”, “bitter”, a base spirit, or “surprise me”.</p>';
+        return;
+      }
+      var head = aiAvailable ? '<p class="ask-head">✨ Understood with on-device AI · tap to add</p>'
+                             : '<p class="ask-head">Here’s what I’d pour · tap to add</p>';
+      results.innerHTML = head + list.map(function (c) {
+        var tags = tagIndex[c.id].slice(0, 3).map(function (t) { return '<span class="ask-tag">' + escapeHtml(t) + "</span>"; }).join("");
+        return '<div class="ask-hit">' +
+            '<div class="ask-hit-main">' +
+              '<span class="ask-hit-name">' + escapeHtml(c.name) + "</span> " +
+              '<span class="ask-hit-base">' + (BASE_EMOJI[c.base] || "🍸") + " " + escapeHtml(c.base) + "</span>" +
+              (c.blurb ? '<p class="ask-hit-blurb">' + escapeHtml(c.blurb) + "</p>" : "") +
+              '<p class="ask-hit-with">' + escapeHtml([c.base].concat(c.ingredients).join(" · ")) + "</p>" +
+              '<div class="ask-hit-tags">' + tags + "</div>" +
+            "</div>" +
+            '<button type="button" class="ask-hit-add" data-add="' + escapeHtml(c.id) + '">Add 🧺</button>' +
+          "</div>";
+      }).join("");
+      if (viaVoice) { speak("How about a " + list[0].name + "?"); }
+    }
+
+    function runSearch(text, viaVoice) {
+      var q = (text != null ? text : input.value || "").trim();
+      if (!q) { q = "surprise me"; }
+      var intent = parseQuery(q);
+      enrichWithAI(q, intent).then(function (finalIntent) {
+        var list = search(finalIntent, 5);
+        // Voice "add a margarita" → drop the top match straight in.
+        if (finalIntent.action === "add" && list.length) {
+          addLine(lineFor(list[0]));
+          results.innerHTML = '<p class="ask-head">Added a ' + escapeHtml(list[0].name) + " to your order 🧺</p>";
+          if (viaVoice) { speak("Added a " + list[0].name + " to your order."); }
+          return;
+        }
+        renderResults(list, q, viaVoice);
+      });
+    }
+
+    function speak(text) {
+      try {
+        if (window.speechSynthesis) { var u = new SpeechSynthesisUtterance(text); window.speechSynthesis.cancel(); window.speechSynthesis.speak(u); }
+      } catch (e) {}
+    }
+
+    if (form) {
+      form.addEventListener("submit", function (e) { e.preventDefault(); runSearch(null, false); });
+      results.addEventListener("click", function (e) {
+        var btn = e.target.closest("[data-add]");
+        if (!btn) { return; }
+        var c = DATA.cocktails.filter(function (x) { return x.id === btn.getAttribute("data-add"); })[0];
+        if (c) { addLine(lineFor(c)); btn.textContent = "Added ✓"; btn.disabled = true; btn.classList.add("is-added"); }
+      });
+    }
+
+    // Voice input via the Web Speech API (Chrome/Safari), if present.
+    function initVoice() {
+      var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SR || !micBtn) { return; }
+      micBtn.hidden = false;
+      var listening = false, rec = null;
+      micBtn.addEventListener("click", function () {
+        if (listening) { try { rec.stop(); } catch (e) {} return; }
+        rec = new SR(); rec.lang = "en-GB"; rec.interimResults = false; rec.maxAlternatives = 1;
+        rec.onstart = function () { listening = true; micBtn.classList.add("is-listening"); input.placeholder = "Listening…"; };
+        rec.onerror = function () { listening = false; micBtn.classList.remove("is-listening"); };
+        rec.onend = function () { listening = false; micBtn.classList.remove("is-listening"); input.placeholder = "What are you in the mood for?"; };
+        rec.onresult = function (ev) {
+          var said = ev.results[0][0].transcript;
+          input.value = said;
+          runSearch(said, true);
+        };
+        try { rec.start(); } catch (e) {}
+      });
+    }
+
+    // ---- Face 3: schema.org structured data for search engines/assistants
+    function injectStructuredData() {
+      var sections = {};
+      DATA.cocktails.forEach(function (c) { (sections[c.base] = sections[c.base] || []).push(c); });
+      var ld = {
+        "@context": "https://schema.org", "@type": "Menu", "name": "Cocktails",
+        "hasMenuSection": Object.keys(sections).map(function (base) {
+          return {
+            "@type": "MenuSection", "name": base,
+            "hasMenuItem": sections[base].map(function (c) {
+              return { "@type": "MenuItem", "name": c.name, "description": c.blurb || "",
+                "menuAddOn": c.ingredients.map(function (i) { return { "@type": "MenuItem", "name": i }; }) };
+            })
+          };
+        })
+      };
+      var tag = document.createElement("script");
+      tag.type = "application/ld+json";
+      tag.textContent = JSON.stringify(ld);
+      document.head.appendChild(tag);
+    }
+
+    // ---- Face 4: WebMCP-style agent tools ------------------------------
+    // Exposes the bar as callable tools. Registers with the browser's agent
+    // surface if present (navigator.modelContext), and always publishes a
+    // plain registry on window.barTools so it's usable/inspectable today.
+    function registerTools() {
+      var recipe = function (c) {
+        return { name: c.name, base: c.base, ingredients: c.ingredients, garnish: c.garnish,
+          ice: c.ice, glass: c.glass, blurb: c.blurb, flavours: tagIndex[c.id] };
+      };
+      var tools = [
+        { name: "search_cocktails",
+          description: "Find cocktails by free-text description, flavour, base spirit or ingredient (e.g. 'smoky, not sweet', 'a fruity rum drink').",
+          inputSchema: { type: "object", properties: { query: { type: "string" }, limit: { type: "number" } }, required: ["query"] },
+          handler: function (a) { var i = parseQuery(String(a && a.query || "")); return search(i, (a && a.limit) || 5).map(recipe); } },
+        { name: "get_recipe",
+          description: "Get the full recipe for a cocktail by name.",
+          inputSchema: { type: "object", properties: { name: { type: "string" } }, required: ["name"] },
+          handler: function (a) { var q = String(a && a.name || "").toLowerCase(); var c = DATA.cocktails.filter(function (x) { return x.name.toLowerCase() === q; })[0] || DATA.cocktails.filter(function (x) { return x.name.toLowerCase().indexOf(q) !== -1; })[0]; return c ? recipe(c) : { error: "not found" }; } },
+        { name: "recommend_cocktail",
+          description: "Recommend cocktails for a mood/flavour (e.g. 'bitter aperitivo', 'creamy dessert').",
+          inputSchema: { type: "object", properties: { preference: { type: "string" } }, required: ["preference"] },
+          handler: function (a) { return search(parseQuery(String(a && a.preference || "")), 3).map(recipe); } },
+        { name: "add_to_order",
+          description: "Add a cocktail (by name) to the current order/basket.",
+          inputSchema: { type: "object", properties: { name: { type: "string" }, quantity: { type: "number" } }, required: ["name"] },
+          handler: function (a) {
+            var q = String(a && a.name || "").toLowerCase();
+            var c = DATA.cocktails.filter(function (x) { return x.name.toLowerCase() === q; })[0] || DATA.cocktails.filter(function (x) { return x.name.toLowerCase().indexOf(q) !== -1; })[0];
+            if (!c) { return { error: "no cocktail named '" + (a && a.name) + "'" }; }
+            var qty = Math.max(1, Math.min(20, (a && a.quantity) || 1));
+            for (var k = 0; k < qty; k++) { addLine(lineFor(c)); }
+            return { added: c.name, quantity: qty };
+          } },
+        { name: "view_order",
+          description: "List what's currently in the order/basket.",
+          inputSchema: { type: "object", properties: {} },
+          handler: function () { return { items: basket.map(function (l) { return { name: l.name, base: l.base, quantity: l.qty }; }) }; } },
+        { name: "surprise_me",
+          description: "Pick a cocktail at random (bartender's choice).",
+          inputSchema: { type: "object", properties: {} },
+          handler: function () { return recipe(DATA.cocktails[Math.floor(Math.random() * DATA.cocktails.length)]); } }
+      ];
+
+      // Always-on plain registry (callable today).
+      window.barTools = {};
+      tools.forEach(function (t) { window.barTools[t.name] = t.handler; });
+
+      // Register with the browser agent surface if/when it exists.
+      try {
+        var mc = navigator.modelContext;
+        if (mc) {
+          if (typeof mc.registerTool === "function") {
+            tools.forEach(function (t) { mc.registerTool(t); });
+          } else if (typeof mc.provideContext === "function") {
+            mc.provideContext({ tools: tools });
+          }
+          console.info("[bar] " + tools.length + " WebMCP tools registered with navigator.modelContext.");
+        } else {
+          console.info("[bar] WebMCP not detected; " + tools.length + " tools available on window.barTools (e.g. window.barTools.search_cocktails({query:'smoky'})).");
+        }
+      } catch (e) { /* non-fatal */ }
+    }
+
+    // ---- Boot: load data once, then light up all four faces ------------
+    loadCocktails().then(function (data) {
+      DATA = data;
+      DATA.cocktails.forEach(function (c) { tagIndex[c.id] = deriveTags(c); });
+      buildKeywordIndexes();
+      injectStructuredData();
+      registerTools();
+      if (section) { section.hidden = false; }
+      initVoice();
+    }).catch(function () { /* leave Ask-the-bar hidden if data won't load */ });
   })();
 
   // ---- Background confetti cannon: emojis blast in from the edges -----

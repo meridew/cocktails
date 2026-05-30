@@ -27,6 +27,19 @@
       <button type="button" class="surprise mx-launch" id="mixology-open">🧪 Make a Drink</button>
     </header>
 
+    <!-- Ask the bar: natural-language / voice cocktail finder. Hidden until
+         app.js confirms the cocktail data loaded (progressive enhancement). -->
+    <section class="card askbar" id="askbar" hidden>
+      <h2 class="askbar-title">Ask the<br>bar</h2>
+      <p class="hint">▶ Describe what you fancy — <em>“something smoky, not too sweet”</em>, <em>“a fruity rum drink”</em>, <em>“surprise me”</em>.</p>
+      <form class="askbar-form" id="askbar-form">
+        <input type="text" id="askbar-input" class="askbar-input" placeholder="What are you in the mood for?" autocomplete="off" enterkeyhint="search" />
+        <button type="button" class="askbar-mic" id="askbar-mic" aria-label="Speak your request" hidden>🎙️</button>
+        <button type="submit" class="askbar-go" id="askbar-go">Find</button>
+      </form>
+      <div class="askbar-results" id="askbar-results" aria-live="polite"></div>
+    </section>
+
     <!-- The full menu is rendered from data in app.js -->
     <div id="menu-sections"></div>
 
