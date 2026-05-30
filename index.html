@@ -24,6 +24,7 @@
       <h1>Cocktails</h1>
       <p class="sub">Build your order. Leave your name. We serve.</p>
       <button type="button" class="surprise" id="surprise">🎲 Bartender's choice</button>
+      <button type="button" class="surprise mx-launch" id="mixology-open">🧪 Make a Drink</button>
     </header>
 
     <!-- The full menu is rendered from data in app.js -->
@@ -69,6 +70,23 @@
       <div class="sheet-body" id="cz-body"></div>
       <p class="sheet-recipe" id="cz-recipe"></p>
       <button type="button" class="send" id="cz-add">Add to order</button>
+    </div>
+  </div>
+
+  <!-- Build-a-drink discovery mode (full-screen, separate flow) -->
+  <div class="mx" id="mixology" role="dialog" aria-modal="true" aria-labelledby="mx-title" hidden>
+    <div class="mx-inner">
+      <div class="mx-head">
+        <h2 id="mx-title">🧪 Make a Drink</h2>
+        <button type="button" class="mx-close" id="mixology-close" aria-label="Close">✕</button>
+      </div>
+      <!-- running list of what you've added so far -->
+      <div class="mx-build" id="mx-build" aria-live="polite"></div>
+      <!-- the current question + its legitimate options -->
+      <div class="mx-step" id="mx-step"></div>
+      <!-- the reveal card (what you've made) lives here -->
+      <div class="mx-result" id="mx-result" hidden></div>
+      <button type="button" class="mx-restart" id="mx-restart" hidden>↺ Start over</button>
     </div>
   </div>
 

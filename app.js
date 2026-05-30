@@ -780,6 +780,205 @@
   // Paint the (empty) basket once at startup.
   renderBasket();
 
+  // ====================================================================
+  //  BUILD-A-DRINK  (a separate discovery flow, driven by cocktails.json)
+  //  The tree is DERIVED, not stored: at each step we offer only the
+  //  ingredients that keep at least one real recipe reachable.
+  // ====================================================================
+  (function mixology() {
+    var launchBtn = $("mixology-open");
+    var overlay   = $("mixology");
+    var closeBtn  = $("mixology-close");
+    var buildEl   = $("mx-build");
+    var stepEl    = $("mx-step");
+    var resultEl  = $("mx-result");
+    var restartBtn = $("mx-restart");
+    if (!launchBtn || !overlay) { return; }
+
+    var DATA = null;          // loaded cocktails.json
+    var loadErr = false;
+    var base = null;          // chosen base spirit
+    var picked = [];          // chosen ingredients (in order)
+    var catIndex = 0;         // position in DATA.categoryOrder
+
+    // Lazy-load the data the first time the mode is opened.
+    function ensureData(cb) {
+      if (DATA) { cb(); return; }
+      if (loadErr) { cb(); return; }
+      fetch("cocktails.json")
+        .then(function (r) { if (!r.ok) { throw new Error("bad"); } return r.json(); })
+        .then(function (j) { DATA = j; cb(); })
+        .catch(function () { loadErr = true; cb(); });
+    }
+
+    function bases() {
+      var seen = {}, out = [];
+      DATA.cocktails.forEach(function (c) { if (!seen[c.base]) { seen[c.base] = 1; out.push(c.base); } });
+      return out;
+    }
+    // Recipes still reachable: right base, and every ingredient picked so
+    // far is in the recipe (recipe is a superset of what we've chosen).
+    function reachable() {
+      return DATA.cocktails.filter(function (c) {
+        if (c.base !== base) { return false; }
+        return picked.every(function (p) { return c.ingredients.indexOf(p) !== -1; });
+      });
+    }
+    // An exact match = a recipe whose ingredient set equals our picks.
+    function exactMatch(recipes) {
+      for (var i = 0; i < recipes.length; i++) {
+        if (recipes[i].ingredients.length === picked.length) { return recipes[i]; }
+      }
+      return null;
+    }
+
+    // ---- Render helpers -------------------------------------------------
+    function renderBuild() {
+      if (!base) { buildEl.innerHTML = ""; return; }
+      var chips = '<span class="mx-chip mx-chip-base">' + escapeHtml(base) + "</span>" +
+        picked.map(function (p) { return '<span class="mx-chip">' + escapeHtml(p) + "</span>"; }).join("");
+      buildEl.innerHTML = '<div class="mx-build-row">' + chips + "</div>";
+    }
+
+    function btnRow(label, options) {
+      // options: [{ text, val }]; the click value is read by the caller.
+      var html = '<p class="mx-q">' + escapeHtml(label) + "</p><div class=\"mx-opts\">";
+      html += options.map(function (o) {
+        return '<button type="button" class="mx-opt" data-val="' + escapeHtml(o.val) + '">' + escapeHtml(o.text) + "</button>";
+      }).join("");
+      return html + "</div>";
+    }
+
+    function start() {
+      base = null; picked = []; catIndex = 0;
+      resultEl.hidden = true; resultEl.innerHTML = "";
+      restartBtn.hidden = true;
+      renderBuild();
+      if (loadErr || !DATA) {
+        stepEl.innerHTML = '<p class="mx-q">Couldn’t load the cocktail book. Please try again later.</p>';
+        return;
+      }
+      stepEl.innerHTML = btnRow("Pick your base spirit", bases().map(function (b) { return { text: b, val: b }; }));
+    }
+
+    function nextStep() {
+      renderBuild();
+      var recipes = reachable();
+
+      // Nothing matches (shouldn't happen, but stay safe).
+      if (!recipes.length) { reveal(null); return; }
+
+      // Advance through categories, offering only ingredients that keep a
+      // recipe reachable. Skip categories with no live options.
+      while (catIndex < DATA.categoryOrder.length) {
+        var cat = DATA.categoryOrder[catIndex];
+        // candidate ingredients in this category, present in some reachable
+        // recipe, not already picked, and which keep >=1 recipe alive.
+        var seen = {}, opts = [];
+        recipes.forEach(function (c) {
+          c.ingredients.forEach(function (ing) {
+            if (picked.indexOf(ing) !== -1) { return; }
+            if (DATA.ingredients[ing] !== cat) { return; }
+            if (seen[ing]) { return; }
+            seen[ing] = 1;
+            opts.push(ing);
+          });
+        });
+
+        var exact = exactMatch(recipes);
+
+        if (!opts.length) { catIndex++; continue; } // nothing here, move on
+
+        // Build the question. Always allow "None / next".
+        var choices = opts.map(function (ing) { return { text: "+ " + ing, val: "add:" + ing }; });
+        choices.push({ text: exact ? "Stop here ✓" : "None / next", val: "skip" });
+
+        var label = DATA.categoryLabels[cat] || "Add something?";
+        stepEl.innerHTML =
+          (exact ? '<p class="mx-sofar">So far you’ve made a <strong>' + escapeHtml(exact.name) + '</strong> — keep going, or stop here.</p>' : "") +
+          btnRow(label, choices);
+        return;
+      }
+
+      // Ran out of categories — reveal whatever we've matched.
+      reveal(exactMatch(recipes) || recipes[0]);
+    }
+
+    function reveal(drink) {
+      stepEl.innerHTML = "";
+      restartBtn.hidden = false;
+      if (!drink) {
+        resultEl.hidden = false;
+        resultEl.innerHTML = '<div class="mx-card"><h3>Hmm…</h3><p>That combination isn’t a classic we know — try again!</p></div>';
+        return;
+      }
+      resultEl.hidden = false;
+      resultEl.innerHTML =
+        '<div class="mx-card mx-reveal">' +
+          '<p class="mx-congrats">You’ve made a…</p>' +
+          "<h3>" + escapeHtml(drink.name) + "</h3>" +
+          (drink.blurb ? '<p class="mx-blurb">' + escapeHtml(drink.blurb) + "</p>" : "") +
+          '<dl class="mx-spec">' +
+            '<dt>Base</dt><dd>' + escapeHtml(drink.base) + "</dd>" +
+            (drink.ingredients.length ? "<dt>With</dt><dd>" + escapeHtml(drink.ingredients.join(", ")) + "</dd>" : "") +
+            (drink.garnish ? "<dt>Garnish</dt><dd>" + escapeHtml(drink.garnish) + "</dd>" : "") +
+            (drink.ice ? "<dt>Ice</dt><dd>" + escapeHtml(drink.ice) + "</dd>" : "") +
+            (drink.glass ? "<dt>Glass</dt><dd>" + escapeHtml(drink.glass) + "</dd>" : "") +
+          "</dl>" +
+        "</div>";
+      if (!reducedMotion() && typeof fireMxBurst === "function") { /* reserved */ }
+    }
+
+    // ---- Event wiring ---------------------------------------------------
+    stepEl.addEventListener("click", function (e) {
+      var btn = e.target.closest(".mx-opt");
+      if (!btn) { return; }
+      var val = btn.getAttribute("data-val");
+      if (!base) {            // first click chooses the base
+        base = val;
+        catIndex = 0;
+        nextStep();
+        return;
+      }
+      if (val === "skip") {   // "None / next" or "Stop here"
+        var recipes = reachable();
+        var exact = exactMatch(recipes);
+        catIndex++;
+        if (exact) { reveal(exact); } else { nextStep(); }
+        return;
+      }
+      if (val.indexOf("add:") === 0) {
+        picked.push(val.slice(4));
+        // stay on the same category in case it offers more, else nextStep advances
+        nextStep();
+      }
+    });
+
+    function open() {
+      ensureData(function () {
+        start();
+        overlay.hidden = false;
+        document.body.style.overflow = "hidden";
+        closeBtn.focus();
+      });
+    }
+    function close() {
+      overlay.hidden = true;
+      document.body.style.overflow = "";
+      if (location.hash === "#make") { history.replaceState(null, "", location.pathname + location.search); }
+      launchBtn.focus();
+    }
+
+    launchBtn.addEventListener("click", open);
+    closeBtn.addEventListener("click", close);
+    restartBtn.addEventListener("click", start);
+    overlay.addEventListener("click", function (e) { if (e.target === overlay) { close(); } });
+    document.addEventListener("keydown", function (e) { if (e.key === "Escape" && !overlay.hidden) { close(); } });
+    function checkHash() { if (location.hash === "#make") { open(); } }
+    window.addEventListener("hashchange", checkHash);
+    checkHash();
+  })();
+
   // ---- Background confetti cannon: emojis blast in from the edges -----
   (function buildConfetti() {
     if (reducedMotion()) { return; } // skip the whole effect for motion-sensitive users
