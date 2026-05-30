@@ -177,20 +177,6 @@ h1 {
 }
 .fav[aria-pressed="true"] { background: var(--yellow); }
 .fav:active { transform: scale(0.9); }
-/* tags + strength gauge */
-.meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 12px; }
-.tag {
-  font-family: "Bungee", sans-serif; font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.5px;
-  background: #fff; color: var(--ink); border: 2px solid var(--ink); border-radius: 999px; padding: 3px 9px;
-}
-.strength { display: inline-flex; align-items: center; gap: 3px; margin-left: auto; }
-.strength i { width: 9px; height: 9px; display: block; border: 2px solid var(--ink); border-radius: 999px; background: transparent; }
-.strength i.on { background: var(--ink); }
-.ingredients { display: flex; flex-wrap: wrap; gap: 7px; margin: 0 0 14px; padding: 0; list-style: none; }
-.ingredients li {
-  font-weight: 700; font-size: clamp(0.78rem, 3.3vw, 0.95rem);
-  background: var(--ink); color: #fff; padding: 5px 11px; border-radius: 999px;
-}
 /* per-card call to action */
 .order {
   width: 100%; min-height: 48px; padding: 12px;
@@ -207,7 +193,8 @@ h1 {
 
 /* visible keyboard focus for every interactive control */
 :where(.chip, .order, .qty-btn, button.send, .basket-pill, .basket-clear,
-       .btn-no, .btn-yes, .fav, .surprise, .theme-btn, .reorder-btn):focus-visible {
+       .btn-no, .btn-yes, .fav, .surprise, .theme-btn, .reorder-btn,
+       .seg, .sheet-close):focus-visible {
   outline: 3px solid var(--cyan); outline-offset: 3px;
 }
 
@@ -415,6 +402,59 @@ footer { text-align: center; margin-top: 40px; font-family: "Bungee", sans-serif
 .btn-yes { background: #fff;        color: var(--ink); } /* Yes → back out */
 .btn-no:active, .btn-yes:active { transform: translateY(2px); }
 @media (min-width: 420px) { .confirm-actions { grid-template-columns: 1fr 1fr; } }
+
+/* ---------------- CUSTOMISE BOTTOM-SHEET ----------------
+   Boozy drinks open this to pick base / spice / strength. */
+.sheet {
+  position: fixed; inset: 0; z-index: 1100;
+  display: flex; align-items: flex-end; justify-content: center;
+  background: rgba(10, 10, 18, 0.92);
+  -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px);
+}
+.sheet[hidden] { display: none; }
+.sheet-card {
+  position: relative; width: 100%; max-width: 520px;
+  background: #fff; color: var(--ink);
+  border: var(--border) solid var(--ink);
+  border-top-left-radius: 24px; border-top-right-radius: 24px;
+  box-shadow: 0 -8px 0 var(--pink);
+  padding: 26px 22px calc(26px + env(safe-area-inset-bottom));
+  animation: sheetup 0.3s cubic-bezier(0.2, 0.9, 0.3, 1) both;
+}
+@keyframes sheetup { 0% { transform: translateY(100%); } 100% { transform: translateY(0); } }
+.sheet-close {
+  position: absolute; top: 12px; right: 12px;
+  width: 38px; height: 38px; display: flex; align-items: center; justify-content: center;
+  font-size: 1rem; background: #fff; color: var(--ink);
+  border: 3px solid var(--ink); border-radius: 999px; cursor: pointer; touch-action: manipulation;
+}
+.sheet-card h2 {
+  font-family: "Archivo Black", sans-serif; text-transform: uppercase;
+  margin: 0 0 18px; padding-right: 44px; font-size: clamp(1.6rem, 7vw, 2.3rem);
+  line-height: 0.95; text-shadow: 2px 2px 0 var(--pink);
+}
+.opt { margin: 0 0 16px; }
+.opt-label {
+  display: block; font-family: "Bungee", sans-serif; font-size: 0.72rem;
+  letter-spacing: 1px; text-transform: uppercase; margin: 0 0 8px;
+}
+.seg-group { display: flex; gap: 8px; flex-wrap: wrap; }
+.seg {
+  flex: 1 1 0; min-width: 96px; min-height: 48px; padding: 10px 12px;
+  font-family: "Bungee", sans-serif; font-size: clamp(0.8rem, 3.6vw, 0.95rem); text-transform: uppercase;
+  background: #fff; color: var(--ink); border: 3px solid var(--ink); border-radius: 11px;
+  cursor: pointer; touch-action: manipulation; transition: background .15s, color .15s, transform .08s;
+}
+.seg[aria-pressed="true"] { background: var(--ink); color: var(--yellow); }
+.seg:active { transform: translateY(1px); }
+.sheet-recipe {
+  font-size: 0.85rem; font-weight: 700; line-height: 1.4; margin: 4px 0 20px;
+  color: rgba(10, 10, 18, 0.65);
+}
+#cz-add { margin-top: 2px; }
+@media (hover: hover) and (pointer: fine) {
+  .seg:not([aria-pressed="true"]):hover { background: rgba(10,10,18,0.08); }
+}
 
 /* ---------- Respect reduced-motion preference ---------- */
 @media (prefers-reduced-motion: reduce) {

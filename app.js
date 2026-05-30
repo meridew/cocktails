@@ -2,51 +2,71 @@
    COCKTAILS — app logic
    One data source (SECTIONS) drives the chip nav, the menu, the
    order basket, favourites, re-ordering and the theme switcher.
+   Boozy drinks open a shared "customise" sheet; everything else
+   is a one-tap add.
    ============================================================ */
 (function () {
   "use strict";
 
-  // ---- Tag + theme vocabularies ----------------------------------------
-  var TAGS = {
-    spicy:  { emoji: "🌶️", label: "Spicy" },
-    fruity: { emoji: "🍓", label: "Fruity" },
-    strong: { emoji: "🔥", label: "Strong" },
-    zero:   { emoji: "🌱", label: "0%" },
-  };
   var THEMES = ["neon", "tiki", "speakeasy"];
   var THEME_LABELS = { neon: "Neon", tiki: "Tiki", speakeasy: "Speakeasy" };
 
+  // Shared option block: every boozy drink offers the same strength choice.
+  var STRENGTH_OPT = {
+    key: "strength", label: "Strength",
+    choices: [
+      { value: "Single", label: "Single", tag: "Single" },
+      { value: "Double", label: "Double", tag: "Double", adds: ["Extra shot"] },
+    ],
+  };
+
   // ---- Data: one place to edit the menu --------------------------------
+  // Items with `options` open the customise sheet; the rest are quick-add.
   var SECTIONS = [
     {
       key: "margarita", label: "Margaritas", emoji: "🍹",
       items: [
-        { name: "Margarita",                  emoji: "🍋‍🟩", strength: 3, tags: [],                 ingredients: ["Tequila", "Triple Sec / Cointreau", "Lime", "Simple Syrup (opt.)", "Crushed Ice", "Salt rim"] },
-        { name: "Spicy Margarita",            emoji: "🌶️",   strength: 3, tags: ["spicy"],          ingredients: ["Tequila", "Triple Sec / Cointreau", "Lime", "Fresh Chili (jalapeño/red)", "Simple Syrup / Agave", "Crushed Ice", "Salt or Tajín rim"] },
-        { name: "Watermelon Margarita",       emoji: "🍉",    strength: 2, tags: ["fruity"],         ingredients: ["Watermelon", "Tequila", "Triple Sec / Cointreau", "Lime", "Simple Syrup (opt.)", "Crushed Ice", "Salt rim"] },
-        { name: "Spicy Watermelon Margarita", emoji: "🌶️🍉", strength: 3, tags: ["spicy", "fruity"], ingredients: ["Watermelon", "Tequila", "Triple Sec / Cointreau", "Lime", "Fresh Chili (jalapeño/red)", "Simple Syrup / Agave", "Crushed Ice", "Tajín rim"] },
+        {
+          name: "Margarita", emoji: "🍹",
+          baseIngredients: ["Tequila", "Triple Sec / Cointreau", "Lime", "Crushed Ice", "Salt rim"],
+          options: [
+            { key: "base", label: "Base", choices: [
+              { value: "Regular",    label: "Regular",    emoji: "🍋‍🟩", tag: "Regular" },
+              { value: "Watermelon", label: "Watermelon", emoji: "🍉",   tag: "Watermelon", adds: ["Watermelon"] },
+            ] },
+            { key: "spicy", label: "Spice", choices: [
+              { value: "No",    label: "No" },
+              { value: "Spicy", label: "Spicy", emoji: "🌶️", tag: "Spicy", adds: ["Fresh Chili"] },
+            ] },
+            STRENGTH_OPT,
+          ],
+        },
       ],
     },
     {
       key: "booze", label: "Boozy", emoji: "🥃",
       items: [
-        { name: "Old Fashioned", emoji: "🥃", strength: 5, tags: ["strong"], ingredients: ["Bourbon / Rye Whiskey", "Sugar Cube", "Angostura Bitters", "Orange Peel", "Large Ice Cube", "Cocktail Cherry"] },
+        {
+          name: "Old Fashioned", emoji: "🥃",
+          baseIngredients: ["Bourbon / Rye Whiskey", "Sugar Cube", "Angostura Bitters", "Orange Peel", "Large Ice Cube"],
+          options: [STRENGTH_OPT],
+        },
       ],
     },
     {
       key: "free", label: "Alcohol-Free", emoji: "🌱",
       items: [
-        { name: "Virgin Mojito",             emoji: "🌿", strength: 0, tags: ["zero"], ingredients: ["Fresh Mint", "Lime", "Simple Syrup / Sugar", "Sparkling Mineral Water", "Crushed Ice"] },
-        { name: "Virgin Moscow Mule",        emoji: "🫚", strength: 0, tags: ["zero"], ingredients: ["Ginger Beer", "Lime", "Fresh Ginger (opt.)", "Crushed Ice"] },
-        { name: "Pomegranate & Elderflower", emoji: "🌸", strength: 0, tags: ["zero"], ingredients: ["Fresh Mint", "Lime", "Pomegranate Juice", "Elderflower Cordial", "Sparkling Mineral Water", "Crushed Ice"] },
+        { name: "Virgin Mojito",             emoji: "🌿" },
+        { name: "Virgin Moscow Mule",        emoji: "🫚" },
+        { name: "Pomegranate & Elderflower", emoji: "🌸" },
       ],
     },
     {
       key: "food", label: "Food", emoji: "🍔",
       items: [
-        { name: "Chicken", emoji: "🍗", strength: 0, tags: [], ingredients: ["Grilled Chicken", "Lemon & Herbs", "Fries", "Slaw"] },
-        { name: "Lamb",    emoji: "🍖", strength: 0, tags: [], ingredients: ["Slow-Cooked Lamb", "Rosemary", "Roast Potatoes", "Mint Sauce"] },
-        { name: "Burger",  emoji: "🍔", strength: 0, tags: [], ingredients: ["Beef Patty", "Cheese", "Lettuce & Tomato", "Brioche Bun", "Fries"] },
+        { name: "Chicken", emoji: "🍗" },
+        { name: "Lamb",    emoji: "🍖" },
+        { name: "Burger",  emoji: "🍔" },
       ],
     },
   ];
@@ -84,6 +104,14 @@
   var confirmNo      = $("confirm-no");
   var confirmYes     = $("confirm-yes");
 
+  // customise sheet
+  var sheet    = $("customise");
+  var czTitle  = $("cz-title");
+  var czBody   = $("cz-body");
+  var czRecipe = $("cz-recipe");
+  var czAdd    = $("cz-add");
+  var czClose  = $("cz-close");
+
   // ---- Helpers ----------------------------------------------------------
   function reducedMotion() {
     return window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -97,33 +125,66 @@
   function lsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* ignore */ } }
   function lsJSON(k) { try { var v = JSON.parse(lsGet(k)); return Array.isArray(v) ? v : []; } catch (e) { return []; } }
 
-  // Stable id for an item, e.g. "Spicy Margarita (Margaritas)"
-  function drinkId(item, section) { return item.name + " (" + section.label + ")"; }
+  // Stable id for a base item, e.g. "Margarita (Margaritas)"
+  function baseId(item, section) { return item.name + " (" + section.label + ")"; }
+  function isCustomisable(item) { return item.options && item.options.length; }
+  function findChoice(opt, val) {
+    for (var i = 0; i < opt.choices.length; i++) { if (opt.choices[i].value === val) { return opt.choices[i]; } }
+    return opt.choices[0];
+  }
 
-  // Index every item by id (for favourites + re-order lookups).
+  // Index every base item by id (for favourites + re-order validation).
   var itemIndex = {};
   SECTIONS.forEach(function (section) {
-    section.items.forEach(function (item) { itemIndex[drinkId(item, section)] = { item: item, section: section }; });
+    section.items.forEach(function (item) { itemIndex[baseId(item, section)] = { item: item, section: section }; });
   });
 
   // ---- Favourites + last order (persisted) -----------------------------
   var favs = lsJSON(FAV_KEY);
   function isFav(id) { return favs.indexOf(id) !== -1; }
 
-  var lastOrder = lsJSON(LAST_KEY).filter(function (l) { return itemIndex[l.id]; });
+  var lastOrder = lsJSON(LAST_KEY).filter(function (l) { return itemIndex[l.base || l.id]; });
+
+  // ---- Order line builders ---------------------------------------------
+  // A line: { id, base, name, emoji, qty }. `id` encodes the config so
+  // identical configs stack and different ones stay separate.
+  function lineForQuick(item, section) {
+    var id = baseId(item, section);
+    return { id: id, base: id, name: item.name, emoji: item.emoji };
+  }
+  function lineForConfig(item, section, config) {
+    var base = baseId(item, section);
+    var idParts = [base];
+    var tags = [];
+    item.options.forEach(function (opt) {
+      var val = config[opt.key];
+      idParts.push(val);
+      var choice = findChoice(opt, val);
+      if (choice.tag) { tags.push(choice.tag); }
+    });
+    var name = item.name + (tags.length ? " · " + tags.join(" · ") : "");
+    return { id: idParts.join("|"), base: base, name: name, emoji: item.emoji };
+  }
+  function recipeFor(item, config) {
+    var list = (item.baseIngredients || []).slice();
+    item.options.forEach(function (opt) {
+      var choice = findChoice(opt, config[opt.key]);
+      if (choice.adds) { list = list.concat(choice.adds); }
+    });
+    return list;
+  }
 
   // ---- The order basket -------------------------------------------------
-  var basket = []; // [{ id, name, emoji, qty }]
+  var basket = []; // [{ id, base, name, emoji, qty }]
 
   function findLine(id) {
     for (var i = 0; i < basket.length; i++) { if (basket[i].id === id) { return basket[i]; } }
     return null;
   }
-  function addToBasket(item, section) {
-    var id = drinkId(item, section);
-    var line = findLine(id);
-    if (line) { line.qty++; }
-    else { basket.push({ id: id, name: item.name, emoji: item.emoji, qty: 1 }); }
+  function addLine(line) {
+    var existing = findLine(line.id);
+    if (existing) { existing.qty++; }
+    else { basket.push({ id: line.id, base: line.base, name: line.name, emoji: line.emoji, qty: 1 }); }
     renderBasket();
     bumpPill();
   }
@@ -176,7 +237,7 @@
   // Basket controls (event-delegated so they survive re-renders).
   basketEl.addEventListener("click", function (e) {
     if (e.target.closest(".reorder-btn")) {
-      basket = lastOrder.map(function (l) { return { id: l.id, name: l.name, emoji: l.emoji, qty: l.qty }; });
+      basket = lastOrder.map(function (l) { return { id: l.id, base: l.base, name: l.name, emoji: l.emoji, qty: l.qty }; });
       renderBasket();
       bumpPill();
       return;
@@ -194,7 +255,7 @@
     changeQty(id, btn.getAttribute("data-act") === "inc" ? 1 : -1);
   });
 
-  // Brief "Added ✓" confirmation right where the user tapped.
+  // Brief "Added ✓" confirmation on a quick-add button.
   function flashAdded(btn) {
     btn.classList.add("added");
     btn.textContent = "Added ✓";
@@ -214,43 +275,83 @@
 
   // ---- Build a menu card (used by both the menu and favourites) --------
   function buildCard(item, section) {
-    var id = drinkId(item, section);
+    var id = baseId(item, section);
     var card = document.createElement("article");
     card.className = "cocktail";
     card.setAttribute("data-id", id);
 
-    var tagsHtml = (item.tags || []).map(function (t) {
-      var def = TAGS[t];
-      return def ? '<span class="tag">' + def.emoji + " " + def.label + "</span>" : "";
-    }).join("");
-
-    var strengthHtml = "";
-    if (item.strength >= 1) {
-      var dots = "";
-      for (var s = 1; s <= 5; s++) { dots += '<i class="' + (s <= item.strength ? "on" : "") + '"></i>'; }
-      strengthHtml = '<span class="strength" aria-label="Strength ' + item.strength + ' of 5" title="Strength">' + dots + "</span>";
-    }
-    var metaHtml = (tagsHtml || strengthHtml) ? '<div class="meta">' + tagsHtml + strengthHtml + "</div>" : "";
-
-    var chips = item.ingredients.map(function (i) { return "<li>" + escapeHtml(i) + "</li>"; }).join("");
     var faved = isFav(id);
+    var custom = isCustomisable(item);
 
     card.innerHTML =
       '<button type="button" class="fav" data-fav-id="' + escapeHtml(id) + '" aria-pressed="' + (faved ? "true" : "false") +
         '" aria-label="' + (faved ? "Remove " : "Save ") + escapeHtml(item.name) + ' to favourites">' + (faved ? "★" : "☆") + "</button>" +
       '<h3><span class="emoji">' + item.emoji + "</span>" + escapeHtml(item.name) + "</h3>" +
-      metaHtml +
-      '<ul class="ingredients">' + chips + "</ul>" +
-      '<button type="button" class="order">Add to order +</button>';
+      '<button type="button" class="order">' + (custom ? "Customise →" : "Add to order +") + "</button>";
 
     var orderBtn = card.querySelector(".order");
-    orderBtn.addEventListener("click", function () {
-      addToBasket(item, section);
-      flashAdded(orderBtn);
-    });
+    if (custom) {
+      orderBtn.addEventListener("click", function () { openCustomise(item, section, orderBtn); });
+    } else {
+      orderBtn.addEventListener("click", function () { addLine(lineForQuick(item, section)); flashAdded(orderBtn); });
+    }
     card.querySelector(".fav").addEventListener("click", function () { toggleFav(id); });
     return card;
   }
+
+  // ---- Customise sheet --------------------------------------------------
+  var czItem = null, czSection = null, czConfig = {}, czTrigger = null;
+
+  function openCustomise(item, section, trigger) {
+    czItem = item;
+    czSection = section;
+    czTrigger = trigger || null;
+    czConfig = {};
+    item.options.forEach(function (opt) { czConfig[opt.key] = opt.choices[0].value; }); // defaults
+
+    czTitle.textContent = item.name;
+    czBody.innerHTML = item.options.map(function (opt) {
+      var segs = opt.choices.map(function (c) {
+        return '<button type="button" class="seg" data-opt="' + escapeHtml(opt.key) + '" data-val="' + escapeHtml(c.value) +
+          '" aria-pressed="' + (c.value === czConfig[opt.key] ? "true" : "false") + '">' +
+          (c.emoji ? c.emoji + " " : "") + escapeHtml(c.label) + "</button>";
+      }).join("");
+      return '<div class="opt"><span class="opt-label">' + escapeHtml(opt.label) + '</span><div class="seg-group">' + segs + "</div></div>";
+    }).join("");
+
+    updateRecipe();
+    sheet.hidden = false;
+    document.body.style.overflow = "hidden";
+    czAdd.focus();
+  }
+  function closeCustomise() {
+    sheet.hidden = true;
+    document.body.style.overflow = "";
+    if (czTrigger) { czTrigger.focus(); }
+  }
+  function updateRecipe() {
+    czRecipe.textContent = recipeFor(czItem, czConfig).join(" · ");
+  }
+  czBody.addEventListener("click", function (e) {
+    var seg = e.target.closest(".seg");
+    if (!seg) { return; }
+    var key = seg.getAttribute("data-opt");
+    czConfig[key] = seg.getAttribute("data-val");
+    var group = seg.parentNode;
+    Array.prototype.forEach.call(group.querySelectorAll(".seg"), function (x) {
+      x.setAttribute("aria-pressed", x === seg ? "true" : "false");
+    });
+    updateRecipe();
+  });
+  czAdd.addEventListener("click", function () {
+    addLine(lineForConfig(czItem, czSection, czConfig));
+    closeCustomise();
+  });
+  czClose.addEventListener("click", closeCustomise);
+  sheet.addEventListener("click", function (e) { if (e.target === sheet) { closeCustomise(); } });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && !sheet.hidden) { closeCustomise(); }
+  });
 
   // ---- Favourites -------------------------------------------------------
   var favSection, favMenu, favChip;
@@ -260,7 +361,6 @@
     if (i === -1) { favs.push(id); } else { favs.splice(i, 1); }
     lsSet(FAV_KEY, JSON.stringify(favs));
 
-    // Sync every star button for this id (it can appear twice: menu + favourites).
     var on = isFav(id);
     var stars = document.querySelectorAll('.fav[data-fav-id="' + id + '"]');
     Array.prototype.forEach.call(stars, function (b) {
@@ -340,7 +440,7 @@
     chipRefs.forEach(function (r) { spy.observe(r.sec); });
   }
 
-  // ---- 🎲 Bartender's choice: add a random drink -----------------------
+  // ---- 🎲 Bartender's choice: add a random drink (rolls options too) ---
   surpriseBtn.addEventListener("click", function () {
     var pool = [];
     SECTIONS.forEach(function (section) {
@@ -349,7 +449,15 @@
     });
     if (!pool.length) { return; }
     var pick = pool[Math.floor(Math.random() * pool.length)];
-    addToBasket(pick.item, pick.section);
+    var item = pick.item, section = pick.section;
+
+    if (isCustomisable(item)) {
+      var config = {};
+      item.options.forEach(function (opt) { config[opt.key] = opt.choices[Math.floor(Math.random() * opt.choices.length)].value; });
+      addLine(lineForConfig(item, section, config));
+    } else {
+      addLine(lineForQuick(item, section));
+    }
 
     if (!reducedMotion()) {
       surpriseBtn.classList.remove("spin");
@@ -357,12 +465,10 @@
       surpriseBtn.classList.add("spin");
     }
 
-    var id = drinkId(pick.item, pick.section);
-    var card = document.querySelector("#section-" + pick.section.key + ' [data-id="' + id + '"]');
+    var card = document.querySelector("#section-" + section.key + ' [data-id="' + baseId(item, section) + '"]');
     if (card) {
       card.scrollIntoView({ behavior: reducedMotion() ? "auto" : "smooth", block: "center" });
-      var ob = card.querySelector(".order");
-      if (ob) { flashAdded(ob); }
+      if (!isCustomisable(item)) { flashAdded(card.querySelector(".order")); }
       card.classList.remove("just-picked");
       void card.offsetWidth;
       card.classList.add("just-picked");
@@ -441,7 +547,6 @@
         if (!res.ok) { throw new Error("Bad response"); }
         var orderedName = nameInput.value.trim();
         var orderedLines = basket.slice();
-        // Remember this order so it can be re-ordered next time.
         lastOrder = orderedLines.slice();
         lsSet(LAST_KEY, JSON.stringify(lastOrder));
         basket = [];
