@@ -5,24 +5,24 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>COCKTAILS!!!</title>
   <meta name="description" content="Margaritas, cocktails, mocktails & food — build an order, drop your name, get served." />
-  <meta name="theme-color" content="#ffe600" />
+  <meta name="theme-color" content="#0c0c0e" />
   <!-- Fun custom-drawn high-contrast cocktail glass favicon -->
   <link rel="icon" type="image/svg+xml" href="favicon.svg" />
   <link rel="apple-touch-icon" href="favicon.svg" />
-  <!-- Apply the saved theme before first paint to avoid a flash -->
-  <script>try{var t=localStorage.getItem("cocktail_theme");if(t){document.documentElement.setAttribute("data-theme",t);}}catch(e){}</script>
+  <!-- Apply the saved theme before first paint to avoid a flash (default = classy) -->
+  <script>try{document.documentElement.setAttribute("data-theme",localStorage.getItem("cocktail_theme")||"classy");}catch(e){}</script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Bungee&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Bungee&family=Playfair+Display:ital,wght@0,700;0,900;1,500&family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
   <div class="wrap">
     <header>
-      <button type="button" class="theme-btn" id="theme-btn" aria-label="Change theme">🎨</button>
-      <span class="kicker">★ OPEN BAR ★</span>
+      <button type="button" class="theme-btn" id="theme-btn" aria-label="Switch theme">🎩</button>
+      <span class="kicker">★ Open Bar ★</span>
       <h1>Cocktails</h1>
-      <p class="sub">BUILD YOUR ORDER. DROP YOUR NAME. WE SERVE.</p>
+      <p class="sub">Build your order. Leave your name. We serve.</p>
       <button type="button" class="surprise" id="surprise">🎲 Bartender's choice</button>
     </header>
 

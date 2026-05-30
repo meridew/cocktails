@@ -8,8 +8,13 @@
 (function () {
   "use strict";
 
-  var THEMES = ["neon", "tiki", "speakeasy"];
-  var THEME_LABELS = { neon: "Neon", tiki: "Tiki", speakeasy: "Speakeasy" };
+  // Two switchable identities. "classy" = noir / black-tie (default),
+  // "loud" = the original bright neo-brutalist look.
+  var THEMES = ["classy", "loud"];
+  var THEME_LABELS = { classy: "Classy", loud: "Loud" };
+  // The button shows the look you'll switch TO (an invitation).
+  var THEME_GLYPH = { classy: "🎉", loud: "🎩" };
+  var THEME_META  = { classy: "#0c0c0e", loud: "#ffe600" };
 
   // Shared option block: every boozy drink offers the same strength choice.
   var STRENGTH_OPT = {
@@ -493,15 +498,19 @@
 
   // ---- 🎨 Theme switcher ------------------------------------------------
   function applyTheme(name) {
-    if (THEMES.indexOf(name) === -1) { name = "neon"; }
+    if (THEMES.indexOf(name) === -1) { name = "classy"; }
     document.documentElement.setAttribute("data-theme", name);
     lsSet(THEME_KEY, name);
-    themeBtn.setAttribute("aria-label", "Theme: " + THEME_LABELS[name] + " — tap to change");
-    themeBtn.title = "Theme: " + THEME_LABELS[name];
+    var other = THEMES[(THEMES.indexOf(name) + 1) % THEMES.length];
+    themeBtn.textContent = THEME_GLYPH[name];        // glyph = the look you'd switch to
+    themeBtn.setAttribute("aria-label", "Switch to the " + THEME_LABELS[other] + " theme");
+    themeBtn.title = "Switch to " + THEME_LABELS[other];
+    var meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) { meta.setAttribute("content", THEME_META[name]); }
   }
-  applyTheme(lsGet(THEME_KEY) || "neon");
+  applyTheme(lsGet(THEME_KEY) || "classy");
   themeBtn.addEventListener("click", function () {
-    var cur = document.documentElement.getAttribute("data-theme") || "neon";
+    var cur = document.documentElement.getAttribute("data-theme") || "classy";
     applyTheme(THEMES[(THEMES.indexOf(cur) + 1) % THEMES.length]);
     if (!reducedMotion()) {
       themeBtn.classList.remove("pop");
