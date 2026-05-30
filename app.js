@@ -205,7 +205,7 @@
   function fireBurst() {
     overlayBurst.innerHTML = "";
     if (reducedMotion()) { return; } // no explosion for motion-sensitive users
-    var ICONS = ["🎉", "🎊", "🥂", "🍸", "🍹", "✨", "🍋", "🍉", "⭐", "💫"];
+    var ICONS = ["🎉", "🎊", "🥂", "🍸", "🍹", "🥃", "🍊", "✨", "🍋", "🍉", "⭐", "💫"];
     var N = 38;
     var html = "";
     for (var i = 0; i < N; i++) {
