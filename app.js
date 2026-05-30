@@ -498,7 +498,7 @@
 
   // ---- 🎨 Theme switcher ------------------------------------------------
   function applyTheme(name) {
-    if (THEMES.indexOf(name) === -1) { name = "classy"; }
+    if (THEMES.indexOf(name) === -1) { name = "loud"; }
     document.documentElement.setAttribute("data-theme", name);
     lsSet(THEME_KEY, name);
     var other = THEMES[(THEMES.indexOf(name) + 1) % THEMES.length];
@@ -508,9 +508,9 @@
     var meta = document.querySelector('meta[name="theme-color"]');
     if (meta) { meta.setAttribute("content", THEME_META[name]); }
   }
-  applyTheme(lsGet(THEME_KEY) || "classy");
+  applyTheme(lsGet(THEME_KEY) || "loud");
   themeBtn.addEventListener("click", function () {
-    var cur = document.documentElement.getAttribute("data-theme") || "classy";
+    var cur = document.documentElement.getAttribute("data-theme") || "loud";
     applyTheme(THEMES[(THEMES.indexOf(cur) + 1) % THEMES.length]);
     if (!reducedMotion()) {
       themeBtn.classList.remove("pop");
