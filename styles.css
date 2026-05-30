@@ -31,10 +31,28 @@ body {
   overflow-x: hidden;
 }
 .wrap {
+  position: relative; z-index: 1; /* sits above the confetti layer */
   width: 100%; max-width: 760px; margin: 0 auto;
   padding:
     calc(20px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right))
     calc(64px + env(safe-area-inset-bottom)) calc(16px + env(safe-area-inset-left));
+}
+
+/* ---------------- BACKGROUND CONFETTI ----------------
+   Cocktail icons + ingredients constantly drifting down behind
+   the content. Built/positioned by app.js; purely decorative. */
+.confetti {
+  position: fixed; inset: 0; z-index: 0;
+  overflow: hidden; pointer-events: none;
+}
+.confetti span {
+  position: absolute; top: -12vh;
+  line-height: 1; will-change: transform;
+  animation-name: fall; animation-timing-function: linear; animation-iteration-count: infinite;
+}
+@keyframes fall {
+  0%   { transform: translate(0, -12vh) rotate(0deg); }
+  100% { transform: translate(calc(var(--dir, 1) * 9vw), 114vh) rotate(calc(var(--dir, 1) * 360deg)); }
 }
 
 /* ---------------- HEADER ---------------- */
@@ -178,4 +196,5 @@ footer { text-align: center; margin-top: 40px; font-family: "Bungee", sans-serif
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   *, *::before, *::after { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
+  .confetti { display: none; } /* no drifting icons for motion-sensitive users */
 }

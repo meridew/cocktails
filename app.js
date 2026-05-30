@@ -161,4 +161,34 @@
         submitBtn.disabled = false;
       });
   });
+
+  // ---- Background confetti: flying cocktails & ingredients -------------
+  (function buildConfetti() {
+    // Honour motion preferences — skip the whole effect.
+    if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      return;
+    }
+    var ICONS = ["🍸", "🍹", "🍋", "🍉", "🌶️", "🌿", "🧊", "🍊", "🫚", "🌸", "🥂", "🍃", "🧉"];
+    var COUNT = 28;
+    var layer = document.createElement("div");
+    layer.className = "confetti";
+    layer.setAttribute("aria-hidden", "true");
+
+    var html = "";
+    for (var i = 0; i < COUNT; i++) {
+      var icon  = ICONS[Math.floor(Math.random() * ICONS.length)];
+      var left  = Math.random() * 100;            // vw start position
+      var size  = 16 + Math.random() * 26;        // px
+      var dur   = 9 + Math.random() * 12;         // s per fall
+      var delay = -Math.random() * dur;           // negative => already mid-flight on load
+      var op    = 0.4 + Math.random() * 0.4;
+      var dir   = Math.random() < 0.5 ? 1 : -1;   // drift/spin direction
+      html +=
+        '<span style="left:' + left + "vw;font-size:" + size + "px;opacity:" + op +
+        ";animation-duration:" + dur + "s;animation-delay:" + delay +
+        "s;--dir:" + dir + '">' + icon + "</span>";
+    }
+    layer.innerHTML = html;
+    document.body.insertBefore(layer, document.body.firstChild);
+  })();
 })();
