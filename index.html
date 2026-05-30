@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>COCKTAILS!!!</title>
-  <meta name="description" content="Margaritas & mocktails — pick one, shout your name, get a drink." />
+  <meta name="description" content="Margaritas, cocktails & mocktails — build a round, drop your name, get your drinks." />
   <meta name="theme-color" content="#ffe600" />
   <!-- Fun custom-drawn high-contrast cocktail glass favicon -->
   <link rel="icon" type="image/svg+xml" href="favicon.svg" />
@@ -19,41 +19,31 @@
     <header>
       <span class="kicker">★ OPEN BAR ★</span>
       <h1>Cocktails</h1>
-      <p class="sub">PICK ONE. YELL YOUR NAME. WE POUR.</p>
+      <p class="sub">BUILD YOUR ROUND. DROP YOUR NAME. WE POUR.</p>
     </header>
 
-    <div class="tabs" role="tablist" aria-label="Menu sections">
-      <button class="tab" role="tab" id="tab-booze" aria-controls="panel-booze" aria-selected="true">
-        🍸 Boozy <small>Margaritas</small>
-      </button>
-      <button class="tab" role="tab" id="tab-free" aria-controls="panel-free" aria-selected="false" tabindex="-1">
-        🌱 Alcohol-Free <small>Mocktails</small>
-      </button>
-    </div>
-
-    <section class="panel active" id="panel-booze" role="tabpanel" aria-labelledby="tab-booze">
-      <div class="menu" id="menu-booze"></div>
-    </section>
-    <section class="panel" id="panel-free" role="tabpanel" aria-labelledby="tab-free" hidden>
-      <div class="menu" id="menu-free"></div>
-    </section>
+    <!-- Tabs + menu panels are rendered from the data in app.js -->
+    <div class="tabs" id="tabs" role="tablist" aria-label="Menu sections"></div>
+    <div id="panels"></div>
 
     <section class="card" id="order-form">
-      <h2>Gimme<br>a drink</h2>
-      <p class="hint">▶ Drop your name + pick your poison (or non-poison).</p>
+      <h2>Your<br>round</h2>
+      <p class="hint">▶ Add as many drinks as you like, then drop your name &amp; send.</p>
 
       <form id="request-form" action="https://formspree.io/f/xwvzzjab" method="POST">
+        <!-- Live order basket (filled by app.js) -->
+        <div class="basket" id="basket" aria-live="polite"></div>
+        <!-- Plain-text summary of the basket, sent to Formspree -->
+        <input type="hidden" name="order" id="order-field" />
+
         <label for="name">Your name</label>
         <input type="text" id="name" name="name" placeholder="DANIEL" autocomplete="name"
-               autocapitalize="words" enterkeyhint="next" required />
-
-        <label for="cocktail">Cocktail</label>
-        <select id="cocktail" name="cocktail" required></select>
+               autocapitalize="words" enterkeyhint="done" required />
 
         <label for="note">Note (optional)</label>
         <textarea id="note" name="note" placeholder="No ice! Extra lime! Make it spicy!"></textarea>
 
-        <button type="submit" class="send" id="submit-btn">Send it 🍹</button>
+        <button type="submit" class="send" id="submit-btn" disabled>Add a drink first</button>
         <p class="status" id="status" role="status" aria-live="polite"></p>
       </form>
     </section>
@@ -61,13 +51,20 @@
     <footer>★ POURED VIA GITHUB PAGES ★</footer>
   </div>
 
+  <!-- Floating basket pill: shows the running count, jumps to the order -->
+  <button type="button" class="basket-pill" id="basket-pill" hidden aria-label="View your order">
+    <span class="basket-pill-icon" aria-hidden="true">🧺</span>
+    <span class="basket-pill-count" id="basket-pill-count">0</span>
+    <span class="basket-pill-label">View order →</span>
+  </button>
+
   <!-- Celebratory success overlay (shown after a successful order) -->
   <div class="celebrate" id="celebrate" role="dialog" aria-modal="true" aria-labelledby="celebrate-title" hidden>
     <div class="celebrate-burst" id="celebrate-burst" aria-hidden="true"></div>
     <div class="celebrate-card">
       <h2 id="celebrate-title">Cheers! 🥂</h2>
-      <p class="celebrate-msg" id="celebrate-msg">Your drink is on the way. 🍹</p>
-      <button type="button" class="send" id="order-again">Order another 🍸</button>
+      <p class="celebrate-msg" id="celebrate-msg">Your drinks are on the way. 🍹</p>
+      <button type="button" class="send" id="order-again">Order another round 🍸</button>
     </div>
   </div>
 

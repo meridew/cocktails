@@ -1,8 +1,8 @@
 # 🍸 The Little Cocktail Bar
 
-A tiny single-page cocktail menu (4 drinks) where guests can request a cocktail
-with their name. Hosted free on **GitHub Pages**, deployed via **GitHub Actions**,
-and requests are delivered to your inbox via **Formspree**.
+A tiny single-page cocktail menu where guests can build a round of drinks and
+request them with their name. Hosted free on **GitHub Pages**, deployed via
+**GitHub Actions**, and requests are delivered to your inbox via **Formspree**.
 
 ## One-time setup
 
@@ -17,9 +17,9 @@ In the repo: **Settings → Pages → Build and deployment → Source: GitHub Ac
 Every push to `main` then publishes automatically.
 
 ## Edit the menu
-The cocktail list lives in one place — the `COCKTAILS` array near the bottom of
-`index.html`. It renders both the printed menu and the request dropdown, so they
-never drift apart.
+The cocktail list lives in one place — the `SECTIONS` array at the top of
+`app.js`. It drives the tabbed sections, the menu cards, and the order basket,
+so they never drift apart. Add a section or a drink there and everything updates.
 
 ## Local preview
 Just open `index.html` in a browser, or run `python -m http.server` in this folder.

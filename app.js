@@ -1,6 +1,7 @@
 /* ============================================================
    COCKTAILS — app logic
-   Single source of truth (MENU) drives the cards AND the dropdown.
+   Single source of truth (SECTIONS) drives the tabs, the cards
+   AND the order basket. Add a few drinks, send them as one round.
    ============================================================ */
 (function () {
   "use strict";
@@ -8,22 +9,35 @@
   // ---- Data: one place to edit drinks ----------------------------------
   var SECTIONS = [
     {
+      key: "margarita",
+      label: "Margaritas",
+      tabEmoji: "🍹",
+      tabNote: "Classic & more",
+      items: [
+        { name: "Margarita",                  emoji: "🍋‍🟩", ingredients: ["Tequila", "Triple Sec / Cointreau", "Lime", "Simple Syrup (opt.)", "Crushed Ice", "Salt rim"] },
+        { name: "Spicy Margarita",            emoji: "🌶️",    ingredients: ["Tequila", "Triple Sec / Cointreau", "Lime", "Fresh Chili (jalapeño/red)", "Simple Syrup / Agave", "Crushed Ice", "Salt or Tajín rim"] },
+        { name: "Watermelon Margarita",       emoji: "🍉",    ingredients: ["Watermelon", "Tequila", "Triple Sec / Cointreau", "Lime", "Simple Syrup (opt.)", "Crushed Ice", "Salt rim"] },
+        { name: "Spicy Watermelon Margarita", emoji: "🌶️🍉",  ingredients: ["Watermelon", "Tequila", "Triple Sec / Cointreau", "Lime", "Fresh Chili (jalapeño/red)", "Simple Syrup / Agave", "Crushed Ice", "Tajín rim"] },
+      ],
+    },
+    {
       key: "booze",
       label: "Boozy",
+      tabEmoji: "🥃",
+      tabNote: "Cocktails",
       items: [
-        { name: "Margarita",            emoji: "🍋‍🟩", ingredients: ["Tequila", "Triple Sec / Cointreau", "Lime", "Simple Syrup (opt.)", "Crushed Ice", "Salt rim"] },
-        { name: "Spicy Margarita",      emoji: "🌶️", ingredients: ["Tequila", "Triple Sec / Cointreau", "Lime", "Fresh Chili (jalapeño/red)", "Simple Syrup / Agave", "Crushed Ice", "Salt or Tajín rim"] },
-        { name: "Watermelon Margarita", emoji: "🍉", ingredients: ["Watermelon", "Tequila", "Triple Sec / Cointreau", "Lime", "Simple Syrup (opt.)", "Crushed Ice", "Salt rim"] },
-        { name: "Old Fashioned",        emoji: "🥃", ingredients: ["Bourbon / Rye Whiskey", "Sugar Cube", "Angostura Bitters", "Orange Peel", "Large Ice Cube", "Cocktail Cherry"] },
+        { name: "Old Fashioned", emoji: "🥃", ingredients: ["Bourbon / Rye Whiskey", "Sugar Cube", "Angostura Bitters", "Orange Peel", "Large Ice Cube", "Cocktail Cherry"] },
       ],
     },
     {
       key: "free",
       label: "Alcohol-Free",
+      tabEmoji: "🌱",
+      tabNote: "Mocktails",
       items: [
-        { name: "Virgin Mojito",        emoji: "🌿", ingredients: ["Fresh Mint", "Lime", "Simple Syrup / Sugar", "Sparkling Mineral Water", "Crushed Ice"] },
-        { name: "Virgin Moscow Mule",   emoji: "🫚", ingredients: ["Ginger Beer", "Lime", "Fresh Ginger (opt.)", "Crushed Ice"] },
-        { name: "Nojito + Elderflower", emoji: "🌸", ingredients: ["Fresh Mint", "Lime", "Elderflower Cordial", "Sparkling Mineral Water", "Crushed Ice"] },
+        { name: "Virgin Mojito",             emoji: "🌿", ingredients: ["Fresh Mint", "Lime", "Simple Syrup / Sugar", "Sparkling Mineral Water", "Crushed Ice"] },
+        { name: "Virgin Moscow Mule",        emoji: "🫚", ingredients: ["Ginger Beer", "Lime", "Fresh Ginger (opt.)", "Crushed Ice"] },
+        { name: "Pomegranate & Elderflower", emoji: "🌸", ingredients: ["Fresh Mint", "Lime", "Pomegranate Juice", "Elderflower Cordial", "Sparkling Mineral Water", "Crushed Ice"] },
       ],
     },
   ];
@@ -31,18 +45,25 @@
   var NAME_KEY = "cocktail_name";
   var $ = function (id) { return document.getElementById(id); };
 
-  var select   = $("cocktail");
-  var form     = $("request-form");
-  var formCard = $("order-form");
-  var nameInput = $("name");
-  var statusEl = $("status");
-  var submitBtn = $("submit-btn");
+  var form       = $("request-form");
+  var formCard   = $("order-form");
+  var nameInput  = $("name");
+  var statusEl   = $("status");
+  var submitBtn  = $("submit-btn");
+  var basketEl   = $("basket");
+  var orderField = $("order-field");
+  var tabsEl     = $("tabs");
+  var panelsEl   = $("panels");
+
+  // floating basket pill
+  var pill      = $("basket-pill");
+  var pillCount = $("basket-pill-count");
 
   // success overlay
-  var overlay      = $("celebrate");
-  var overlayTitle = $("celebrate-title");
-  var overlayMsg   = $("celebrate-msg");
-  var overlayBurst = $("celebrate-burst");
+  var overlay       = $("celebrate");
+  var overlayTitle  = $("celebrate-title");
+  var overlayMsg    = $("celebrate-msg");
+  var overlayBurst  = $("celebrate-burst");
   var orderAgainBtn = $("order-again");
 
   function reducedMotion() {
@@ -54,89 +75,177 @@
     });
   }
 
-  // value stored in the <select> / sent to Formspree, e.g. "Spicy Margarita (Boozy)"
-  function optionValue(item, section) { return item.name + " (" + section.label + ")"; }
+  // Stable id for a drink, e.g. "Spicy Margarita (Margaritas)"
+  function drinkId(item, section) { return item.name + " (" + section.label + ")"; }
 
-  // ---- Render menus + dropdown -----------------------------------------
-  SECTIONS.forEach(function (section) {
-    var menuEl = $("menu-" + section.key);
-    var optgroup = document.createElement("optgroup");
-    optgroup.label = section.label;
+  // ---- The order basket -------------------------------------------------
+  var basket = []; // [{ id, name, emoji, qty }]
 
-    section.items.forEach(function (item) {
-      var value = optionValue(item, section);
-
-      // Card
-      var card = document.createElement("article");
-      card.className = "cocktail";
-
-      var chips = item.ingredients
-        .map(function (i) { return "<li>" + i + "</li>"; })
-        .join("");
-
-      card.innerHTML =
-        '<h3><span class="emoji">' + item.emoji + "</span>" + item.name + "</h3>" +
-        '<ul class="ingredients">' + chips + "</ul>" +
-        '<button type="button" class="order">Order this →</button>';
-
-      card.querySelector(".order").addEventListener("click", function () {
-        chooseDrink(value);
-      });
-      menuEl.appendChild(card);
-
-      // Dropdown option
-      var opt = document.createElement("option");
-      opt.value = value;
-      opt.textContent = item.emoji + " " + item.name;
-      optgroup.appendChild(opt);
-    });
-
-    select.appendChild(optgroup);
-  });
-
-  // ---- Order flow: pick a drink, jump to form, assist the keyboard -----
-  function chooseDrink(value) {
-    select.value = value;
-
-    // Scroll the form into view (respects reduced-motion via CSS).
-    formCard.scrollIntoView({ behavior: "smooth", block: "start" });
-
-    // If we don't know the name yet, focus it to pop the mobile keyboard.
-    // focus() here is inside the tap gesture, so iOS/Android allow it.
-    if (!nameInput.value.trim()) {
-      nameInput.focus({ preventScroll: true });
+  function findLine(id) {
+    for (var i = 0; i < basket.length; i++) { if (basket[i].id === id) { return basket[i]; } }
+    return null;
+  }
+  function addToBasket(item, section) {
+    var id = drinkId(item, section);
+    var line = findLine(id);
+    if (line) { line.qty++; }
+    else { basket.push({ id: id, name: item.name, emoji: item.emoji, qty: 1 }); }
+    renderBasket();
+    bumpPill();
+  }
+  function changeQty(id, delta) {
+    var line = findLine(id);
+    if (!line) { return; }
+    line.qty += delta;
+    if (line.qty <= 0) {
+      basket = basket.filter(function (l) { return l.id !== id; });
     }
-
-    // Brief flash so it's obvious which drink got selected.
-    select.classList.remove("flash");
-    void select.offsetWidth; // restart the animation
-    select.classList.add("flash");
+    renderBasket();
+  }
+  function totalCount() {
+    return basket.reduce(function (n, l) { return n + l.qty; }, 0);
+  }
+  function orderSummary() {
+    return basket.map(function (l) { return l.qty + "× " + l.name; }).join(", ");
   }
 
-  // ---- Tabs (accessible: click + arrow keys) ---------------------------
-  var tabs = [
-    { btn: $("tab-booze"), panel: $("panel-booze") },
-    { btn: $("tab-free"),  panel: $("panel-free") },
-  ];
+  function renderBasket() {
+    var count = totalCount();
+
+    if (!basket.length) {
+      basketEl.innerHTML =
+        '<p class="basket-empty">Your order is empty — tap <strong>Add to order</strong> on any drink above. 🍸</p>';
+    } else {
+      var rows = basket.map(function (l) {
+        return (
+          '<li class="basket-item" data-id="' + escapeHtml(l.id) + '">' +
+            '<span class="basket-item-name"><span class="emoji">' + l.emoji + "</span>" + escapeHtml(l.name) + "</span>" +
+            '<span class="qty">' +
+              '<button type="button" class="qty-btn" data-act="dec" aria-label="One fewer ' + escapeHtml(l.name) + '">−</button>' +
+              '<span class="qty-n">' + l.qty + "</span>" +
+              '<button type="button" class="qty-btn" data-act="inc" aria-label="One more ' + escapeHtml(l.name) + '">+</button>' +
+            "</span>" +
+          "</li>"
+        );
+      }).join("");
+      basketEl.innerHTML = '<ul class="basket-list">' + rows + "</ul>";
+    }
+
+    // Send button reflects the running count.
+    submitBtn.disabled = count === 0;
+    submitBtn.textContent = count === 0
+      ? "Add a drink first"
+      : "Send " + count + (count === 1 ? " drink 🍹" : " drinks 🍹");
+
+    pillCount.textContent = count;
+    orderField.value = orderSummary();
+    updatePillVisibility();
+  }
+
+  // Quantity steppers (event-delegated so they survive re-renders).
+  basketEl.addEventListener("click", function (e) {
+    var btn = e.target.closest(".qty-btn");
+    if (!btn) { return; }
+    var row = btn.closest(".basket-item");
+    var id = row && row.getAttribute("data-id");
+    if (!id) { return; }
+    changeQty(id, btn.getAttribute("data-act") === "inc" ? 1 : -1);
+  });
+
+  function bumpPill() {
+    if (reducedMotion()) { return; }
+    pill.classList.remove("bump");
+    void pill.offsetWidth; // restart the animation
+    pill.classList.add("bump");
+  }
+
+  // ---- Build tabs, panels and cards from the data -----------------------
+  var tabRefs = []; // [{ btn, panel }]
+
+  SECTIONS.forEach(function (section, index) {
+    var first = index === 0;
+
+    // Tab button
+    var btn = document.createElement("button");
+    btn.className = "tab";
+    btn.type = "button";
+    btn.setAttribute("role", "tab");
+    btn.id = "tab-" + section.key;
+    btn.setAttribute("aria-controls", "panel-" + section.key);
+    btn.setAttribute("aria-selected", first ? "true" : "false");
+    btn.tabIndex = first ? 0 : -1;
+    btn.innerHTML = section.tabEmoji + " " + section.label + "<small>" + section.tabNote + "</small>";
+    tabsEl.appendChild(btn);
+
+    // Panel + menu grid
+    var panel = document.createElement("section");
+    panel.className = "panel" + (first ? " active" : "");
+    panel.id = "panel-" + section.key;
+    panel.setAttribute("role", "tabpanel");
+    panel.setAttribute("aria-labelledby", btn.id);
+    panel.hidden = !first;
+
+    var menu = document.createElement("div");
+    menu.className = "menu";
+
+    section.items.forEach(function (item) {
+      var card = document.createElement("article");
+      card.className = "cocktail";
+      var chips = item.ingredients
+        .map(function (i) { return "<li>" + escapeHtml(i) + "</li>"; })
+        .join("");
+      card.innerHTML =
+        '<h3><span class="emoji">' + item.emoji + "</span>" + escapeHtml(item.name) + "</h3>" +
+        '<ul class="ingredients">' + chips + "</ul>" +
+        '<button type="button" class="order">Add to order +</button>';
+      card.querySelector(".order").addEventListener("click", function () {
+        addToBasket(item, section);
+      });
+      menu.appendChild(card);
+    });
+
+    panel.appendChild(menu);
+    panelsEl.appendChild(panel);
+
+    tabRefs.push({ btn: btn, panel: panel });
+  });
+
+  // ---- Tabs behaviour (click + arrow keys) ------------------------------
   function selectTab(index, focusBtn) {
-    tabs.forEach(function (t, i) {
+    tabRefs.forEach(function (t, i) {
       var on = i === index;
       t.btn.setAttribute("aria-selected", on ? "true" : "false");
       t.btn.tabIndex = on ? 0 : -1;
       t.panel.classList.toggle("active", on);
       t.panel.hidden = !on;
     });
-    if (focusBtn) { tabs[index].btn.focus(); }
+    if (focusBtn) { tabRefs[index].btn.focus(); }
   }
-  tabs.forEach(function (t, i) {
+  tabRefs.forEach(function (t, i) {
     t.btn.addEventListener("click", function () { selectTab(i, false); });
     t.btn.addEventListener("keydown", function (e) {
       if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
         e.preventDefault();
-        selectTab((i + (e.key === "ArrowRight" ? 1 : tabs.length - 1)) % tabs.length, true);
+        selectTab((i + (e.key === "ArrowRight" ? 1 : tabRefs.length - 1)) % tabRefs.length, true);
       }
     });
   });
+
+  // ---- Floating pill: jumps to the order, hides once it's in view -------
+  var orderInView = false;
+  function updatePillVisibility() {
+    pill.hidden = totalCount() === 0 || orderInView;
+  }
+  pill.addEventListener("click", function () {
+    formCard.scrollIntoView({ behavior: reducedMotion() ? "auto" : "smooth", block: "start" });
+    if (!nameInput.value.trim()) { nameInput.focus({ preventScroll: true }); }
+  });
+  if ("IntersectionObserver" in window) {
+    new IntersectionObserver(function (entries) {
+      orderInView = entries[0].isIntersecting;
+      updatePillVisibility();
+    }, { threshold: 0.25 }).observe(formCard);
+  }
 
   // ---- Remember the name across visits ---------------------------------
   try {
@@ -149,10 +258,16 @@
   }
   nameInput.addEventListener("change", rememberName);
 
-  // ---- Submit via AJAX (stay on page, show a thank-you) ----------------
+  // ---- Submit the whole basket via AJAX --------------------------------
   form.addEventListener("submit", function (e) {
     e.preventDefault();
+    if (!basket.length) {
+      statusEl.className = "status err";
+      statusEl.textContent = "ADD A DRINK FIRST!";
+      return;
+    }
     rememberName();
+    orderField.value = orderSummary();
     submitBtn.disabled = true;
     statusEl.className = "status";
     statusEl.textContent = "SENDING…";
@@ -165,29 +280,33 @@
       .then(function (res) {
         if (!res.ok) { throw new Error("Bad response"); }
         var orderedName = nameInput.value.trim();
-        var sel = select.options[select.selectedIndex];
-        var orderedDrink = sel ? sel.textContent.trim() : "";
+        var orderedLines = basket.slice();
+        var orderedCount = totalCount();
+        basket = [];
+        renderBasket();           // clears the list + disables the button
         form.reset();
         nameInput.value = orderedName; // keep their name for the next round
         statusEl.className = "status";
         statusEl.textContent = "";
-        celebrate(orderedName, orderedDrink);
+        celebrate(orderedName, orderedLines, orderedCount);
       })
       .catch(function () {
         statusEl.className = "status err";
         statusEl.textContent = "OOPS — try that again!";
-      })
-      .finally(function () {
         submitBtn.disabled = false;
       });
   });
 
   // ---- Success celebration --------------------------------------------
-  function celebrate(name, drink) {
+  function celebrate(name, lines, count) {
     overlayTitle.textContent = name ? "Cheers, " + name + "! 🥂" : "Cheers! 🥂";
+    var list = lines
+      .map(function (l) { return "<li>" + l.qty + "× " + escapeHtml(l.name) + "</li>"; })
+      .join("");
     overlayMsg.innerHTML =
-      "Your " + (drink ? "<strong>" + escapeHtml(drink) + "</strong>" : "drink") +
-      " is on the way. 🍹";
+      "Your <strong>" + count + (count === 1 ? " drink" : " drinks") + "</strong> " +
+      (count === 1 ? "is" : "are") + " on the way. 🍹" +
+      '<ul class="celebrate-order">' + list + "</ul>";
     overlay.hidden = false;
     document.body.style.overflow = "hidden"; // lock background scroll while open
     fireBurst();
@@ -199,7 +318,7 @@
     overlayBurst.innerHTML = "";
     document.body.style.overflow = "";
     window.scrollTo({ top: 0, behavior: reducedMotion() ? "auto" : "smooth" });
-    tabs[0].btn.focus(); // back at the top, ready to order another
+    if (tabRefs[0]) { tabRefs[0].btn.focus(); } // back at the top, ready for more
   }
 
   function fireBurst() {
@@ -233,6 +352,9 @@
   document.addEventListener("keydown", function (e) {
     if (e.key === "Escape" && !overlay.hidden) { closeCelebrate(); }
   });
+
+  // Paint the (empty) basket once at startup.
+  renderBasket();
 
   // ---- Background confetti cannon: emojis blast in from the edges -----
   (function buildConfetti() {

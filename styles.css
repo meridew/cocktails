@@ -237,6 +237,68 @@ footer { text-align: center; margin-top: 40px; font-family: "Bungee", sans-serif
   100% { transform: translate(calc(-50% + var(--tx)), calc(-50% + var(--ty))) scale(1) rotate(var(--r)); opacity: 0; }
 }
 
+/* ---------------- ORDER BASKET ----------------
+   Lives inside the dark order card, so rows are light for contrast. */
+.basket { margin: 0 0 22px; }
+.basket-empty {
+  margin: 0; text-align: center; font-weight: 700; color: var(--cyan);
+  border: 3px dashed rgba(255, 255, 255, 0.4); border-radius: 12px; padding: 18px 14px;
+}
+.basket-empty strong { color: #fff; }
+.basket-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.basket-item {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  background: #fff; color: var(--ink);
+  border: 3px solid #fff; border-radius: 12px; padding: 9px 12px;
+}
+.basket-item-name {
+  display: flex; align-items: center; gap: 8px; min-width: 0;
+  font-family: "Bungee", sans-serif; line-height: 1.05;
+  font-size: clamp(0.82rem, 3.6vw, 1.02rem);
+}
+.basket-item-name .emoji { font-family: "Space Grotesk", sans-serif; flex: none; }
+.qty { display: flex; align-items: center; gap: 8px; flex: none; }
+.qty-btn {
+  width: 34px; height: 34px; flex: none; display: flex; align-items: center; justify-content: center;
+  font-family: "Bungee", sans-serif; font-size: 1.15rem; line-height: 1;
+  background: var(--yellow); color: var(--ink); border: 3px solid var(--ink); border-radius: 9px;
+  cursor: pointer; touch-action: manipulation;
+}
+.qty-btn:active { transform: translateY(1px); }
+.qty-n { min-width: 1.4ch; text-align: center; font-family: "Bungee", sans-serif; font-size: 1rem; }
+
+/* ---------------- FLOATING BASKET PILL ----------------
+   Running drink count that scrolls down to the order card. */
+.basket-pill {
+  position: fixed; z-index: 900;
+  left: 50%; transform: translateX(-50%);
+  bottom: calc(16px + env(safe-area-inset-bottom));
+  display: inline-flex; align-items: center; gap: 10px; padding: 12px 18px;
+  background: var(--ink); color: #fff;
+  font-family: "Bungee", sans-serif; font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.5px;
+  border: 3px solid #fff; border-radius: 999px; box-shadow: 4px 4px 0 var(--pink);
+  cursor: pointer; touch-action: manipulation;
+}
+.basket-pill[hidden] { display: none; }
+.basket-pill-icon { font-size: 1.2rem; }
+.basket-pill-count {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 26px; height: 26px; padding: 0 6px; border-radius: 999px;
+  background: var(--yellow); color: var(--ink); font-size: 0.95rem;
+}
+.basket-pill.bump { animation: pillbump 0.3s ease; }
+@keyframes pillbump {
+  0%, 100% { transform: translateX(-50%) scale(1); }
+  50%      { transform: translateX(-50%) scale(1.12); }
+}
+
+/* Itemised list inside the success overlay */
+.celebrate-order { list-style: none; margin: 16px 0 0; padding: 0; display: grid; gap: 6px; }
+.celebrate-order li {
+  font-weight: 700; font-size: 0.95rem;
+  background: var(--ink); color: var(--yellow); border-radius: 8px; padding: 5px 11px;
+}
+
 /* ---------- Respect reduced-motion preference ---------- */
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
