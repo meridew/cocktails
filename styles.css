@@ -192,6 +192,46 @@ footer { text-align: center; margin-top: 40px; font-family: "Bungee", sans-serif
   button.send:hover { transform: translateY(-3px); box-shadow: 0 8px 0 var(--cyan); background: #fff; }
 }
 
+/* ---------------- SUCCESS OVERLAY ----------------
+   Full-screen "you ordered!" moment with a foreground
+   confetti burst and an Order-another button. */
+.celebrate {
+  position: fixed; inset: 0; z-index: 1000;
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px;
+  background: rgba(10, 10, 18, 0.92);
+  -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px);
+}
+.celebrate[hidden] { display: none; }
+.celebrate-card {
+  position: relative; z-index: 2;
+  width: 100%; max-width: 420px; text-align: center;
+  background: #fff; color: var(--ink);
+  border: 5px solid var(--ink); border-radius: 22px;
+  box-shadow: 10px 10px 0 var(--pink);
+  padding: 34px 26px;
+  animation: pop 0.35s cubic-bezier(0.2, 1.4, 0.4, 1) both;
+}
+@keyframes pop { 0% { transform: scale(0.7); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+.celebrate-card h2 {
+  font-family: "Archivo Black", sans-serif; text-transform: uppercase;
+  margin: 0 0 12px; font-size: clamp(2rem, 9vw, 3rem); line-height: 0.9;
+  text-shadow: 3px 3px 0 var(--pink);
+}
+.celebrate-msg { font-weight: 700; font-size: 1.1rem; line-height: 1.4; margin: 0 0 26px; }
+.celebrate-msg strong { background: var(--ink); color: var(--yellow); padding: 2px 9px; border-radius: 7px; white-space: nowrap; }
+/* foreground confetti burst (emanates from centre, behind the card text) */
+.celebrate-burst { position: absolute; inset: 0; z-index: 1; overflow: hidden; pointer-events: none; }
+.celebrate-burst span {
+  position: absolute; left: 50%; top: 42%; line-height: 1; will-change: transform, opacity;
+  animation: burst 1.6s ease-out forwards;
+}
+@keyframes burst {
+  0%   { transform: translate(-50%, -50%) scale(0.3) rotate(0deg); opacity: 0; }
+  12%  { opacity: 1; }
+  100% { transform: translate(calc(-50% + var(--tx)), calc(-50% + var(--ty))) scale(1) rotate(var(--r)); opacity: 0; }
+}
+
 /* ---------- Respect reduced-motion preference ---------- */
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }

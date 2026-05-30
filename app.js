@@ -37,6 +37,22 @@
   var statusEl = $("status");
   var submitBtn = $("submit-btn");
 
+  // success overlay
+  var overlay      = $("celebrate");
+  var overlayTitle = $("celebrate-title");
+  var overlayMsg   = $("celebrate-msg");
+  var overlayBurst = $("celebrate-burst");
+  var orderAgainBtn = $("order-again");
+
+  function reducedMotion() {
+    return window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  }
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+
   // value stored in the <select> / sent to Formspree, e.g. "Spicy Margarita (Boozy)"
   function optionValue(item, section) { return item.name + " (" + section.label + ")"; }
 
@@ -147,11 +163,14 @@
     })
       .then(function (res) {
         if (!res.ok) { throw new Error("Bad response"); }
-        var keepName = nameInput.value;
+        var orderedName = nameInput.value.trim();
+        var sel = select.options[select.selectedIndex];
+        var orderedDrink = sel ? sel.textContent.trim() : "";
         form.reset();
-        nameInput.value = keepName; // don't wipe the name they just gave us
-        statusEl.className = "status ok";
-        statusEl.textContent = "BOOM! Your drink's on the way 🍹";
+        nameInput.value = orderedName; // keep their name for the next round
+        statusEl.className = "status";
+        statusEl.textContent = "";
+        celebrate(orderedName, orderedDrink);
       })
       .catch(function () {
         statusEl.className = "status err";
@@ -162,14 +181,66 @@
       });
   });
 
+  // ---- Success celebration --------------------------------------------
+  function celebrate(name, drink) {
+    overlayTitle.textContent = name ? "Cheers, " + name + "! 🥂" : "Cheers! 🥂";
+    overlayMsg.innerHTML =
+      "Your " + (drink ? "<strong>" + escapeHtml(drink) + "</strong>" : "drink") +
+      " is on the way. 🍹";
+    overlay.hidden = false;
+    document.body.style.overflow = "hidden"; // lock background scroll while open
+    fireBurst();
+    orderAgainBtn.focus();
+  }
+
+  function closeCelebrate() {
+    overlay.hidden = true;
+    overlayBurst.innerHTML = "";
+    document.body.style.overflow = "";
+    window.scrollTo({ top: 0, behavior: reducedMotion() ? "auto" : "smooth" });
+    tabs[0].btn.focus(); // back at the top, ready to order another
+  }
+
+  function fireBurst() {
+    overlayBurst.innerHTML = "";
+    if (reducedMotion()) { return; } // no explosion for motion-sensitive users
+    var ICONS = ["🎉", "🎊", "🥂", "🍸", "🍹", "✨", "🍋", "🍉", "⭐", "💫"];
+    var N = 38;
+    var html = "";
+    for (var i = 0; i < N; i++) {
+      var icon = ICONS[Math.floor(Math.random() * ICONS.length)];
+      var ang = Math.random() * Math.PI * 2;
+      var dist = 120 + Math.random() * 220;
+      var tx = Math.cos(ang) * dist;
+      var ty = Math.sin(ang) * dist + 140; // gravity bias: drift outward, then fall
+      var r = Math.random() * 720 - 360;
+      var size = 18 + Math.random() * 22;
+      var dur = 1.2 + Math.random() * 0.9;
+      var delay = Math.random() * 0.15;
+      html +=
+        '<span style="font-size:' + size + "px;--tx:" + tx + "px;--ty:" + ty +
+        "px;--r:" + r + "deg;animation-duration:" + dur + "s;animation-delay:" + delay +
+        's">' + icon + "</span>";
+    }
+    overlayBurst.innerHTML = html;
+  }
+
+  orderAgainBtn.addEventListener("click", closeCelebrate);
+  overlay.addEventListener("click", function (e) {
+    if (e.target === overlay) { closeCelebrate(); } // tap the backdrop to dismiss
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && !overlay.hidden) { closeCelebrate(); }
+  });
+
   // ---- Background confetti: flying cocktails & ingredients -------------
   (function buildConfetti() {
     // Honour motion preferences — skip the whole effect.
     if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
       return;
     }
-    var ICONS = ["🍸", "🍹", "🍋", "🍉", "🌶️", "🌿", "🧊", "🍊", "🫚", "🌸", "🥂", "🍃", "🧉"];
-    var COUNT = 28;
+    var ICONS = ["🍸", "🍹", "🍋", "🍉", "🌶️", "🌿", "🧊", "🍊", "🫚", "🌸", "🥂", "🍃", "🧉", "🍆", "🍌", "🍑"];
+    var COUNT = 30;
     var layer = document.createElement("div");
     layer.className = "confetti";
     layer.setAttribute("aria-hidden", "true");
@@ -181,7 +252,7 @@
       var size  = 16 + Math.random() * 26;        // px
       var dur   = 9 + Math.random() * 12;         // s per fall
       var delay = -Math.random() * dur;           // negative => already mid-flight on load
-      var op    = 0.4 + Math.random() * 0.4;
+      var op    = 0.65 + Math.random() * 0.35;   // bolder: 0.65–1.0 (they sit behind everything)
       var dir   = Math.random() < 0.5 ? 1 : -1;   // drift/spin direction
       html +=
         '<span style="left:' + left + "vw;font-size:" + size + "px;opacity:" + op +
