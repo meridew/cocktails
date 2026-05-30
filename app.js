@@ -1,59 +1,62 @@
 /* ============================================================
    COCKTAILS — app logic
-   Single source of truth (SECTIONS) drives the tabs, the cards
-   AND the order basket. Add a few drinks, send them as one round.
+   One data source (SECTIONS) drives the chip nav, the menu, the
+   order basket, favourites, re-ordering and the theme switcher.
    ============================================================ */
 (function () {
   "use strict";
 
-  // ---- Data: one place to edit drinks ----------------------------------
+  // ---- Tag + theme vocabularies ----------------------------------------
+  var TAGS = {
+    spicy:  { emoji: "🌶️", label: "Spicy" },
+    fruity: { emoji: "🍓", label: "Fruity" },
+    strong: { emoji: "🔥", label: "Strong" },
+    zero:   { emoji: "🌱", label: "0%" },
+  };
+  var THEMES = ["neon", "tiki", "speakeasy"];
+  var THEME_LABELS = { neon: "Neon", tiki: "Tiki", speakeasy: "Speakeasy" };
+
+  // ---- Data: one place to edit the menu --------------------------------
   var SECTIONS = [
     {
-      key: "margarita",
-      label: "Margaritas",
-      tabEmoji: "🍹",
-      tabNote: "Classic & more",
+      key: "margarita", label: "Margaritas", emoji: "🍹",
       items: [
-        { name: "Margarita",                  emoji: "🍋‍🟩", ingredients: ["Tequila", "Triple Sec / Cointreau", "Lime", "Simple Syrup (opt.)", "Crushed Ice", "Salt rim"] },
-        { name: "Spicy Margarita",            emoji: "🌶️",    ingredients: ["Tequila", "Triple Sec / Cointreau", "Lime", "Fresh Chili (jalapeño/red)", "Simple Syrup / Agave", "Crushed Ice", "Salt or Tajín rim"] },
-        { name: "Watermelon Margarita",       emoji: "🍉",    ingredients: ["Watermelon", "Tequila", "Triple Sec / Cointreau", "Lime", "Simple Syrup (opt.)", "Crushed Ice", "Salt rim"] },
-        { name: "Spicy Watermelon Margarita", emoji: "🌶️🍉",  ingredients: ["Watermelon", "Tequila", "Triple Sec / Cointreau", "Lime", "Fresh Chili (jalapeño/red)", "Simple Syrup / Agave", "Crushed Ice", "Tajín rim"] },
+        { name: "Margarita",                  emoji: "🍋‍🟩", strength: 3, tags: [],                 ingredients: ["Tequila", "Triple Sec / Cointreau", "Lime", "Simple Syrup (opt.)", "Crushed Ice", "Salt rim"] },
+        { name: "Spicy Margarita",            emoji: "🌶️",   strength: 3, tags: ["spicy"],          ingredients: ["Tequila", "Triple Sec / Cointreau", "Lime", "Fresh Chili (jalapeño/red)", "Simple Syrup / Agave", "Crushed Ice", "Salt or Tajín rim"] },
+        { name: "Watermelon Margarita",       emoji: "🍉",    strength: 2, tags: ["fruity"],         ingredients: ["Watermelon", "Tequila", "Triple Sec / Cointreau", "Lime", "Simple Syrup (opt.)", "Crushed Ice", "Salt rim"] },
+        { name: "Spicy Watermelon Margarita", emoji: "🌶️🍉", strength: 3, tags: ["spicy", "fruity"], ingredients: ["Watermelon", "Tequila", "Triple Sec / Cointreau", "Lime", "Fresh Chili (jalapeño/red)", "Simple Syrup / Agave", "Crushed Ice", "Tajín rim"] },
       ],
     },
     {
-      key: "booze",
-      label: "Boozy",
-      tabEmoji: "🥃",
-      tabNote: "Cocktails",
+      key: "booze", label: "Boozy", emoji: "🥃",
       items: [
-        { name: "Old Fashioned", emoji: "🥃", ingredients: ["Bourbon / Rye Whiskey", "Sugar Cube", "Angostura Bitters", "Orange Peel", "Large Ice Cube", "Cocktail Cherry"] },
+        { name: "Old Fashioned", emoji: "🥃", strength: 5, tags: ["strong"], ingredients: ["Bourbon / Rye Whiskey", "Sugar Cube", "Angostura Bitters", "Orange Peel", "Large Ice Cube", "Cocktail Cherry"] },
       ],
     },
     {
-      key: "free",
-      label: "Alcohol-Free",
-      tabEmoji: "🌱",
-      tabNote: "Mocktails",
+      key: "free", label: "Alcohol-Free", emoji: "🌱",
       items: [
-        { name: "Virgin Mojito",             emoji: "🌿", ingredients: ["Fresh Mint", "Lime", "Simple Syrup / Sugar", "Sparkling Mineral Water", "Crushed Ice"] },
-        { name: "Virgin Moscow Mule",        emoji: "🫚", ingredients: ["Ginger Beer", "Lime", "Fresh Ginger (opt.)", "Crushed Ice"] },
-        { name: "Pomegranate & Elderflower", emoji: "🌸", ingredients: ["Fresh Mint", "Lime", "Pomegranate Juice", "Elderflower Cordial", "Sparkling Mineral Water", "Crushed Ice"] },
+        { name: "Virgin Mojito",             emoji: "🌿", strength: 0, tags: ["zero"], ingredients: ["Fresh Mint", "Lime", "Simple Syrup / Sugar", "Sparkling Mineral Water", "Crushed Ice"] },
+        { name: "Virgin Moscow Mule",        emoji: "🫚", strength: 0, tags: ["zero"], ingredients: ["Ginger Beer", "Lime", "Fresh Ginger (opt.)", "Crushed Ice"] },
+        { name: "Pomegranate & Elderflower", emoji: "🌸", strength: 0, tags: ["zero"], ingredients: ["Fresh Mint", "Lime", "Pomegranate Juice", "Elderflower Cordial", "Sparkling Mineral Water", "Crushed Ice"] },
       ],
     },
     {
-      key: "food",
-      label: "Food",
-      tabEmoji: "🍔",
-      tabNote: "Mains",
+      key: "food", label: "Food", emoji: "🍔",
       items: [
-        { name: "Chicken", emoji: "🍗", ingredients: ["Grilled Chicken", "Lemon & Herbs", "Fries", "Slaw"] },
-        { name: "Lamb",    emoji: "🍖", ingredients: ["Slow-Cooked Lamb", "Rosemary", "Roast Potatoes", "Mint Sauce"] },
-        { name: "Burger",  emoji: "🍔", ingredients: ["Beef Patty", "Cheese", "Lettuce & Tomato", "Brioche Bun", "Fries"] },
+        { name: "Chicken", emoji: "🍗", strength: 0, tags: [], ingredients: ["Grilled Chicken", "Lemon & Herbs", "Fries", "Slaw"] },
+        { name: "Lamb",    emoji: "🍖", strength: 0, tags: [], ingredients: ["Slow-Cooked Lamb", "Rosemary", "Roast Potatoes", "Mint Sauce"] },
+        { name: "Burger",  emoji: "🍔", strength: 0, tags: [], ingredients: ["Beef Patty", "Cheese", "Lettuce & Tomato", "Brioche Bun", "Fries"] },
       ],
     },
   ];
 
-  var NAME_KEY = "cocktail_name";
+  // ---- Storage keys + element refs -------------------------------------
+  var NAME_KEY  = "cocktail_name";
+  var FAV_KEY   = "cocktail_favs";
+  var LAST_KEY  = "cocktail_last_order";
+  var THEME_KEY = "cocktail_theme";
+
   var $ = function (id) { return document.getElementById(id); };
 
   var form       = $("request-form");
@@ -63,25 +66,25 @@
   var submitBtn  = $("submit-btn");
   var basketEl   = $("basket");
   var orderField = $("order-field");
-  var tabsEl     = $("tabs");
-  var panelsEl   = $("panels");
+  var chipbar    = $("chipbar");
+  var sectionsEl = $("menu-sections");
+  var surpriseBtn = $("surprise");
+  var themeBtn    = $("theme-btn");
 
-  // floating basket pill
   var pill      = $("basket-pill");
   var pillCount = $("basket-pill-count");
 
-  // success overlay
   var overlay       = $("celebrate");
   var overlayTitle  = $("celebrate-title");
   var overlayMsg    = $("celebrate-msg");
   var overlayBurst  = $("celebrate-burst");
   var orderAgainBtn = $("order-again");
 
-  // "had enough?" confirm gate
   var confirmOverlay = $("confirm");
   var confirmNo      = $("confirm-no");
   var confirmYes     = $("confirm-yes");
 
+  // ---- Helpers ----------------------------------------------------------
   function reducedMotion() {
     return window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   }
@@ -90,9 +93,24 @@
       return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
     });
   }
+  function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+  function lsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* ignore */ } }
+  function lsJSON(k) { try { var v = JSON.parse(lsGet(k)); return Array.isArray(v) ? v : []; } catch (e) { return []; } }
 
-  // Stable id for a drink, e.g. "Spicy Margarita (Margaritas)"
+  // Stable id for an item, e.g. "Spicy Margarita (Margaritas)"
   function drinkId(item, section) { return item.name + " (" + section.label + ")"; }
+
+  // Index every item by id (for favourites + re-order lookups).
+  var itemIndex = {};
+  SECTIONS.forEach(function (section) {
+    section.items.forEach(function (item) { itemIndex[drinkId(item, section)] = { item: item, section: section }; });
+  });
+
+  // ---- Favourites + last order (persisted) -----------------------------
+  var favs = lsJSON(FAV_KEY);
+  function isFav(id) { return favs.indexOf(id) !== -1; }
+
+  var lastOrder = lsJSON(LAST_KEY).filter(function (l) { return itemIndex[l.id]; });
 
   // ---- The order basket -------------------------------------------------
   var basket = []; // [{ id, name, emoji, qty }]
@@ -113,24 +131,22 @@
     var line = findLine(id);
     if (!line) { return; }
     line.qty += delta;
-    if (line.qty <= 0) {
-      basket = basket.filter(function (l) { return l.id !== id; });
-    }
+    if (line.qty <= 0) { basket = basket.filter(function (l) { return l.id !== id; }); }
     renderBasket();
   }
-  function totalCount() {
-    return basket.reduce(function (n, l) { return n + l.qty; }, 0);
-  }
-  function orderSummary() {
-    return basket.map(function (l) { return l.qty + "× " + l.name; }).join(", ");
-  }
+  function totalCount() { return basket.reduce(function (n, l) { return n + l.qty; }, 0); }
+  function orderSummary() { return basket.map(function (l) { return l.qty + "× " + l.name; }).join(", "); }
 
   function renderBasket() {
     var count = totalCount();
 
     if (!basket.length) {
-      basketEl.innerHTML =
-        '<p class="basket-empty">Your order is empty — tap <strong>Add to order</strong> on anything above. 🍸</p>';
+      var html = '<p class="basket-empty">Your order is empty — tap <strong>Add to order</strong> on anything above. 🍸</p>';
+      if (lastOrder.length) {
+        var summary = lastOrder.map(function (l) { return l.qty + "× " + l.name; }).join(", ");
+        html += '<button type="button" class="reorder-btn">🔁 Re-order your last: ' + escapeHtml(summary) + "</button>";
+      }
+      basketEl.innerHTML = html;
     } else {
       var rows = basket.map(function (l) {
         return (
@@ -149,11 +165,8 @@
         '<button type="button" class="basket-clear">Clear all</button>';
     }
 
-    // Send button reflects the running count.
     submitBtn.disabled = count === 0;
-    submitBtn.textContent = count === 0
-      ? "Add something first"
-      : "Send order (" + count + ") 🍹";
+    submitBtn.textContent = count === 0 ? "Add something first" : "Send order (" + count + ") 🍹";
 
     pillCount.textContent = count;
     orderField.value = orderSummary();
@@ -162,6 +175,12 @@
 
   // Basket controls (event-delegated so they survive re-renders).
   basketEl.addEventListener("click", function (e) {
+    if (e.target.closest(".reorder-btn")) {
+      basket = lastOrder.map(function (l) { return { id: l.id, name: l.name, emoji: l.emoji, qty: l.qty }; });
+      renderBasket();
+      bumpPill();
+      return;
+    }
     if (e.target.closest(".basket-clear")) {
       basket = [];
       renderBasket();
@@ -193,91 +212,188 @@
     pill.classList.add("bump");
   }
 
-  // ---- Build tabs, panels and cards from the data -----------------------
-  var tabRefs = []; // [{ btn, panel }]
+  // ---- Build a menu card (used by both the menu and favourites) --------
+  function buildCard(item, section) {
+    var id = drinkId(item, section);
+    var card = document.createElement("article");
+    card.className = "cocktail";
+    card.setAttribute("data-id", id);
 
-  SECTIONS.forEach(function (section, index) {
-    var first = index === 0;
+    var tagsHtml = (item.tags || []).map(function (t) {
+      var def = TAGS[t];
+      return def ? '<span class="tag">' + def.emoji + " " + def.label + "</span>" : "";
+    }).join("");
 
-    // Tab button
-    var btn = document.createElement("button");
-    btn.className = "tab";
-    btn.type = "button";
-    btn.setAttribute("role", "tab");
-    btn.id = "tab-" + section.key;
-    btn.setAttribute("aria-controls", "panel-" + section.key);
-    btn.setAttribute("aria-selected", first ? "true" : "false");
-    btn.tabIndex = first ? 0 : -1;
-    btn.innerHTML = section.tabEmoji + " " + section.label + "<small>" + section.tabNote + "</small>";
-    tabsEl.appendChild(btn);
+    var strengthHtml = "";
+    if (item.strength >= 1) {
+      var dots = "";
+      for (var s = 1; s <= 5; s++) { dots += '<i class="' + (s <= item.strength ? "on" : "") + '"></i>'; }
+      strengthHtml = '<span class="strength" aria-label="Strength ' + item.strength + ' of 5" title="Strength">' + dots + "</span>";
+    }
+    var metaHtml = (tagsHtml || strengthHtml) ? '<div class="meta">' + tagsHtml + strengthHtml + "</div>" : "";
 
-    // Panel + menu grid
-    var panel = document.createElement("section");
-    panel.className = "panel" + (first ? " active" : "");
-    panel.id = "panel-" + section.key;
-    panel.setAttribute("role", "tabpanel");
-    panel.setAttribute("aria-labelledby", btn.id);
-    panel.hidden = !first;
+    var chips = item.ingredients.map(function (i) { return "<li>" + escapeHtml(i) + "</li>"; }).join("");
+    var faved = isFav(id);
 
+    card.innerHTML =
+      '<button type="button" class="fav" data-fav-id="' + escapeHtml(id) + '" aria-pressed="' + (faved ? "true" : "false") +
+        '" aria-label="' + (faved ? "Remove " : "Save ") + escapeHtml(item.name) + ' to favourites">' + (faved ? "★" : "☆") + "</button>" +
+      '<h3><span class="emoji">' + item.emoji + "</span>" + escapeHtml(item.name) + "</h3>" +
+      metaHtml +
+      '<ul class="ingredients">' + chips + "</ul>" +
+      '<button type="button" class="order">Add to order +</button>';
+
+    var orderBtn = card.querySelector(".order");
+    orderBtn.addEventListener("click", function () {
+      addToBasket(item, section);
+      flashAdded(orderBtn);
+    });
+    card.querySelector(".fav").addEventListener("click", function () { toggleFav(id); });
+    return card;
+  }
+
+  // ---- Favourites -------------------------------------------------------
+  var favSection, favMenu, favChip;
+
+  function toggleFav(id) {
+    var i = favs.indexOf(id);
+    if (i === -1) { favs.push(id); } else { favs.splice(i, 1); }
+    lsSet(FAV_KEY, JSON.stringify(favs));
+
+    // Sync every star button for this id (it can appear twice: menu + favourites).
+    var on = isFav(id);
+    var stars = document.querySelectorAll('.fav[data-fav-id="' + id + '"]');
+    Array.prototype.forEach.call(stars, function (b) {
+      b.setAttribute("aria-pressed", on ? "true" : "false");
+      b.textContent = on ? "★" : "☆";
+    });
+    renderFavourites();
+  }
+
+  function renderFavourites() {
+    var refs = favs.map(function (id) { return itemIndex[id]; }).filter(Boolean);
+    var has = refs.length > 0;
+    favSection.hidden = !has;
+    favChip.hidden = !has;
+    favMenu.innerHTML = "";
+    refs.forEach(function (r) { favMenu.appendChild(buildCard(r.item, r.section)); });
+  }
+
+  // ---- Build chip nav + the full menu ----------------------------------
+  var chipRefs = []; // [{ key, chip, sec }]
+
+  function buildChip(key, emoji, label) {
+    var chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = "chip";
+    chip.innerHTML = '<span class="emoji" aria-hidden="true">' + emoji + "</span>" + label;
+    chip.addEventListener("click", function () {
+      var sec = $("section-" + key);
+      if (sec) { sec.scrollIntoView({ behavior: reducedMotion() ? "auto" : "smooth", block: "start" }); }
+    });
+    chipbar.appendChild(chip);
+    return chip;
+  }
+  function buildSection(key, emoji, label) {
+    var sec = document.createElement("section");
+    sec.className = "menu-section";
+    sec.id = "section-" + key;
+    sec.setAttribute("aria-label", label);
+    var head = document.createElement("h2");
+    head.className = "section-head";
+    head.innerHTML = '<span class="emoji" aria-hidden="true">' + emoji + "</span>" + label;
     var menu = document.createElement("div");
     menu.className = "menu";
-
-    section.items.forEach(function (item) {
-      var card = document.createElement("article");
-      card.className = "cocktail";
-      var chips = item.ingredients
-        .map(function (i) { return "<li>" + escapeHtml(i) + "</li>"; })
-        .join("");
-      card.innerHTML =
-        '<h3><span class="emoji">' + item.emoji + "</span>" + escapeHtml(item.name) + "</h3>" +
-        '<ul class="ingredients">' + chips + "</ul>" +
-        '<button type="button" class="order">Add to order +</button>';
-      var addBtn = card.querySelector(".order");
-      addBtn.addEventListener("click", function () {
-        addToBasket(item, section);
-        flashAdded(addBtn);
-      });
-      menu.appendChild(card);
-    });
-
-    panel.appendChild(menu);
-    panelsEl.appendChild(panel);
-
-    tabRefs.push({ btn: btn, panel: panel });
-  });
-
-  // ---- Tabs behaviour (click + arrow keys) ------------------------------
-  function selectTab(index, focusBtn) {
-    tabRefs.forEach(function (t, i) {
-      var on = i === index;
-      t.btn.setAttribute("aria-selected", on ? "true" : "false");
-      t.btn.tabIndex = on ? 0 : -1;
-      t.panel.classList.toggle("active", on);
-      t.panel.hidden = !on;
-    });
-    if (focusBtn) { tabRefs[index].btn.focus(); }
+    sec.appendChild(head);
+    sec.appendChild(menu);
+    sectionsEl.appendChild(sec);
+    return { sec: sec, menu: menu };
   }
-  tabRefs.forEach(function (t, i) {
-    t.btn.addEventListener("click", function () { selectTab(i, false); });
-    t.btn.addEventListener("keydown", function (e) {
-      if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
-        e.preventDefault();
-        selectTab((i + (e.key === "ArrowRight" ? 1 : tabRefs.length - 1)) % tabRefs.length, true);
-      } else if (e.key === "Home") {
-        e.preventDefault(); selectTab(0, true);
-      } else if (e.key === "End") {
-        e.preventDefault(); selectTab(tabRefs.length - 1, true);
-      }
-    });
+
+  // Favourites lives first (shown only once you've starred something).
+  favChip = buildChip("favourites", "⭐", "Favourites");
+  var favBuilt = buildSection("favourites", "⭐", "Your Favourites");
+  favSection = favBuilt.sec;
+  favMenu = favBuilt.menu;
+  chipRefs.push({ key: "favourites", chip: favChip, sec: favSection });
+
+  SECTIONS.forEach(function (section) {
+    var chip = buildChip(section.key, section.emoji, section.label);
+    var built = buildSection(section.key, section.emoji, section.label);
+    section.items.forEach(function (item) { built.menu.appendChild(buildCard(item, section)); });
+    chipRefs.push({ key: section.key, chip: chip, sec: built.sec });
   });
 
-  // ---- Floating pill: jumps to the order, hides once it's in view -------
+  renderFavourites();
+
+  // ---- Scroll-spy: highlight the chip for the section you're in --------
+  if ("IntersectionObserver" in window) {
+    var spy = new IntersectionObserver(function (entries) {
+      entries.forEach(function (en) {
+        if (!en.isIntersecting) { return; }
+        var id = en.target.id;
+        chipRefs.forEach(function (r) {
+          r.chip.setAttribute("aria-current", ("section-" + r.key) === id ? "true" : "false");
+        });
+      });
+    }, { rootMargin: "-72px 0px -65% 0px", threshold: 0 });
+    chipRefs.forEach(function (r) { spy.observe(r.sec); });
+  }
+
+  // ---- 🎲 Bartender's choice: add a random drink -----------------------
+  surpriseBtn.addEventListener("click", function () {
+    var pool = [];
+    SECTIONS.forEach(function (section) {
+      if (section.key === "food") { return; } // bartender pours drinks, not dinner
+      section.items.forEach(function (item) { pool.push({ item: item, section: section }); });
+    });
+    if (!pool.length) { return; }
+    var pick = pool[Math.floor(Math.random() * pool.length)];
+    addToBasket(pick.item, pick.section);
+
+    if (!reducedMotion()) {
+      surpriseBtn.classList.remove("spin");
+      void surpriseBtn.offsetWidth;
+      surpriseBtn.classList.add("spin");
+    }
+
+    var id = drinkId(pick.item, pick.section);
+    var card = document.querySelector("#section-" + pick.section.key + ' [data-id="' + id + '"]');
+    if (card) {
+      card.scrollIntoView({ behavior: reducedMotion() ? "auto" : "smooth", block: "center" });
+      var ob = card.querySelector(".order");
+      if (ob) { flashAdded(ob); }
+      card.classList.remove("just-picked");
+      void card.offsetWidth;
+      card.classList.add("just-picked");
+    }
+  });
+
+  // ---- 🎨 Theme switcher ------------------------------------------------
+  function applyTheme(name) {
+    if (THEMES.indexOf(name) === -1) { name = "neon"; }
+    document.documentElement.setAttribute("data-theme", name);
+    lsSet(THEME_KEY, name);
+    themeBtn.setAttribute("aria-label", "Theme: " + THEME_LABELS[name] + " — tap to change");
+    themeBtn.title = "Theme: " + THEME_LABELS[name];
+  }
+  applyTheme(lsGet(THEME_KEY) || "neon");
+  themeBtn.addEventListener("click", function () {
+    var cur = document.documentElement.getAttribute("data-theme") || "neon";
+    applyTheme(THEMES[(THEMES.indexOf(cur) + 1) % THEMES.length]);
+    if (!reducedMotion()) {
+      themeBtn.classList.remove("pop");
+      void themeBtn.offsetWidth;
+      themeBtn.classList.add("pop");
+    }
+  });
+
+  // ---- Floating pill: jumps to the order, hides once it's in view ------
   var orderInView = false;
   function updatePillVisibility() {
     var count = totalCount();
     pill.hidden = count === 0 || orderInView;
-    pill.setAttribute("aria-label",
-      "View your order — " + count + (count === 1 ? " item" : " items"));
+    pill.setAttribute("aria-label", "View your order — " + count + (count === 1 ? " item" : " items"));
   }
   pill.addEventListener("click", function () {
     formCard.scrollIntoView({ behavior: reducedMotion() ? "auto" : "smooth", block: "start" });
@@ -292,13 +408,10 @@
 
   // ---- Remember the name across visits ---------------------------------
   try {
-    var saved = localStorage.getItem(NAME_KEY);
+    var saved = lsGet(NAME_KEY);
     if (saved) { nameInput.value = saved; }
-  } catch (e) { /* private mode / blocked storage — ignore */ }
-
-  function rememberName() {
-    try { localStorage.setItem(NAME_KEY, nameInput.value.trim()); } catch (e) { /* ignore */ }
-  }
+  } catch (e) { /* ignore */ }
+  function rememberName() { lsSet(NAME_KEY, nameInput.value.trim()); }
   nameInput.addEventListener("change", rememberName);
 
   // ---- Submit flow: confirm gate, then POST the basket via AJAX --------
@@ -328,6 +441,9 @@
         if (!res.ok) { throw new Error("Bad response"); }
         var orderedName = nameInput.value.trim();
         var orderedLines = basket.slice();
+        // Remember this order so it can be re-ordered next time.
+        lastOrder = orderedLines.slice();
+        lsSet(LAST_KEY, JSON.stringify(lastOrder));
         basket = [];
         renderBasket();           // clears the list + disables the button
         form.reset();
@@ -387,7 +503,7 @@
     overlayBurst.innerHTML = "";
     document.body.style.overflow = "";
     window.scrollTo({ top: 0, behavior: reducedMotion() ? "auto" : "smooth" });
-    if (tabRefs[0]) { tabRefs[0].btn.focus(); } // back at the top, ready for more
+    if (chipRefs.length) { chipRefs[0].chip.focus(); } // back at the top
   }
 
   function fireBurst() {

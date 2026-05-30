@@ -15,6 +15,22 @@
   --border: 4px;
 }
 
+/* ---- Theme palettes: just remap the colour tokens ---- */
+[data-theme="tiki"] {
+  --pink:   #ff5a36;  /* coral   */
+  --yellow: #ffc24b;  /* amber   */
+  --cyan:   #15b8a6;  /* teal    */
+  --lime:   #9bd831;  /* leaf    */
+  --ink:    #1f1305;  /* cocoa   */
+}
+[data-theme="speakeasy"] {
+  --pink:   #b13546;  /* claret  */
+  --yellow: #d9b667;  /* antique gold */
+  --cyan:   #3a8a7d;  /* dusty teal   */
+  --lime:   #b08a3e;  /* brass   */
+  --ink:    #16130d;  /* near-black */
+}
+
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
 body {
@@ -61,7 +77,7 @@ body {
 }
 
 /* ---------------- HEADER ---------------- */
-header { text-align: center; margin: 6px 0 24px; }
+header { position: relative; text-align: center; margin: 6px 0 24px; }
 .kicker {
   display: inline-block; background: var(--ink); color: var(--yellow);
   font-family: "Bungee", sans-serif; font-size: 0.8rem; letter-spacing: 1.5px;
@@ -78,46 +94,98 @@ h1 {
   border: 3px solid var(--ink); padding: 10px 14px; box-shadow: 4px 4px 0 var(--ink);
   transform: rotate(1.2deg);
 }
-
-/* ---------------- TABS (segmented toggle) ----------------
-   A single bordered pill that holds both options. No sticky,
-   no gradient hack — it reads clearly as one control. */
-.tabs {
-  display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 0 0 24px; padding: 6px;
-  background: #fff; border: var(--border) solid var(--ink);
-  border-radius: var(--radius); box-shadow: 5px 5px 0 var(--ink);
+/* 🎲 Bartender's choice */
+.surprise {
+  display: inline-flex; align-items: center; gap: 8px; margin-top: 18px;
+  padding: 12px 20px; background: var(--pink); color: #fff;
+  font-family: "Bungee", sans-serif; font-size: clamp(0.9rem, 4vw, 1.1rem);
+  text-transform: uppercase; letter-spacing: 0.5px;
+  border: var(--border) solid var(--ink); border-radius: 999px; box-shadow: 4px 4px 0 var(--ink);
+  cursor: pointer; touch-action: manipulation; transition: transform .1s, box-shadow .1s;
 }
-.tab {
-  flex: 1 1 0; min-height: 56px; padding: 8px 6px;
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
-  font-family: "Bungee", sans-serif; font-size: clamp(0.74rem, 3.2vw, 1.05rem);
-  text-transform: uppercase; line-height: 1.05; text-align: center; overflow-wrap: anywhere;
-  background: transparent; color: var(--ink);
-  border: none; border-radius: 11px; cursor: pointer; touch-action: manipulation;
-  transition: background 0.15s, color 0.15s, transform 0.08s;
+.surprise:active { transform: translateY(2px); box-shadow: 2px 2px 0 var(--ink); }
+.surprise.spin { animation: dice 0.6s ease; }
+@keyframes dice { 0% { transform: rotate(0); } 100% { transform: rotate(360deg); } }
+/* 🎨 Theme toggle (top-right of the header) */
+.theme-btn {
+  position: absolute; top: 0; right: 0; z-index: 3;
+  width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;
+  font-size: 1.3rem; line-height: 1; background: #fff; color: var(--ink);
+  border: 3px solid var(--ink); border-radius: 12px; box-shadow: 3px 3px 0 var(--ink);
+  cursor: pointer; touch-action: manipulation;
 }
-.tab small { display: block; font-size: 0.62em; opacity: 0.65; letter-spacing: 0.5px; }
-.tab[aria-selected="true"] { background: var(--ink); color: var(--yellow); }
-.tab[aria-selected="true"] small { opacity: 0.8; }
-.tab:active { transform: scale(0.97); }
+.theme-btn:active { transform: translateY(2px); }
+.theme-btn.pop { animation: pop 0.3s ease; }
 
-/* ---------------- MENU PANELS + CARDS ---------------- */
-.panel { display: none; }
-.panel.active { display: block; }
-.menu { display: grid; gap: 16px; margin-bottom: 40px; }
+/* ---------------- CHIP NAV (sticky category jumper) ---------------- */
+.chipbar {
+  position: sticky; top: 0; z-index: 200;
+  display: flex; gap: 8px; margin: 0 0 22px; padding: 10px 0;
+  overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch;
+  background: var(--yellow);
+}
+.chipbar::-webkit-scrollbar { display: none; }
+.chip {
+  flex: 0 0 auto; display: inline-flex; align-items: center; gap: 6px;
+  padding: 9px 14px; border: 3px solid var(--ink); border-radius: 999px;
+  background: #fff; color: var(--ink); white-space: nowrap;
+  font-family: "Bungee", sans-serif; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.5px;
+  cursor: pointer; touch-action: manipulation; transition: background .15s, color .15s, transform .08s;
+}
+.chip[hidden] { display: none; }
+.chip .emoji { font-family: "Space Grotesk", sans-serif; }
+.chip[aria-current="true"] { background: var(--ink); color: var(--yellow); }
+.chip:active { transform: scale(0.96); }
+
+/* ---------------- MENU SECTIONS + CARDS ---------------- */
+.menu-section { scroll-margin-top: 64px; margin-bottom: 8px; }
+.menu-section[hidden] { display: none; }
+.section-head {
+  font-family: "Archivo Black", sans-serif; text-transform: uppercase;
+  font-size: clamp(1.4rem, 7vw, 2.2rem); line-height: 0.95; letter-spacing: -0.5px;
+  color: #fff; margin: 6px 0 16px; display: flex; align-items: center; gap: 10px;
+  text-shadow: 2px 2px 0 var(--pink), 4px 4px 0 var(--ink);
+}
+.section-head .emoji { font-family: "Space Grotesk", sans-serif; text-shadow: none; }
+.menu { display: grid; gap: 16px; margin-bottom: 36px; }
 .cocktail {
+  position: relative;
   background: #fff; border: var(--border) solid var(--ink); border-radius: var(--radius);
   padding: 16px 18px; box-shadow: 6px 6px 0 var(--ink);
 }
 .cocktail:nth-child(3n+1) { background: var(--cyan); }
 .cocktail:nth-child(3n+2) { background: var(--lime); }
 .cocktail:nth-child(3n+3) { background: var(--pink); }
+.cocktail.just-picked { animation: pickglow 1.1s ease; }
+@keyframes pickglow {
+  0%, 100% { box-shadow: 6px 6px 0 var(--ink); }
+  30%      { box-shadow: 0 0 0 5px var(--yellow), 6px 6px 0 var(--ink); }
+}
 .cocktail h3 {
-  font-family: "Archivo Black", sans-serif; text-transform: uppercase; margin: 0 0 10px;
+  font-family: "Archivo Black", sans-serif; text-transform: uppercase; margin: 0 0 10px; padding-right: 44px;
   font-size: clamp(1.35rem, 7vw, 2.1rem); letter-spacing: -0.5px; line-height: 0.95;
   display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
 }
 .cocktail h3 .emoji { font-family: "Space Grotesk", sans-serif; }
+/* ⭐ favourite toggle */
+.fav {
+  position: absolute; top: 10px; right: 10px; z-index: 2;
+  width: 38px; height: 38px; display: flex; align-items: center; justify-content: center;
+  font-size: 1.3rem; line-height: 1; background: #fff; color: var(--ink);
+  border: 3px solid var(--ink); border-radius: 999px; cursor: pointer; touch-action: manipulation;
+  transition: transform .08s, background .15s;
+}
+.fav[aria-pressed="true"] { background: var(--yellow); }
+.fav:active { transform: scale(0.9); }
+/* tags + strength gauge */
+.meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 12px; }
+.tag {
+  font-family: "Bungee", sans-serif; font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.5px;
+  background: #fff; color: var(--ink); border: 2px solid var(--ink); border-radius: 999px; padding: 3px 9px;
+}
+.strength { display: inline-flex; align-items: center; gap: 3px; margin-left: auto; }
+.strength i { width: 9px; height: 9px; display: block; border: 2px solid var(--ink); border-radius: 999px; background: transparent; }
+.strength i.on { background: var(--ink); }
 .ingredients { display: flex; flex-wrap: wrap; gap: 7px; margin: 0 0 14px; padding: 0; list-style: none; }
 .ingredients li {
   font-weight: 700; font-size: clamp(0.78rem, 3.3vw, 0.95rem);
@@ -138,7 +206,8 @@ h1 {
 .order.added { background: var(--lime); color: var(--ink); }
 
 /* visible keyboard focus for every interactive control */
-:where(.tab, .order, .qty-btn, button.send, .basket-pill, .basket-clear, .btn-no, .btn-yes):focus-visible {
+:where(.chip, .order, .qty-btn, button.send, .basket-pill, .basket-clear,
+       .btn-no, .btn-yes, .fav, .surprise, .theme-btn, .reorder-btn):focus-visible {
   outline: 3px solid var(--cyan); outline-offset: 3px;
 }
 
@@ -177,14 +246,83 @@ button.send:disabled { opacity: 0.6; cursor: default; transform: none; }
 
 footer { text-align: center; margin-top: 40px; font-family: "Bungee", sans-serif; font-size: 0.8rem; color: var(--ink); transform: rotate(-1deg); }
 
+/* ---------------- ORDER BASKET ----------------
+   Lives inside the dark order card, so rows are light for contrast. */
+.basket { margin: 0 0 22px; }
+.basket-empty {
+  margin: 0; text-align: center; font-weight: 700; color: var(--cyan);
+  border: 3px dashed rgba(255, 255, 255, 0.4); border-radius: 12px; padding: 18px 14px;
+}
+.basket-empty strong { color: #fff; }
+.reorder-btn {
+  display: block; width: 100%; margin: 14px 0 0; padding: 12px 14px;
+  background: var(--cyan); color: var(--ink); border: 3px solid #fff; border-radius: 12px;
+  font-family: "Bungee", sans-serif; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.5px;
+  text-align: center; cursor: pointer; touch-action: manipulation;
+}
+.reorder-btn:active { transform: translateY(2px); }
+.basket-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.basket-item {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  background: #fff; color: var(--ink);
+  border: 3px solid #fff; border-radius: 12px; padding: 9px 12px;
+}
+.basket-item-name {
+  display: flex; align-items: center; gap: 8px; min-width: 0;
+  font-family: "Bungee", sans-serif; line-height: 1.05;
+  font-size: clamp(0.82rem, 3.6vw, 1.02rem);
+}
+.basket-item-name .emoji { font-family: "Space Grotesk", sans-serif; flex: none; }
+.qty { display: flex; align-items: center; gap: 8px; flex: none; }
+.qty-btn {
+  width: 34px; height: 34px; flex: none; display: flex; align-items: center; justify-content: center;
+  font-family: "Bungee", sans-serif; font-size: 1.15rem; line-height: 1;
+  background: var(--yellow); color: var(--ink); border: 3px solid var(--ink); border-radius: 9px;
+  cursor: pointer; touch-action: manipulation;
+}
+.qty-btn:active { transform: translateY(1px); }
+.qty-n { min-width: 1.4ch; text-align: center; font-family: "Bungee", sans-serif; font-size: 1rem; }
+.basket-clear {
+  display: block; margin: 14px auto 0; padding: 6px 4px;
+  background: none; border: none; cursor: pointer; touch-action: manipulation;
+  font-family: "Bungee", sans-serif; font-size: 0.72rem; letter-spacing: 0.5px; text-transform: uppercase;
+  color: var(--cyan); text-decoration: underline; text-underline-offset: 3px;
+}
+.basket-clear:active { color: #fff; }
+
+/* ---------------- FLOATING BASKET PILL ----------------
+   Running count that scrolls down to the order card. */
+.basket-pill {
+  position: fixed; z-index: 900;
+  left: 50%; transform: translateX(-50%);
+  bottom: calc(16px + env(safe-area-inset-bottom));
+  display: inline-flex; align-items: center; gap: 10px; padding: 12px 18px;
+  background: var(--ink); color: #fff;
+  font-family: "Bungee", sans-serif; font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.5px;
+  border: 3px solid #fff; border-radius: 999px; box-shadow: 4px 4px 0 var(--pink);
+  cursor: pointer; touch-action: manipulation;
+}
+.basket-pill[hidden] { display: none; }
+.basket-pill-icon { font-size: 1.2rem; }
+.basket-pill-count {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 26px; height: 26px; padding: 0 6px; border-radius: 999px;
+  background: var(--yellow); color: var(--ink); font-size: 0.95rem;
+}
+.basket-pill.bump { animation: pillbump 0.3s ease; }
+@keyframes pillbump {
+  0%, 100% { transform: translateX(-50%) scale(1); }
+  50%      { transform: translateX(-50%) scale(1.12); }
+}
+
 /* ---------- Enhance for tablets / large phones (≥600px) ---------- */
 @media (min-width: 600px) {
   header { margin-bottom: 30px; }
   .kicker { font-size: 1.05rem; letter-spacing: 2px; padding: 8px 18px; }
   h1 { letter-spacing: -2px; text-shadow: 4px 4px 0 var(--pink), 8px 8px 0 var(--cyan), 12px 12px 0 var(--ink); }
   .sub { border-width: 4px; box-shadow: 7px 7px 0 var(--ink); }
-  .tabs { gap: 8px; box-shadow: 6px 6px 0 var(--ink); grid-template-columns: repeat(4, 1fr); }
-  .menu { gap: 22px; margin-bottom: 48px; }
+  .chipbar { gap: 10px; justify-content: center; flex-wrap: wrap; overflow-x: visible; }
+  .menu { gap: 22px; margin-bottom: 44px; }
   .cocktail { border-width: 5px; border-radius: 18px; padding: 22px 24px; box-shadow: 10px 10px 0 var(--ink); }
   .card { border-radius: 22px; padding: 34px 26px; box-shadow: 12px 12px 0 var(--pink); }
   .card h2 { text-shadow: 3px 3px 0 var(--pink); }
@@ -193,9 +331,10 @@ footer { text-align: center; margin-top: 40px; font-family: "Bungee", sans-serif
 
 /* ---------- Hover only where a real pointer exists ---------- */
 @media (hover: hover) and (pointer: fine) {
-  .tab:not([aria-selected="true"]):hover { background: rgba(10,10,18,0.08); }
+  .chip:not([aria-current="true"]):hover { background: rgba(10,10,18,0.08); }
   .cocktail:hover { transform: translate(-3px,-3px); box-shadow: 13px 13px 0 var(--ink); transition: transform .12s, box-shadow .12s; }
   .order:hover { background: #fff; color: var(--ink); }
+  .fav:hover { background: var(--yellow); }
   button.send:hover { transform: translateY(-3px); box-shadow: 0 8px 0 var(--cyan); background: #fff; }
 }
 
@@ -238,69 +377,6 @@ footer { text-align: center; margin-top: 40px; font-family: "Bungee", sans-serif
   12%  { opacity: 1; }
   100% { transform: translate(calc(-50% + var(--tx)), calc(-50% + var(--ty))) scale(1) rotate(var(--r)); opacity: 0; }
 }
-
-/* ---------------- ORDER BASKET ----------------
-   Lives inside the dark order card, so rows are light for contrast. */
-.basket { margin: 0 0 22px; }
-.basket-empty {
-  margin: 0; text-align: center; font-weight: 700; color: var(--cyan);
-  border: 3px dashed rgba(255, 255, 255, 0.4); border-radius: 12px; padding: 18px 14px;
-}
-.basket-empty strong { color: #fff; }
-.basket-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
-.basket-item {
-  display: flex; align-items: center; justify-content: space-between; gap: 10px;
-  background: #fff; color: var(--ink);
-  border: 3px solid #fff; border-radius: 12px; padding: 9px 12px;
-}
-.basket-item-name {
-  display: flex; align-items: center; gap: 8px; min-width: 0;
-  font-family: "Bungee", sans-serif; line-height: 1.05;
-  font-size: clamp(0.82rem, 3.6vw, 1.02rem);
-}
-.basket-item-name .emoji { font-family: "Space Grotesk", sans-serif; flex: none; }
-.qty { display: flex; align-items: center; gap: 8px; flex: none; }
-.qty-btn {
-  width: 34px; height: 34px; flex: none; display: flex; align-items: center; justify-content: center;
-  font-family: "Bungee", sans-serif; font-size: 1.15rem; line-height: 1;
-  background: var(--yellow); color: var(--ink); border: 3px solid var(--ink); border-radius: 9px;
-  cursor: pointer; touch-action: manipulation;
-}
-.qty-btn:active { transform: translateY(1px); }
-.qty-n { min-width: 1.4ch; text-align: center; font-family: "Bungee", sans-serif; font-size: 1rem; }
-.basket-clear {
-  display: block; margin: 14px auto 0; padding: 6px 4px;
-  background: none; border: none; cursor: pointer; touch-action: manipulation;
-  font-family: "Bungee", sans-serif; font-size: 0.72rem; letter-spacing: 0.5px; text-transform: uppercase;
-  color: var(--cyan); text-decoration: underline; text-underline-offset: 3px;
-}
-.basket-clear:active { color: #fff; }
-
-/* ---------------- FLOATING BASKET PILL ----------------
-   Running drink count that scrolls down to the order card. */
-.basket-pill {
-  position: fixed; z-index: 900;
-  left: 50%; transform: translateX(-50%);
-  bottom: calc(16px + env(safe-area-inset-bottom));
-  display: inline-flex; align-items: center; gap: 10px; padding: 12px 18px;
-  background: var(--ink); color: #fff;
-  font-family: "Bungee", sans-serif; font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.5px;
-  border: 3px solid #fff; border-radius: 999px; box-shadow: 4px 4px 0 var(--pink);
-  cursor: pointer; touch-action: manipulation;
-}
-.basket-pill[hidden] { display: none; }
-.basket-pill-icon { font-size: 1.2rem; }
-.basket-pill-count {
-  display: inline-flex; align-items: center; justify-content: center;
-  min-width: 26px; height: 26px; padding: 0 6px; border-radius: 999px;
-  background: var(--yellow); color: var(--ink); font-size: 0.95rem;
-}
-.basket-pill.bump { animation: pillbump 0.3s ease; }
-@keyframes pillbump {
-  0%, 100% { transform: translateX(-50%) scale(1); }
-  50%      { transform: translateX(-50%) scale(1.12); }
-}
-
 /* Itemised list inside the success overlay */
 .celebrate-order { list-style: none; margin: 16px 0 0; padding: 0; display: grid; gap: 6px; }
 .celebrate-order li {
