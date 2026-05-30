@@ -69,7 +69,29 @@
       items: [
         { name: "Virgin Mojito",             emoji: "🌿", baseIngredients: ["Fresh Mint", "Lime", "Sugar", "Soda Water", "Crushed Ice"],            options: [SERVE_OPT] },
         { name: "Virgin Moscow Mule",        emoji: "🫚", baseIngredients: ["Ginger Beer", "Lime", "Fresh Ginger", "Crushed Ice"],                  options: [SERVE_OPT] },
-        { name: "Pomegranate & Elderflower", emoji: "🌸", baseIngredients: ["Pomegranate Juice", "Elderflower Cordial", "Lime", "Soda Water", "Ice"], options: [SERVE_OPT] },
+        { name: "Pom & Elderflower", emoji: "🌸", baseIngredients: ["Pomegranate Juice", "Elderflower Cordial", "Lime", "Soda Water", "Ice"], options: [SERVE_OPT] },
+      ],
+    },
+    {
+      key: "wine", label: "Wine", emoji: "🍷",
+      items: [
+        {
+          name: "Wine", emoji: "🍷",
+          baseIngredients: ["House wine"],
+          options: [
+            { key: "colour", label: "Colour", choices: [
+              { value: "White", label: "White", emoji: "🤍", tag: "White" },
+              { value: "Red",   label: "Red",   emoji: "❤️", tag: "Red" },
+              { value: "Rosé",  label: "Rosé",  emoji: "🩷", tag: "Rosé" },
+            ] },
+            // Ice only makes sense for white & rosé — hidden for red.
+            { key: "ice", label: "Ice", showIf: function (c) { return c.colour === "White" || c.colour === "Rosé"; },
+              choices: [
+                { value: "1 cube",  label: "1 cube",  emoji: "🧊", tag: "1 cube",  adds: ["1 ice cube"] },
+                { value: "2 cubes", label: "2 cubes", emoji: "🧊", tag: "2 cubes", adds: ["2 ice cubes"] },
+              ] },
+          ],
+        },
       ],
     },
     {
@@ -154,6 +176,12 @@
     for (var i = 0; i < opt.choices.length; i++) { if (opt.choices[i].value === val) { return opt.choices[i]; } }
     return opt.choices[0];
   }
+  // Options can declare showIf(config) to appear only for certain choices
+  // (e.g. wine's ice option only for White/Rosé). Inactive options are
+  // ignored when building the line, recipe and ticket.
+  function activeOptions(item, config) {
+    return (item.options || []).filter(function (opt) { return !opt.showIf || opt.showIf(config); });
+  }
 
   // Index every base item by id (for favourites + re-order validation).
   var itemIndex = {};
@@ -178,7 +206,7 @@
     var base = baseId(item, section);
     var idParts = [base];
     var tags = [];
-    item.options.forEach(function (opt) {
+    activeOptions(item, config).forEach(function (opt) {
       var val = config[opt.key];
       idParts.push(val);
       var choice = findChoice(opt, val);
@@ -189,7 +217,7 @@
   }
   function recipeFor(item, config) {
     var list = (item.baseIngredients || []).slice();
-    item.options.forEach(function (opt) {
+    activeOptions(item, config).forEach(function (opt) {
       var choice = findChoice(opt, config[opt.key]);
       if (choice.adds) { list = list.concat(choice.adds); }
     });
@@ -332,7 +360,15 @@
     item.options.forEach(function (opt) { czConfig[opt.key] = opt.choices[0].value; }); // defaults
 
     czTitle.textContent = item.name;
-    czBody.innerHTML = item.options.map(function (opt) {
+    renderOptions();
+
+    updateRecipe();
+    sheet.hidden = false;
+    document.body.style.overflow = "hidden";
+    czAdd.focus();
+  }
+  function renderOptions() {
+    czBody.innerHTML = activeOptions(czItem, czConfig).map(function (opt) {
       var segs = opt.choices.map(function (c) {
         return '<button type="button" class="seg" data-opt="' + escapeHtml(opt.key) + '" data-val="' + escapeHtml(c.value) +
           '" aria-pressed="' + (c.value === czConfig[opt.key] ? "true" : "false") + '">' +
@@ -340,11 +376,6 @@
       }).join("");
       return '<div class="opt"><span class="opt-label">' + escapeHtml(opt.label) + '</span><div class="seg-group">' + segs + "</div></div>";
     }).join("");
-
-    updateRecipe();
-    sheet.hidden = false;
-    document.body.style.overflow = "hidden";
-    czAdd.focus();
   }
   function closeCustomise() {
     sheet.hidden = true;
@@ -357,12 +388,8 @@
   czBody.addEventListener("click", function (e) {
     var seg = e.target.closest(".seg");
     if (!seg) { return; }
-    var key = seg.getAttribute("data-opt");
-    czConfig[key] = seg.getAttribute("data-val");
-    var group = seg.parentNode;
-    Array.prototype.forEach.call(group.querySelectorAll(".seg"), function (x) {
-      x.setAttribute("aria-pressed", x === seg ? "true" : "false");
-    });
+    czConfig[seg.getAttribute("data-opt")] = seg.getAttribute("data-val");
+    renderOptions(); // re-render so conditional options (e.g. wine ice) show/hide
     updateRecipe();
   });
   czAdd.addEventListener("click", function () {
