@@ -20,6 +20,16 @@
     ],
   };
 
+  // Shared option block: glassware. Short = tumbler / rocks, Long = highball.
+  // Offered on every drink except the Old Fashioned (always served short).
+  var SERVE_OPT = {
+    key: "serve", label: "Serve",
+    choices: [
+      { value: "Short", label: "Short", emoji: "🥃", tag: "Short", adds: ["Tumbler"] },
+      { value: "Long",  label: "Long",  emoji: "🥤", tag: "Long",  adds: ["Highball glass"] },
+    ],
+  };
+
   // ---- Data: one place to edit the menu --------------------------------
   // Items with `options` open the customise sheet; the rest are quick-add.
   var SECTIONS = [
@@ -39,6 +49,7 @@
               { value: "Spicy", label: "Spicy", emoji: "🌶️", tag: "Spicy", adds: ["Fresh Chili"] },
             ] },
             STRENGTH_OPT,
+            SERVE_OPT,
           ],
         },
       ],
@@ -56,9 +67,9 @@
     {
       key: "free", label: "Alcohol-Free", emoji: "🌱",
       items: [
-        { name: "Virgin Mojito",             emoji: "🌿" },
-        { name: "Virgin Moscow Mule",        emoji: "🫚" },
-        { name: "Pomegranate & Elderflower", emoji: "🌸" },
+        { name: "Virgin Mojito",             emoji: "🌿", baseIngredients: ["Fresh Mint", "Lime", "Sugar", "Soda Water", "Crushed Ice"],            options: [SERVE_OPT] },
+        { name: "Virgin Moscow Mule",        emoji: "🫚", baseIngredients: ["Ginger Beer", "Lime", "Fresh Ginger", "Crushed Ice"],                  options: [SERVE_OPT] },
+        { name: "Pomegranate & Elderflower", emoji: "🌸", baseIngredients: ["Pomegranate Juice", "Elderflower Cordial", "Lime", "Soda Water", "Ice"], options: [SERVE_OPT] },
       ],
     },
     {
