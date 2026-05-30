@@ -88,9 +88,10 @@ h1 {
   border-radius: var(--radius); box-shadow: 5px 5px 0 var(--ink);
 }
 .tab {
-  flex: 1 1 0; min-height: 54px; padding: 6px;
-  font-family: "Bungee", sans-serif; font-size: clamp(0.82rem, 3.6vw, 1.05rem);
-  text-transform: uppercase; line-height: 1.05;
+  flex: 1 1 0; min-height: 56px; padding: 8px 6px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  font-family: "Bungee", sans-serif; font-size: clamp(0.74rem, 3.2vw, 1.05rem);
+  text-transform: uppercase; line-height: 1.05; text-align: center; overflow-wrap: anywhere;
   background: transparent; color: var(--ink);
   border: none; border-radius: 11px; cursor: pointer; touch-action: manipulation;
   transition: background 0.15s, color 0.15s, transform 0.08s;
@@ -133,6 +134,13 @@ h1 {
   transition: transform 0.08s, background 0.15s, color 0.15s;
 }
 .order:active { transform: translateY(2px); }
+/* momentary confirmation after adding to the order */
+.order.added { background: var(--lime); color: var(--ink); }
+
+/* visible keyboard focus for every interactive control */
+:where(.tab, .order, .qty-btn, button.send, .basket-pill, .basket-clear):focus-visible {
+  outline: 3px solid var(--cyan); outline-offset: 3px;
+}
 
 /* ---------------- ORDER FORM ---------------- */
 .card {
@@ -148,18 +156,12 @@ label {
   display: block; font-family: "Bungee", sans-serif; font-size: 0.8rem; letter-spacing: 1px;
   text-transform: uppercase; margin: 0 0 8px; color: #fff;
 }
-input, select, textarea {
+input, textarea {
   width: 100%; padding: 15px 16px; margin-bottom: 20px; background: #fff; color: var(--ink);
   border: var(--border) solid #fff; border-radius: 12px; font-size: 16px; font-family: inherit; font-weight: 700;
 }
-input:focus, select:focus, textarea:focus { outline: none; border-color: var(--yellow); box-shadow: 0 0 0 4px var(--yellow); }
+input:focus, textarea:focus { outline: none; border-color: var(--yellow); box-shadow: 0 0 0 4px var(--yellow); }
 textarea { resize: vertical; min-height: 76px; }
-/* brief attention flash when a drink is picked from a card */
-select.flash { animation: ring 0.45s ease 2; }
-@keyframes ring {
-  0%, 100% { box-shadow: 0 0 0 0 var(--pink); border-color: #fff; }
-  50%      { box-shadow: 0 0 0 5px var(--pink); border-color: var(--pink); }
-}
 button.send {
   width: 100%; padding: 18px; min-height: 56px; background: var(--yellow); color: var(--ink);
   font-family: "Bungee", sans-serif; font-size: clamp(1.2rem, 5.5vw, 1.7rem);
@@ -266,6 +268,13 @@ footer { text-align: center; margin-top: 40px; font-family: "Bungee", sans-serif
 }
 .qty-btn:active { transform: translateY(1px); }
 .qty-n { min-width: 1.4ch; text-align: center; font-family: "Bungee", sans-serif; font-size: 1rem; }
+.basket-clear {
+  display: block; margin: 14px auto 0; padding: 6px 4px;
+  background: none; border: none; cursor: pointer; touch-action: manipulation;
+  font-family: "Bungee", sans-serif; font-size: 0.72rem; letter-spacing: 0.5px; text-transform: uppercase;
+  color: var(--cyan); text-decoration: underline; text-underline-offset: 3px;
+}
+.basket-clear:active { color: #fff; }
 
 /* ---------------- FLOATING BASKET PILL ----------------
    Running drink count that scrolls down to the order card. */

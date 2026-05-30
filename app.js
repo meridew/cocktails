@@ -128,7 +128,9 @@
           "</li>"
         );
       }).join("");
-      basketEl.innerHTML = '<ul class="basket-list">' + rows + "</ul>";
+      basketEl.innerHTML =
+        '<ul class="basket-list">' + rows + "</ul>" +
+        '<button type="button" class="basket-clear">Clear all</button>';
     }
 
     // Send button reflects the running count.
@@ -142,8 +144,13 @@
     updatePillVisibility();
   }
 
-  // Quantity steppers (event-delegated so they survive re-renders).
+  // Basket controls (event-delegated so they survive re-renders).
   basketEl.addEventListener("click", function (e) {
+    if (e.target.closest(".basket-clear")) {
+      basket = [];
+      renderBasket();
+      return;
+    }
     var btn = e.target.closest(".qty-btn");
     if (!btn) { return; }
     var row = btn.closest(".basket-item");
@@ -151,6 +158,17 @@
     if (!id) { return; }
     changeQty(id, btn.getAttribute("data-act") === "inc" ? 1 : -1);
   });
+
+  // Brief "Added ✓" confirmation right where the user tapped.
+  function flashAdded(btn) {
+    btn.classList.add("added");
+    btn.textContent = "Added ✓";
+    clearTimeout(btn._addedTimer);
+    btn._addedTimer = setTimeout(function () {
+      btn.classList.remove("added");
+      btn.textContent = "Add to order +";
+    }, 1100);
+  }
 
   function bumpPill() {
     if (reducedMotion()) { return; }
@@ -198,8 +216,10 @@
         '<h3><span class="emoji">' + item.emoji + "</span>" + escapeHtml(item.name) + "</h3>" +
         '<ul class="ingredients">' + chips + "</ul>" +
         '<button type="button" class="order">Add to order +</button>';
-      card.querySelector(".order").addEventListener("click", function () {
+      var addBtn = card.querySelector(".order");
+      addBtn.addEventListener("click", function () {
         addToBasket(item, section);
+        flashAdded(addBtn);
       });
       menu.appendChild(card);
     });
@@ -227,6 +247,10 @@
       if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
         e.preventDefault();
         selectTab((i + (e.key === "ArrowRight" ? 1 : tabRefs.length - 1)) % tabRefs.length, true);
+      } else if (e.key === "Home") {
+        e.preventDefault(); selectTab(0, true);
+      } else if (e.key === "End") {
+        e.preventDefault(); selectTab(tabRefs.length - 1, true);
       }
     });
   });
@@ -234,7 +258,10 @@
   // ---- Floating pill: jumps to the order, hides once it's in view -------
   var orderInView = false;
   function updatePillVisibility() {
-    pill.hidden = totalCount() === 0 || orderInView;
+    var count = totalCount();
+    pill.hidden = count === 0 || orderInView;
+    pill.setAttribute("aria-label",
+      "View your order — " + count + (count === 1 ? " drink" : " drinks"));
   }
   pill.addEventListener("click", function () {
     formCard.scrollIntoView({ behavior: reducedMotion() ? "auto" : "smooth", block: "start" });
@@ -362,7 +389,7 @@
 
     var ICONS = [
       "🍸", "🍹", "🍋‍🟩", "🍉", "🌶️", "🌿", "🧊", "🍊", "🫚", "🌸",
-      "🥂", "🍃", "🧉", "🥃", "🫧", "🍆", "🍌", "🍑",
+      "🥂", "🍃", "🧉", "🥃", "🫧", "🍒", "🍓", "🧂",
     ];
     // High volume — a touch lighter on small screens to stay smooth.
     var COUNT = window.innerWidth < 600 ? 80 : 110;
