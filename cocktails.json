@@ -182,7 +182,18 @@
     "Blended": "method",
     "Swizzled": "method",
     "Muddled": "method",
-    "Thrown": "method"
+    "Thrown": "method",
+    "Tequila": "liquor",
+    "Blue Curaçao": "liquor",
+    "Scotch": "liquor",
+    "Génépy": "liquor",
+    "Stout": "top",
+    "Black Tea": "top",
+    "Iced Tea": "top",
+    "Apricot Liqueur": "liquor",
+    "Apple Liqueur": "liquor",
+    "Ginger Wine": "liquor",
+    "Cane Syrup": "sweetener"
   },
   "cocktails": [
     {
@@ -3610,6 +3621,835 @@
       "glass": "Highball",
       "blurb": "Spicy, honeyed and grown-up — no proof needed.",
       "method": "Built"
+    },
+    {
+      "id": "pegu-club",
+      "name": "Pegu Club",
+      "base": "Gin",
+      "ingredients": [
+        "Dry Curaçao",
+        "Lime Juice",
+        "Angostura Bitters",
+        "Orange Bitters",
+        "Shaken"
+      ],
+      "garnish": "Lime",
+      "ice": "Up",
+      "glass": "Coupe",
+      "blurb": "A colonial Burmese club's bittered, orange-kissed sour.",
+      "method": "Shaken"
+    },
+    {
+      "id": "casino",
+      "name": "Casino",
+      "base": "Gin",
+      "ingredients": [
+        "Maraschino Liqueur",
+        "Lemon Juice",
+        "Orange Bitters",
+        "Shaken"
+      ],
+      "garnish": "Cherry",
+      "ice": "Up",
+      "glass": "Coupe",
+      "blurb": "An old-school maraschino sour with a bittered edge.",
+      "method": "Shaken"
+    },
+    {
+      "id": "income-tax",
+      "name": "Income Tax",
+      "base": "Gin",
+      "ingredients": [
+        "Sweet Vermouth",
+        "Dry Vermouth",
+        "Orange Juice",
+        "Angostura Bitters",
+        "Shaken"
+      ],
+      "garnish": "Orange Twist",
+      "ice": "Up",
+      "glass": "Coupe",
+      "blurb": "A Bronx with bitters — taxing only in name.",
+      "method": "Shaken"
+    },
+    {
+      "id": "pink-lady",
+      "name": "Pink Lady",
+      "base": "Gin",
+      "ingredients": [
+        "Apple Brandy",
+        "Lemon Juice",
+        "Grenadine",
+        "Egg White",
+        "Shaken"
+      ],
+      "garnish": "Cherry",
+      "ice": "Up",
+      "glass": "Coupe",
+      "blurb": "Frothy, rosy and deceptively strong.",
+      "method": "Shaken"
+    },
+    {
+      "id": "monkey-gland",
+      "name": "Monkey Gland",
+      "base": "Gin",
+      "ingredients": [
+        "Orange Juice",
+        "Grenadine",
+        "Absinthe",
+        "Shaken"
+      ],
+      "garnish": "Orange Twist",
+      "ice": "Up",
+      "glass": "Coupe",
+      "blurb": "A Roaring-Twenties Paris oddity with an absinthe whisper.",
+      "method": "Shaken"
+    },
+    {
+      "id": "satans-whiskers",
+      "name": "Satan's Whiskers",
+      "base": "Gin",
+      "ingredients": [
+        "Sweet Vermouth",
+        "Dry Vermouth",
+        "Triple Sec",
+        "Orange Juice",
+        "Orange Bitters",
+        "Shaken"
+      ],
+      "garnish": "Orange Twist",
+      "ice": "Up",
+      "glass": "Coupe",
+      "blurb": "Six-part harmony — citrus, vermouth and Grand Marnier.",
+      "method": "Shaken"
+    },
+    {
+      "id": "fallen-angel",
+      "name": "Fallen Angel",
+      "base": "Gin",
+      "ingredients": [
+        "Lemon Juice",
+        "Crème de Menthe",
+        "Angostura Bitters",
+        "Shaken"
+      ],
+      "garnish": "Mint Sprig",
+      "ice": "Up",
+      "glass": "Coupe",
+      "blurb": "A minty, bittered gin sour.",
+      "method": "Shaken"
+    },
+    {
+      "id": "long-island",
+      "name": "Long Island Iced Tea",
+      "base": "Vodka",
+      "ingredients": [
+        "Gin",
+        "Light Rum",
+        "Tequila",
+        "Triple Sec",
+        "Lemon Juice",
+        "Cola",
+        "Built"
+      ],
+      "garnish": "Lemon",
+      "ice": "Cubes",
+      "glass": "Highball",
+      "blurb": "Five spirits hiding behind a splash of cola. No tea involved.",
+      "method": "Built"
+    },
+    {
+      "id": "sex-on-beach",
+      "name": "Sex on the Beach",
+      "base": "Vodka",
+      "ingredients": [
+        "Peach Schnapps",
+        "Cranberry Juice",
+        "Orange Juice",
+        "Built"
+      ],
+      "garnish": "Orange & cherry",
+      "ice": "Cubes",
+      "glass": "Highball",
+      "blurb": "The beach-bar staple — peachy, fruity, sunset-coloured.",
+      "method": "Built"
+    },
+    {
+      "id": "blue-lagoon",
+      "name": "Blue Lagoon",
+      "base": "Vodka",
+      "ingredients": [
+        "Blue Curaçao",
+        "Lemonade",
+        "Built"
+      ],
+      "garnish": "Lemon",
+      "ice": "Cubes",
+      "glass": "Highball",
+      "blurb": "Electric-blue and lemony — pure poolside camp.",
+      "method": "Built"
+    },
+    {
+      "id": "appletini",
+      "name": "Appletini",
+      "base": "Vodka",
+      "ingredients": [
+        "Apple Liqueur",
+        "Apple Juice",
+        "Lemon Juice",
+        "Shaken"
+      ],
+      "garnish": "Apple slice",
+      "ice": "Up",
+      "glass": "Martini",
+      "blurb": "Tart green apple in a Y-glass — very turn-of-the-millennium.",
+      "method": "Shaken"
+    },
+    {
+      "id": "vodka-sour",
+      "name": "Vodka Sour",
+      "base": "Vodka",
+      "ingredients": [
+        "Lemon Juice",
+        "Simple Syrup",
+        "Egg White",
+        "Shaken"
+      ],
+      "garnish": "Lemon",
+      "ice": "Up",
+      "glass": "Rocks",
+      "blurb": "A clean, silky sour with no spirit bite to hide behind.",
+      "method": "Shaken"
+    },
+    {
+      "id": "mexican-firing-squad",
+      "name": "Mexican Firing Squad",
+      "base": "Tequila",
+      "ingredients": [
+        "Lime Juice",
+        "Grenadine",
+        "Angostura Bitters",
+        "Shaken"
+      ],
+      "garnish": "Lime",
+      "ice": "Cubes",
+      "glass": "Rocks",
+      "blurb": "A 1937 Mexico City sour, rosy with grenadine.",
+      "method": "Shaken"
+    },
+    {
+      "id": "vampiro",
+      "name": "Vampiro",
+      "base": "Tequila",
+      "ingredients": [
+        "Tomato Juice",
+        "Orange Juice",
+        "Lime Juice",
+        "Grenadine",
+        "Fresh Chili",
+        "Built"
+      ],
+      "garnish": "Salt Rim",
+      "ice": "Cubes",
+      "glass": "Highball",
+      "blurb": "Sangrita's boozy cousin — savoury, sweet and spicy.",
+      "method": "Built"
+    },
+    {
+      "id": "cantarito",
+      "name": "Cantarito",
+      "base": "Tequila",
+      "ingredients": [
+        "Lime Juice",
+        "Orange Juice",
+        "Grapefruit Juice",
+        "Soda Water",
+        "Built"
+      ],
+      "garnish": "Salt Rim",
+      "ice": "Cubes",
+      "glass": "Highball",
+      "blurb": "A citrus trio over salt, served Jalisco-style in clay.",
+      "method": "Built"
+    },
+    {
+      "id": "toreador",
+      "name": "Toreador",
+      "base": "Tequila",
+      "ingredients": [
+        "Apricot Liqueur",
+        "Lime Juice",
+        "Shaken"
+      ],
+      "garnish": "Lime",
+      "ice": "Up",
+      "glass": "Coupe",
+      "blurb": "A bright, apricot-laced agave sour.",
+      "method": "Shaken"
+    },
+    {
+      "id": "oaxacan-negroni",
+      "name": "Sotol Negroni",
+      "base": "Mezcal",
+      "ingredients": [
+        "Campari",
+        "Sweet Vermouth",
+        "Mole Bitters",
+        "Stirred"
+      ],
+      "garnish": "Orange Twist",
+      "ice": "One large cube",
+      "glass": "Rocks",
+      "blurb": "A smoky Negroni deepened with mole bitters.",
+      "method": "Stirred"
+    },
+    {
+      "id": "horsefeather",
+      "name": "Horsefeather",
+      "base": "Bourbon",
+      "ingredients": [
+        "Lemon Juice",
+        "Angostura Bitters",
+        "Ginger Beer",
+        "Built"
+      ],
+      "garnish": "Lemon",
+      "ice": "Cubes",
+      "glass": "Highball",
+      "blurb": "A Kansas tavern highball — bourbon, bitters and ginger.",
+      "method": "Built"
+    },
+    {
+      "id": "ward-8",
+      "name": "Ward Eight",
+      "base": "Bourbon",
+      "ingredients": [
+        "Lemon Juice",
+        "Orange Juice",
+        "Grenadine",
+        "Shaken"
+      ],
+      "garnish": "Cherry & orange",
+      "ice": "Up",
+      "glass": "Coupe",
+      "blurb": "Boston's own — a Whiskey Sour gone Technicolor.",
+      "method": "Shaken"
+    },
+    {
+      "id": "fancy-free",
+      "name": "Fancy Free",
+      "base": "Rye",
+      "ingredients": [
+        "Maraschino Liqueur",
+        "Angostura Bitters",
+        "Orange Bitters",
+        "Stirred"
+      ],
+      "garnish": "Lemon twist",
+      "ice": "One large cube",
+      "glass": "Coupe",
+      "blurb": "An Old Fashioned with maraschino in place of sugar.",
+      "method": "Stirred"
+    },
+    {
+      "id": "frisco",
+      "name": "Frisco",
+      "base": "Rye",
+      "ingredients": [
+        "Bénédictine",
+        "Lemon Juice",
+        "Shaken"
+      ],
+      "garnish": "Lemon twist",
+      "ice": "Up",
+      "glass": "Coupe",
+      "blurb": "Rye and honeyed Bénédictine — short and elegant.",
+      "method": "Shaken"
+    },
+    {
+      "id": "algonquin",
+      "name": "Algonquin",
+      "base": "Rye",
+      "ingredients": [
+        "Dry Vermouth",
+        "Pineapple Juice",
+        "Shaken"
+      ],
+      "garnish": "None",
+      "ice": "Up",
+      "glass": "Coupe",
+      "blurb": "The Round Table's drink — rye softened with pineapple.",
+      "method": "Shaken"
+    },
+    {
+      "id": "remember-the-maine",
+      "name": "Remember the Maine",
+      "base": "Rye",
+      "ingredients": [
+        "Sweet Vermouth",
+        "Cherry Heering",
+        "Absinthe",
+        "Stirred"
+      ],
+      "garnish": "Cherry",
+      "ice": "Up",
+      "glass": "Coupe",
+      "blurb": "A Manhattan that went to Havana — cherry and absinthe.",
+      "method": "Stirred"
+    },
+    {
+      "id": "commodore",
+      "name": "Commodore",
+      "base": "Rye",
+      "ingredients": [
+        "Crème de Cacao",
+        "Lemon Juice",
+        "Grenadine",
+        "Shaken"
+      ],
+      "garnish": "None",
+      "ice": "Up",
+      "glass": "Coupe",
+      "blurb": "A chocolatey, rosy Prohibition sour.",
+      "method": "Shaken"
+    },
+    {
+      "id": "whisky-mac",
+      "name": "Whisky Mac",
+      "base": "Scotch",
+      "ingredients": [
+        "Ginger Wine",
+        "Built"
+      ],
+      "garnish": "None",
+      "ice": "Cubes",
+      "glass": "Rocks",
+      "blurb": "Two-ingredient winter warmth — Scotch and ginger wine.",
+      "method": "Built"
+    },
+    {
+      "id": "hot-toddy",
+      "name": "Hot Toddy",
+      "base": "Scotch",
+      "ingredients": [
+        "Lemon Juice",
+        "Honey Syrup",
+        "Built"
+      ],
+      "garnish": "Lemon & clove",
+      "ice": "None",
+      "glass": "Mug",
+      "blurb": "The original cold remedy — hot, honeyed and lemony.",
+      "method": "Built"
+    },
+    {
+      "id": "flying-scotsman",
+      "name": "Flying Scotsman",
+      "base": "Scotch",
+      "ingredients": [
+        "Sweet Vermouth",
+        "Angostura Bitters",
+        "Simple Syrup",
+        "Stirred"
+      ],
+      "garnish": "None",
+      "ice": "Up",
+      "glass": "Coupe",
+      "blurb": "A sweet, bittered Scotch sipper.",
+      "method": "Stirred"
+    },
+    {
+      "id": "champs-elysees",
+      "name": "Champs-Élysées",
+      "base": "Cognac",
+      "ingredients": [
+        "Green Chartreuse",
+        "Lemon Juice",
+        "Simple Syrup",
+        "Angostura Bitters",
+        "Shaken"
+      ],
+      "garnish": "Lemon twist",
+      "ice": "Up",
+      "glass": "Coupe",
+      "blurb": "A Sidecar with a herbal Chartreuse heart.",
+      "method": "Shaken"
+    },
+    {
+      "id": "saratoga",
+      "name": "Saratoga",
+      "base": "Cognac",
+      "ingredients": [
+        "Rye",
+        "Sweet Vermouth",
+        "Angostura Bitters",
+        "Stirred"
+      ],
+      "garnish": "Cherry",
+      "ice": "Up",
+      "glass": "Coupe",
+      "blurb": "A split-base Manhattan — brandy and rye together.",
+      "method": "Stirred"
+    },
+    {
+      "id": "harvard",
+      "name": "Harvard",
+      "base": "Cognac",
+      "ingredients": [
+        "Sweet Vermouth",
+        "Angostura Bitters",
+        "Soda Water",
+        "Stirred"
+      ],
+      "garnish": "Lemon twist",
+      "ice": "Up",
+      "glass": "Coupe",
+      "blurb": "A brandy Manhattan lengthened with soda.",
+      "method": "Stirred"
+    },
+    {
+      "id": "honeymoon",
+      "name": "Honeymoon",
+      "base": "Apple Brandy",
+      "ingredients": [
+        "Bénédictine",
+        "Triple Sec",
+        "Lemon Juice",
+        "Shaken"
+      ],
+      "garnish": "Lemon twist",
+      "ice": "Up",
+      "glass": "Coupe",
+      "blurb": "Applejack, Bénédictine and citrus — sweetly bracing.",
+      "method": "Shaken"
+    },
+    {
+      "id": "star-cocktail",
+      "name": "Star Cocktail",
+      "base": "Apple Brandy",
+      "ingredients": [
+        "Sweet Vermouth",
+        "Grapefruit Bitters",
+        "Stirred"
+      ],
+      "garnish": "Lemon twist",
+      "ice": "Up",
+      "glass": "Coupe",
+      "blurb": "An apple-brandy Manhattan with a citrus lift.",
+      "method": "Stirred"
+    },
+    {
+      "id": "ti-punch",
+      "name": "Ti' Punch",
+      "base": "Aged Rum",
+      "ingredients": [
+        "Lime Juice",
+        "Cane Syrup",
+        "Built"
+      ],
+      "garnish": "Lime disc",
+      "ice": "None",
+      "glass": "Rocks",
+      "blurb": "Martinique's neat ritual — rhum, lime and sugar, chacun le sien.",
+      "method": "Built"
+    },
+    {
+      "id": "queens-park-swizzle",
+      "name": "Queen's Park Swizzle",
+      "base": "Aged Rum",
+      "ingredients": [
+        "Lime Juice",
+        "Simple Syrup",
+        "Angostura Bitters",
+        "Mint",
+        "Swizzled"
+      ],
+      "garnish": "Mint Sprig",
+      "ice": "Crushed",
+      "glass": "Highball",
+      "blurb": "A Trinidadian mint swizzle under a cap of bitters.",
+      "method": "Swizzled"
+    },
+    {
+      "id": "hotel-nacional",
+      "name": "Hotel Nacional",
+      "base": "White Rum",
+      "ingredients": [
+        "Apricot Liqueur",
+        "Pineapple Juice",
+        "Lime Juice",
+        "Shaken"
+      ],
+      "garnish": "Pineapple",
+      "ice": "Up",
+      "glass": "Coupe",
+      "blurb": "Havana hotel glamour — apricot and pineapple.",
+      "method": "Shaken"
+    },
+    {
+      "id": "knickerbocker",
+      "name": "Knickerbocker",
+      "base": "Aged Rum",
+      "ingredients": [
+        "Dry Curaçao",
+        "Raspberry Purée",
+        "Lime Juice",
+        "Shaken"
+      ],
+      "garnish": "Berries",
+      "ice": "Crushed",
+      "glass": "Coupe",
+      "blurb": "A 19th-century raspberry-and-rum delight.",
+      "method": "Shaken"
+    },
+    {
+      "id": "chartreuse-swizzle",
+      "name": "Chartreuse Swizzle",
+      "base": "White Rum",
+      "ingredients": [
+        "Green Chartreuse",
+        "Pineapple Juice",
+        "Lime Juice",
+        "Falernum",
+        "Swizzled"
+      ],
+      "garnish": "Mint Sprig",
+      "ice": "Crushed",
+      "glass": "Highball",
+      "blurb": "A green, herbal tiki swizzle from San Francisco.",
+      "method": "Swizzled"
+    },
+    {
+      "id": "black-velvet",
+      "name": "Black Velvet",
+      "base": "Champagne",
+      "ingredients": [
+        "Stout",
+        "Built"
+      ],
+      "garnish": "None",
+      "ice": "None",
+      "glass": "Flute",
+      "blurb": "Champagne and stout, layered — a scombre Victorian toast.",
+      "method": "Built"
+    },
+    {
+      "id": "rossini",
+      "name": "Rossini",
+      "base": "Prosecco",
+      "ingredients": [
+        "Raspberry Purée",
+        "Built"
+      ],
+      "garnish": "None",
+      "ice": "None",
+      "glass": "Flute",
+      "blurb": "A Bellini's berry sibling — strawberry-red and simple.",
+      "method": "Built"
+    },
+    {
+      "id": "sherry-flip",
+      "name": "Sherry Flip",
+      "base": "Sherry",
+      "ingredients": [
+        "Simple Syrup",
+        "Whole Egg",
+        "Shaken"
+      ],
+      "garnish": "Nutmeg",
+      "ice": "Up",
+      "glass": "Coupe",
+      "blurb": "A nutty, custardy flip with grated nutmeg.",
+      "method": "Shaken"
+    },
+    {
+      "id": "port-tonic",
+      "name": "Port Tonic",
+      "base": "Port",
+      "ingredients": [
+        "Tonic Water",
+        "Built"
+      ],
+      "garnish": "Orange Twist",
+      "ice": "Cubes",
+      "glass": "Wine",
+      "blurb": "White port and tonic — Portugal's easy summer pour.",
+      "method": "Built"
+    },
+    {
+      "id": "skagen-mule",
+      "name": "Skål Mule",
+      "base": "Aquavit",
+      "ingredients": [
+        "Lime Juice",
+        "Apple Juice",
+        "Ginger Beer",
+        "Built"
+      ],
+      "garnish": "Apple & dill",
+      "ice": "Cubes",
+      "glass": "Copper mug",
+      "blurb": "A crisp Nordic mule with apple and dill.",
+      "method": "Built"
+    },
+    {
+      "id": "tokyo-collins",
+      "name": "Tokyo Collins",
+      "base": "Sake",
+      "ingredients": [
+        "Gin",
+        "Lemon Juice",
+        "Simple Syrup",
+        "Soda Water",
+        "Built"
+      ],
+      "garnish": "Lemon",
+      "ice": "Cubes",
+      "glass": "Collins",
+      "blurb": "A delicate Collins, lengthened with junmai sake.",
+      "method": "Built"
+    },
+    {
+      "id": "absinthe-suissesse",
+      "name": "Absinthe Suissesse",
+      "base": "Absinthe",
+      "ingredients": [
+        "Orgeat",
+        "Egg White",
+        "Cream",
+        "Shaken"
+      ],
+      "garnish": "Mint Sprig",
+      "ice": "Cubes",
+      "glass": "Rocks",
+      "blurb": "A creamy, frothy New Orleans morning eye-opener.",
+      "method": "Shaken"
+    },
+    {
+      "id": "genever-old-fashioned",
+      "name": "Genever Old Fashioned",
+      "base": "Genever",
+      "ingredients": [
+        "Simple Syrup",
+        "Angostura Bitters",
+        "Stirred"
+      ],
+      "garnish": "Orange Twist",
+      "ice": "One large cube",
+      "glass": "Rocks",
+      "blurb": "The Old Fashioned on its maltiest, Dutch footing.",
+      "method": "Stirred"
+    },
+    {
+      "id": "contessa",
+      "name": "Contessa",
+      "base": "Aperitivo",
+      "ingredients": [
+        "Gin",
+        "Bianco Vermouth",
+        "Stirred"
+      ],
+      "garnish": "Grapefruit twist",
+      "ice": "One large cube",
+      "glass": "Rocks",
+      "blurb": "A white Negroni built on bitter Gran Classico.",
+      "method": "Stirred"
+    },
+    {
+      "id": "sundowner",
+      "name": "Sundowner",
+      "base": "Aperitivo",
+      "ingredients": [
+        "Orange Juice",
+        "Grapefruit Juice",
+        "Soda Water",
+        "Built"
+      ],
+      "garnish": "Orange slice",
+      "ice": "Cubes",
+      "glass": "Highball",
+      "blurb": "A long, sunset-coloured aperitivo cooler.",
+      "method": "Built"
+    },
+    {
+      "id": "arnold-palmer",
+      "name": "Arnold Palmer",
+      "base": "Alcohol-Free",
+      "ingredients": [
+        "Iced Tea",
+        "Lemonade",
+        "Built"
+      ],
+      "garnish": "Lemon",
+      "ice": "Cubes",
+      "glass": "Highball",
+      "blurb": "Half iced tea, half lemonade — the patio classic.",
+      "method": "Built"
+    },
+    {
+      "id": "roy-rogers",
+      "name": "Roy Rogers",
+      "base": "Alcohol-Free",
+      "ingredients": [
+        "Grenadine",
+        "Cola",
+        "Built"
+      ],
+      "garnish": "Cherry",
+      "ice": "Cubes",
+      "glass": "Highball",
+      "blurb": "Cola and grenadine — the Shirley Temple's other half.",
+      "method": "Built"
+    },
+    {
+      "id": "virgin-paloma",
+      "name": "Virgin Paloma",
+      "base": "Alcohol-Free",
+      "ingredients": [
+        "Grapefruit Juice",
+        "Lime Juice",
+        "Soda Water",
+        "Built"
+      ],
+      "garnish": "Salt Rim",
+      "ice": "Cubes",
+      "glass": "Highball",
+      "blurb": "All the grapefruit-and-salt zing, zero proof.",
+      "method": "Built"
+    },
+    {
+      "id": "cucumber-cooler-na",
+      "name": "Cucumber Lemonade",
+      "base": "Alcohol-Free",
+      "ingredients": [
+        "Lemon Juice",
+        "Simple Syrup",
+        "Cucumber",
+        "Soda Water",
+        "Built"
+      ],
+      "garnish": "Cucumber Ribbon",
+      "ice": "Cubes",
+      "glass": "Highball",
+      "blurb": "Crisp, garden-fresh and endlessly drinkable.",
+      "method": "Built"
+    },
+    {
+      "id": "berry-smash-na",
+      "name": "Berry Smash",
+      "base": "Alcohol-Free",
+      "ingredients": [
+        "Lemon Juice",
+        "Raspberry Purée",
+        "Mint",
+        "Soda Water",
+        "Muddled"
+      ],
+      "garnish": "Berries & mint",
+      "ice": "Crushed",
+      "glass": "Rocks",
+      "blurb": "Muddled berries and mint, no spirit required.",
+      "method": "Muddled"
     }
   ]
 }
