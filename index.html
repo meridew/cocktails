@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="loud">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
@@ -31,7 +31,7 @@
       <!-- MENU view: category chips + one category's cards at a time -->
       <section class="view view-menu" id="view-menu" data-view="menu" aria-label="Menu">
         <div class="menubar">
-          <div class="chips" id="menu-chips" role="tablist" aria-label="Drink categories"></div>
+          <button type="button" class="chip chip-fav" id="fav-filter" aria-pressed="false" hidden>⭐ Faves</button>
           <button type="button" class="chip chip-surprise" id="surprise">🎲 Surprise</button>
         </div>
         <!-- menu sections are rendered from data in app.js -->
@@ -54,10 +54,9 @@
 
     <!-- ORDER: persistent rail on desktop, slide-up sheet on mobile -->
     <aside class="order-rail" id="order-rail" aria-label="Your order">
-      <button type="button" class="order-sheet-close" id="order-close" aria-label="Close order">✕</button>
       <section id="order-form">
         <h2>Your order</h2>
-        <p class="hint">▶ Add drinks &amp; dishes, drop your name, send.</p>
+        <p class="hint">▶ Add drinks, drop your name, send.</p>
         <form id="request-form" action="https://formspree.io/f/xwvzzjab" method="POST">
           <div class="basket" id="basket" aria-live="polite"></div>
           <input type="hidden" name="order" id="order-field" />
@@ -66,8 +65,11 @@
                  autocapitalize="words" enterkeyhint="done" required />
           <label for="note">Note (optional)</label>
           <textarea id="note" name="note" placeholder="No ice! Extra lime! Make it spicy!"></textarea>
-          <button type="submit" class="send" id="submit-btn" disabled>Add something first</button>
           <p class="status" id="status" role="status" aria-live="polite"></p>
+          <div class="flowbar">
+            <button type="submit" class="send flowbar-primary" id="submit-btn" disabled>Add something first</button>
+            <button type="button" class="flowbar-back" id="order-close" aria-label="Close order">✕</button>
+          </div>
         </form>
       </section>
     </aside>
@@ -82,28 +84,31 @@
     </nav>
   </div>
 
-  <!-- Customise bottom-sheet for boozy drinks (filled by app.js) -->
+  <!-- Configurator bottom-sheet (every drink opens this; filled by app.js) -->
   <div class="sheet" id="customise" role="dialog" aria-modal="true" aria-labelledby="cz-title" hidden>
     <div class="sheet-card">
-      <button type="button" class="sheet-close" id="cz-close" aria-label="Close">✕</button>
       <h2 id="cz-title">Customise</h2>
       <div class="sheet-body" id="cz-body"></div>
       <p class="sheet-recipe" id="cz-recipe"></p>
-      <button type="button" class="send" id="cz-add">Add to order</button>
+      <div class="flowbar">
+        <button type="button" class="send flowbar-primary" id="cz-add">Add to order</button>
+        <button type="button" class="flowbar-back" id="cz-close" aria-label="Back">✕ Back</button>
+      </div>
     </div>
   </div>
 
   <!-- Make-a-Drink discovery flow (full-screen, launched from the Discover tab) -->
   <div class="mx" id="mixology" role="dialog" aria-modal="true" aria-labelledby="mx-title" hidden>
-    <div class="mx-inner">
-      <div class="mx-head">
-        <button type="button" class="mx-iconbtn mx-back" id="mx-back" aria-label="Go back a step" hidden>←</button>
-        <h2 id="mx-title">Make a Drink</h2>
-        <button type="button" class="mx-iconbtn mx-close" id="mixology-close" aria-label="Close">✕</button>
+    <div class="mx-scroll">
+      <div class="mx-inner">
+        <div class="mx-head"><h2 id="mx-title">Make a Drink</h2></div>
+        <div class="mx-build" id="mx-build" aria-live="polite"></div>
+        <div class="mx-step" id="mx-step"></div>
+        <div class="mx-result" id="mx-result" hidden></div>
       </div>
-      <div class="mx-build" id="mx-build" aria-live="polite"></div>
-      <div class="mx-step" id="mx-step"></div>
-      <div class="mx-result" id="mx-result" hidden></div>
+    </div>
+    <div class="flowbar mx-flowbar">
+      <button type="button" class="flowbar-back" id="mx-back" aria-label="Back">← Back</button>
     </div>
   </div>
 
@@ -132,7 +137,6 @@
   <div class="bartender" id="bartender" role="dialog" aria-modal="true" aria-labelledby="bartender-title" hidden>
     <div class="bartender-head">
       <h2 id="bartender-title">🍸 Bartender</h2>
-      <button type="button" class="bartender-close" id="bartender-close" aria-label="Close bartender mode">✕</button>
     </div>
     <div class="bartender-bar">
       <label class="bt-toggle"><input type="checkbox" id="bt-show-done" /> Show completed</label>
@@ -140,6 +144,9 @@
       <button type="button" id="bt-clear">Clear completed</button>
     </div>
     <div class="bartender-list" id="bartender-list"></div>
+    <div class="flowbar">
+      <button type="button" class="flowbar-back" id="bartender-close" aria-label="Close bartender mode">← Back</button>
+    </div>
   </div>
 
   <script src="app.js" defer></script>
