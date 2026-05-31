@@ -3,6 +3,9 @@ import type {
   Order,
   OrderStatus,
   ClearWhich,
+  OrderCreatedResponse,
+  OrderListResponse,
+  OkResponse,
 } from '@cocktails/shared';
 
 // Same-origin: dev → Vite proxy, prod → Caddy. Both route /api to the API.
@@ -18,11 +21,19 @@ async function req<T>(path: string, init: RequestInit = {}, key?: string): Promi
   const headers = new Headers(init.headers);
   if (init.body) headers.set('Content-Type', 'application/json');
   if (key) headers.set('X-Bartender-Key', key);
-  const res = await fetch(BASE + path, { ...init, headers });
+
+  let res: Response;
+  try {
+    res = await fetch(BASE + path, { ...init, headers });
+  } catch {
+    // network / DNS / offline — never leak a raw "Failed to fetch"
+    throw new Error("Can't reach the bar — check your connection.");
+  }
+
   if (res.status === 401) throw new Unauthorized();
   const data = (await res.json().catch(() => ({}))) as T & { ok?: boolean; error?: string };
   if (!res.ok || data?.ok === false) {
-    throw new Error((data as { error?: string })?.error ?? `HTTP ${res.status}`);
+    throw new Error((data as { error?: string })?.error ?? `Something went wrong (HTTP ${res.status}).`);
   }
   return data;
 }
@@ -30,13 +41,12 @@ async function req<T>(path: string, init: RequestInit = {}, key?: string): Promi
 export const health = () => req<{ ok: true; now: number }>('/health');
 
 export const createOrder = (input: NewOrderInput) =>
-  req<{ ok: true; id: string; order: Order }>('/orders', {
+  req<OrderCreatedResponse>('/orders', {
     method: 'POST',
     body: JSON.stringify(input),
   });
 
-export const listOrders = (key: string) =>
-  req<{ ok: true; orders: Order[]; now: number }>('/orders', {}, key);
+export const listOrders = (key: string) => req<OrderListResponse>('/orders', {}, key);
 
 export const setStatus = (id: string, status: OrderStatus, key: string) =>
   req<{ ok: true; order: Order }>(`/orders/${id}`, {
@@ -48,7 +58,7 @@ export const deleteOrder = (id: string, key: string) =>
   req<{ ok: boolean }>(`/orders/${id}`, { method: 'DELETE' }, key);
 
 export const clearOrders = (which: ClearWhich, key: string) =>
-  req<{ ok: true }>('/orders/clear', {
+  req<OkResponse>('/orders/clear', {
     method: 'POST',
     body: JSON.stringify({ which }),
   }, key);

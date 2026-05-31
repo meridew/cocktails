@@ -1,8 +1,7 @@
 name: deploy (NAS)
 
-# Self-hosted runner on the NAS builds + deploys the stack on every push.
-# Fully self-contained: no GHCR, no registry auth, nothing inbound — the
-# runner dials out to GitHub, the job runs on the NAS against the host docker.
+# Push -> GitHub cloud runner typechecks/builds (free, gates prod) -> if green,
+# the self-hosted NAS runner builds + deploys. Nothing inbound; no GHCR.
 on:
   push:
     branches: [modernise, main]
@@ -13,10 +12,25 @@ on:
 
 concurrency:
   group: nas-deploy
-  cancel-in-progress: true
+  cancel-in-progress: false # queue deploys so each build+up completes atomically
 
 jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Typecheck + svelte-check + build
+        run: |
+          npm run check
+          npm -w @cocktails/web run build
+
   deploy:
+    needs: check
     runs-on: [self-hosted, nas]
     steps:
       - uses: actions/checkout@v4
@@ -39,4 +53,4 @@ jobs:
         working-directory: infra
         run: |
           docker-compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
-          docker image prune -f
+          docker image prune -f --filter "label=com.docker.compose.project=cocktails"

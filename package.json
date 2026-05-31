@@ -11,9 +11,14 @@
     "node": ">=24"
   },
   "scripts": {
+    "dev": "concurrently -n api,web -c yellow,cyan \"npm:dev:api\" \"npm:dev:web\"",
     "dev:api": "npm -w @cocktails/api run dev",
     "dev:web": "npm -w @cocktails/web run dev",
     "build:web": "npm -w @cocktails/web run build",
-    "start:api": "npm -w @cocktails/api run start"
+    "start:api": "npm -w @cocktails/api run start",
+    "check": "npm -w @cocktails/api run typecheck && npm -w @cocktails/web run check"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0"
   }
 }

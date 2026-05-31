@@ -1,29 +1,34 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import { listOrders, setStatus, deleteOrder, clearOrders, Unauthorized } from './api';
+  import { STATUS_META } from '@cocktails/shared';
   import type { Order, OrderStatus } from '@cocktails/shared';
 
   let { onclose }: { onclose: () => void } = $props();
 
   const KEY_STORE = 'cocktail_bt_key';
+  // CSS modifier for the forward-action button (matches neo.css / app.css colours)
+  const ACT_CLASS: Record<OrderStatus, string> = {
+    pending: 'start',
+    making: 'serve',
+    serving: 'done',
+    done: '',
+  };
+
   let key = $state(localStorage.getItem(KEY_STORE) ?? '');
   let unlocked = $state(false);
   let pin = $state('');
-  let err = $state('');
+  let gateErr = $state('');
+  let connErr = $state(''); // transient "reconnecting/failed action" banner
+  let loaded = $state(false); // first successful fetch completed
   let orders = $state<Order[]>([]);
   let showDone = $state(false);
+  let busy = $state(new Set<string>()); // order ids with an in-flight mutation
   let timer: ReturnType<typeof setInterval> | undefined;
-
-  const RANK: Record<OrderStatus, number> = { pending: 0, making: 1, serving: 2, done: 3 };
-  const BADGE: Record<OrderStatus, string> = {
-    pending: 'NEW',
-    making: 'MAKING',
-    serving: 'INCOMING',
-    done: 'DONE',
-  };
 
   let sorted = $derived(
     [...orders]
-      .sort((a, b) => RANK[a.status] - RANK[b.status] || a.createdAt - b.createdAt)
+      .sort((a, b) => STATUS_META[a.status].rank - STATUS_META[b.status].rank || a.createdAt - b.createdAt)
       .filter((o) => showDone || o.status !== 'done'),
   );
   let waiting = $derived(orders.filter((o) => o.status !== 'done').length);
@@ -33,12 +38,16 @@
       const r = await listOrders(key);
       orders = r.orders;
       unlocked = true;
-      err = '';
+      loaded = true;
+      gateErr = '';
+      connErr = '';
     } catch (e) {
       if (e instanceof Unauthorized) {
         unlocked = false;
-        err = 'Wrong PIN';
+        gateErr = 'Wrong PIN';
         stop();
+      } else {
+        connErr = 'Reconnecting…';
       }
     }
   }
@@ -57,18 +66,52 @@
     await fetchOrders();
     if (unlocked) start();
   }
-  async function act(o: Order, status: OrderStatus) {
-    await setStatus(o.id, status, key);
-    fetchOrders();
+
+  /** Run a mutation with in-flight guard + error handling. */
+  async function withBusy(id: string, fn: () => Promise<void>) {
+    if (busy.has(id)) return;
+    busy.add(id);
+    connErr = '';
+    try {
+      await fn();
+    } catch (e) {
+      if (e instanceof Unauthorized) {
+        unlocked = false;
+        gateErr = 'PIN no longer valid — re-enter it.';
+        stop();
+      } else {
+        connErr = (e as Error).message || "That didn't go through — try again.";
+      }
+    } finally {
+      busy.delete(id);
+    }
   }
-  async function del(o: Order) {
-    await deleteOrder(o.id, key);
-    fetchOrders();
+
+  function act(o: Order, status: OrderStatus) {
+    return withBusy(o.id, async () => {
+      const r = await setStatus(o.id, status, key);
+      // merge the authoritative result to avoid a poll flicker
+      orders = orders.map((x) => (x.id === o.id ? r.order : x));
+    });
+  }
+  function del(o: Order) {
+    return withBusy(o.id, async () => {
+      await deleteOrder(o.id, key);
+      orders = orders.filter((x) => x.id !== o.id);
+    });
   }
   async function clearDone() {
-    await clearOrders('done', key);
-    fetchOrders();
+    try {
+      await clearOrders('done', key);
+      orders = orders.filter((o) => o.status !== 'done');
+    } catch (e) {
+      if (e instanceof Unauthorized) {
+        unlocked = false;
+        stop();
+      } else connErr = "Couldn't clear — try again.";
+    }
   }
+
   function ago(ts: number): string {
     const s = Math.max(0, Math.round((Date.now() - ts) / 1000));
     if (s < 60) return `${s}s`;
@@ -76,7 +119,7 @@
     return m < 60 ? `${m}m` : `${Math.round(m / 60)}h`;
   }
 
-  $effect(() => {
+  onMount(() => {
     if (key) unlock();
     return () => stop();
   });
@@ -99,6 +142,8 @@
     </div>
   </header>
 
+  {#if connErr}<p class="bt-conn" role="status">{connErr}</p>{/if}
+
   {#if !unlocked}
     <div class="bt-gate">
       <p class="bt-gate-msg">Enter staff PIN</p>
@@ -109,7 +154,7 @@
         onkeydown={(e) => e.key === 'Enter' && unlock()}
       />
       <button type="button" class="bt-unlock" onclick={unlock}>Unlock</button>
-      {#if err}<p class="bt-err">{err}</p>{/if}
+      {#if gateErr}<p class="bt-err" role="alert">{gateErr}</p>{/if}
     </div>
   {:else}
     <div class="bartender-list">
@@ -117,7 +162,7 @@
         <div class="bt-order s-{o.status}">
           <div class="bt-row">
             <span class="bt-name">{o.name}</span>
-            <span class="bt-badge b-{o.status}">{BADGE[o.status]}</span>
+            <span class="bt-badge b-{o.status}">{STATUS_META[o.status].badge}</span>
           </div>
           <ul class="bt-items">
             {#each o.items as it (it.name)}<li>{it.qty}× {it.name}</li>{/each}
@@ -126,24 +171,29 @@
           <div class="bt-foot">
             <span class="bt-ago">{ago(o.createdAt)} ago</span>
             <div class="bt-acts">
-              {#if o.status === 'pending'}
-                <button type="button" class="bt-act start" onclick={() => act(o, 'making')}>▶ Start</button>
+              {#if STATUS_META[o.status].next}
+                <button
+                  type="button"
+                  class="bt-act {ACT_CLASS[o.status]}"
+                  disabled={busy.has(o.id)}
+                  onclick={() => act(o, STATUS_META[o.status].next!)}
+                >
+                  {STATUS_META[o.status].nextLabel}
+                </button>
+              {:else}
+                <button type="button" class="bt-act" disabled={busy.has(o.id)} onclick={() => act(o, 'pending')}>
+                  ↺ Reopen
+                </button>
               {/if}
-              {#if o.status === 'making'}
-                <button type="button" class="bt-act serve" onclick={() => act(o, 'serving')}>🍹 Serve</button>
-              {/if}
-              {#if o.status === 'serving'}
-                <button type="button" class="bt-act done" onclick={() => act(o, 'done')}>✓ Done</button>
-              {/if}
-              {#if o.status === 'done'}
-                <button type="button" class="bt-act" onclick={() => act(o, 'pending')}>↺ Reopen</button>
-              {/if}
-              <button type="button" class="bt-act del" onclick={() => del(o)} aria-label="Delete">🗑</button>
+              <button type="button" class="bt-act del" disabled={busy.has(o.id)} onclick={() => del(o)} aria-label="Delete">
+                🗑
+              </button>
             </div>
           </div>
         </div>
       {/each}
-      {#if sorted.length === 0}<p class="bt-empty">No orders yet.</p>{/if}
+      {#if loaded && sorted.length === 0}<p class="bt-empty">No orders yet.</p>{/if}
+      {#if !loaded}<p class="bt-empty">Loading…</p>{/if}
     </div>
   {/if}
 </div>

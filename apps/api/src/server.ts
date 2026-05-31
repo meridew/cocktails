@@ -3,7 +3,14 @@ import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { timingSafeEqual } from 'node:crypto';
 import { isOrderStatus, LIMITS } from '@cocktails/shared';
-import type { ClearWhich, OrderItem, SubscriberRole } from '@cocktails/shared';
+import type {
+  ClearWhich,
+  OrderItem,
+  SubscriberRole,
+  OrderCreatedResponse,
+  OrderListResponse,
+  OkResponse,
+} from '@cocktails/shared';
 import { config } from './config.ts';
 import {
   clearOrders,
@@ -88,12 +95,12 @@ app.post('/api/orders', async (c) => {
     return c.json({ ok: false, error: 'name and at least one item required' }, 422);
   }
   const order = createOrder({ name, items, note, deviceId });
-  return c.json({ ok: true, id: order.id, order });
+  return c.json({ ok: true, id: order.id, order } satisfies OrderCreatedResponse);
 });
 
 // ---- bartender: read the queue ----
 app.get('/api/orders', requireKey, (c) => {
-  return c.json({ ok: true, orders: listOrders(), now: now() });
+  return c.json({ ok: true, orders: listOrders(), now: now() } satisfies OrderListResponse);
 });
 
 // ---- bartender: change status ----
@@ -117,7 +124,7 @@ app.post('/api/orders/clear', requireKey, async (c) => {
   const body = await c.req.json().catch(() => ({}) as Record<string, unknown>);
   const which: ClearWhich = body?.which === 'all' ? 'all' : 'done';
   clearOrders(which);
-  return c.json({ ok: true });
+  return c.json({ ok: true } satisfies OkResponse);
 });
 
 // ---- public: register a push subscription (Phase 3 plumbing) ----

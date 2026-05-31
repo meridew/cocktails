@@ -13,6 +13,13 @@ services:
       DB_PATH: /data/cocktails.sqlite
     volumes:
       - cocktails-data:/data
+    healthcheck:
+      test:
+        ["CMD", "node", "-e", "fetch('http://127.0.0.1:8787/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
     networks: [internal]
 
   web:
@@ -23,7 +30,11 @@ services:
   caddy:
     image: ${CADDY_IMAGE:-cocktails-caddy:local}
     restart: unless-stopped
-    depends_on: [web, api]
+    depends_on:
+      api:
+        condition: service_healthy
+      web:
+        condition: service_started
     # Host port → Caddy. Point the router port-forward here (no 80/443 = no DSM fight).
     ports:
       - "${PUBLIC_PORT:-8088}:80"

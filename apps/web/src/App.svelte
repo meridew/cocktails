@@ -160,7 +160,7 @@
     <input id="name" bind:value={name} placeholder="DANIEL" autocomplete="name" autocapitalize="words" />
     <label for="note">Note (optional)</label>
     <textarea id="note" bind:value={note} placeholder="No ice! Extra lime! Make it spicy!"></textarea>
-    {#if errMsg}<p class="status err">{errMsg}</p>{/if}
+    {#if errMsg}<p class="status err" role="alert">{errMsg}</p>{/if}
 
     <div class="flowbar">
       <button type="button" class="send flowbar-primary" disabled={!name.trim() || count === 0 || sending} onclick={send}>

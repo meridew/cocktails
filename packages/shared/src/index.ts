@@ -15,6 +15,26 @@ export function isOrderStatus(v: unknown): v is OrderStatus {
   return typeof v === 'string' && (ORDER_STATUSES as readonly string[]).includes(v);
 }
 
+/**
+ * Per-status metadata: sort rank, bartender badge text, human label, and the
+ * primary forward transition. One table so adding/!changing a status is a
+ * single edit shared by the API and the bartender UI (no parallel maps).
+ */
+export interface StatusMeta {
+  rank: number;
+  badge: string;
+  label: string;
+  next: OrderStatus | null;
+  nextLabel: string | null;
+}
+
+export const STATUS_META: Record<OrderStatus, StatusMeta> = {
+  pending: { rank: 0, badge: 'NEW', label: 'New', next: 'making', nextLabel: '▶ Start' },
+  making: { rank: 1, badge: 'MAKING', label: 'Making', next: 'serving', nextLabel: '🍹 Serve' },
+  serving: { rank: 2, badge: 'INCOMING', label: 'Serving', next: 'done', nextLabel: '✓ Done' },
+  done: { rank: 3, badge: 'DONE', label: 'Done', next: null, nextLabel: null },
+};
+
 export interface OrderItem {
   name: string;
   qty: number;
@@ -76,6 +96,7 @@ export interface OrderListResponse {
 export interface OrderCreatedResponse {
   ok: true;
   id: string;
+  order: Order;
 }
 
 export interface OkResponse {

@@ -11,6 +11,7 @@ import type {
   SubscriberRole,
   SubscriptionRecord,
 } from '@cocktails/shared';
+import { LIMITS } from '@cocktails/shared';
 import { config } from './config.ts';
 
 const dbFile = resolve(process.cwd(), config.dbPath);
@@ -92,7 +93,7 @@ export function createOrder(input: {
   deviceId?: string;
 }): Order {
   const count = (stCountOrders.get() as { n: number }).n;
-  if (count >= 500) {
+  if (count >= LIMITS.maxOrders) {
     const oldest = stOldestId.get() as { id: string } | undefined;
     if (oldest) stDeleteOrder.run(oldest.id);
   }
