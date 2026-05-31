@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@cocktails/shared": "*",
     "@hono/node-server": "^1.13.7",
     "hono": "^4.6.14",
     "web-push": "^3.6.7"
