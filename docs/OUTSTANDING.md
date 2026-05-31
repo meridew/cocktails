@@ -32,3 +32,15 @@ Open questions to settle before building:
   `cocktails.json` ingredient sets.
 
 → Discuss, then implement as its own slice (likely after Phase 3).
+
+## Visual restoration / polish pass — 🎨 SCHEDULED (after Phase 2 + cutover)
+The Svelte rebuild currently uses a **clean placeholder neon style**, not the full
+loud original aesthetic. This is deliberate prototype sequencing, not a redesign.
+To bring back / level up after the foundation is locked:
+- **Load the display fonts** (Bungee / Archivo Black / Playfair) — currently
+  referenced in CSS vars but never linked, so it falls back to system fonts.
+- **Background confetti cannon** (ingredient emojis blasting in from the edges).
+- **Celebrate confetti explosion** on successful order (foreground burst).
+- Favicon-in-the-bar, louder neon glow/intensity, overall "in your face" energy.
+- Revisit layout density to match the original's punch.
+→ One focused styling pass once components are stable (post-cutover).
