@@ -1,0 +1,14 @@
+# Build-locally override for first NAS bring-up (before GHCR/CI exists).
+# Usage from infra/:
+#   docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
+services:
+  api:
+    build:
+      context: ..
+      dockerfile: apps/api/Dockerfile
+    image: cocktails-api:local
+  web:
+    build:
+      context: ..
+      dockerfile: apps/web/Dockerfile
+    image: cocktails-web:local
