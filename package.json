@@ -1,0 +1,19 @@
+{
+  "name": "cocktails-monorepo",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "dev:api": "npm -w @cocktails/api run dev",
+    "dev:web": "npm -w @cocktails/web run dev",
+    "build:web": "npm -w @cocktails/web run build",
+    "start:api": "npm -w @cocktails/api run start"
+  }
+}

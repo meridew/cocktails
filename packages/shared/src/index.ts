@@ -1,0 +1,110 @@
+/**
+ * @cocktails/shared — the single source of truth for types shared between
+ * the web app (Svelte/Vite) and the API (Hono/Node). Keeping the order shape,
+ * statuses and API contracts here is what stops the front and back drifting.
+ */
+
+// ---- Orders ----------------------------------------------------------------
+
+/** Lifecycle of an order on the bar. `serving` is the "🍹 INCOMING" moment. */
+export type OrderStatus = 'pending' | 'making' | 'serving' | 'done';
+
+export const ORDER_STATUSES = ['pending', 'making', 'serving', 'done'] as const;
+
+export function isOrderStatus(v: unknown): v is OrderStatus {
+  return typeof v === 'string' && (ORDER_STATUSES as readonly string[]).includes(v);
+}
+
+export interface OrderItem {
+  name: string;
+  qty: number;
+}
+
+export interface Order {
+  id: string;
+  name: string;
+  items: OrderItem[];
+  note: string;
+  status: OrderStatus;
+  /** epoch ms */
+  createdAt: number;
+  /** epoch ms */
+  updatedAt: number;
+}
+
+/** What a guest sends to place an order. */
+export interface NewOrderInput {
+  name: string;
+  items: OrderItem[];
+  note?: string;
+  /** anonymous device id (localStorage) so we can push "your drink" back to them */
+  deviceId?: string;
+}
+
+export type ClearWhich = 'done' | 'all';
+
+// ---- Push subscriptions (Phase 3) -----------------------------------------
+
+export type SubscriberRole = 'guest' | 'bartender';
+
+/** A W3C PushSubscription as stored server-side. */
+export interface PushSubscriptionJSON {
+  endpoint: string;
+  keys: { p256dh: string; auth: string };
+}
+
+export interface SubscriptionRecord {
+  deviceId: string;
+  role: SubscriberRole;
+  subscription: PushSubscriptionJSON;
+  createdAt: number;
+}
+
+// ---- API envelopes ---------------------------------------------------------
+
+export interface ApiError {
+  ok: false;
+  error: string;
+}
+
+export interface OrderListResponse {
+  ok: true;
+  orders: Order[];
+  now: number;
+}
+
+export interface OrderCreatedResponse {
+  ok: true;
+  id: string;
+}
+
+export interface OkResponse {
+  ok: true;
+}
+
+// ---- Menu (filled with data during the UI port) ----------------------------
+
+export interface MenuItem {
+  id: string;
+  name: string;
+  blurb?: string;
+  recipe?: string;
+  emoji?: string;
+}
+
+export interface MenuSection {
+  id: string;
+  title: string;
+  /** true for the alcohol-free tab */
+  alcoholFree?: boolean;
+  items: MenuItem[];
+}
+
+// ---- Limits (shared so client and server agree) ----------------------------
+
+export const LIMITS = {
+  maxOrders: 500,
+  maxItemsPerOrder: 50,
+  maxFieldLen: 140,
+  maxQty: 99,
+} as const;

@@ -1,0 +1,17 @@
+# Single internal entry point — the "Cloudflare-ready seam".
+# Today: router port-forward → this Caddy (plain HTTP internally).
+# Later:  cloudflared → this Caddy (HTTPS terminated at Cloudflare's edge).
+# Either way, web + api never change.
+:80 {
+	encode gzip zstd
+
+	# API → the Hono/Node service
+	handle /api/* {
+		reverse_proxy api:8787
+	}
+
+	# Everything else → the static Svelte PWA (nginx)
+	handle {
+		reverse_proxy web:80
+	}
+}
