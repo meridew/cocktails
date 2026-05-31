@@ -5,6 +5,7 @@
   import { getDeviceId, getSavedName, saveName } from './lib/device';
   import Configurator from './lib/Configurator.svelte';
   import Bartender from './lib/Bartender.svelte';
+  import { startBackgroundCannon, celebrate as fireConfetti } from './lib/confetti';
 
   let selected = $state<Drink | null>(null);
   let showBartender = $state(false);
@@ -15,6 +16,12 @@
   let errMsg = $state('');
 
   let count = $derived(basketCount());
+
+  // background party-popper cannon
+  let cannon = $state<HTMLCanvasElement>();
+  $effect(() => {
+    if (cannon) return startBackgroundCannon(cannon);
+  });
 
   async function send() {
     if (!name.trim() || basket.items.length === 0) return;
@@ -31,6 +38,7 @@
       clearBasket();
       note = '';
       celebrate = true;
+      fireConfetti();
     } catch (e) {
       errMsg = (e as Error).message;
     } finally {
@@ -46,6 +54,8 @@
     else if (selected) selected = null;
   }}
 />
+
+<canvas class="bg-cannon" bind:this={cannon} aria-hidden="true"></canvas>
 
 <header class="bar">
   <span class="brand neon">COCKTAILS</span>
@@ -127,7 +137,11 @@
     backdrop-filter: blur(8px);
     z-index: 10;
   }
-  .brand { font-family: var(--font-display); font-size: 1.5rem; color: var(--neon-pink); }
+  .brand {
+    font-family: var(--font-display);
+    font-size: clamp(1.5rem, 6vw, 2.1rem);
+    animation: neon-pulse 2.6s ease-in-out infinite;
+  }
   .bt-open {
     background: transparent;
     border: 1.5px solid var(--neon-pink);
@@ -136,6 +150,8 @@
     padding: 0.3rem 0.6rem;
   }
   main {
+    position: relative;
+    z-index: 1;
     display: grid;
     gap: 1.2rem;
     padding: 1.1rem;
@@ -162,7 +178,11 @@
     color: var(--text);
     transition: border-color 0.15s, transform 0.1s;
   }
-  .card:hover { border-color: var(--neon-cyan); transform: translateY(-2px); }
+  .card:hover {
+    border-color: var(--neon-cyan);
+    transform: translateY(-3px);
+    box-shadow: 0 0 0 1px var(--neon-cyan), 0 8px 26px -8px var(--neon-cyan);
+  }
   .card-emoji { font-size: 2.4rem; }
   .card-name { font-weight: 600; }
   .order {
@@ -205,8 +225,11 @@
     border: none;
     font-weight: 700;
     font-size: 1.05rem;
-    padding: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    padding: 0.95rem;
     border-radius: 12px;
+    box-shadow: 0 0 26px -4px var(--neon-pink);
   }
   .send:disabled { background: var(--line); color: var(--muted); }
   .err { color: var(--neon-pink); }
