@@ -21,14 +21,13 @@ services:
     networks: [internal]
 
   caddy:
-    image: caddy:2-alpine
+    image: ${CADDY_IMAGE:-cocktails-caddy:local}
     restart: unless-stopped
     depends_on: [web, api]
     # Host port → Caddy. Point the router port-forward here (no 80/443 = no DSM fight).
     ports:
       - "${PUBLIC_PORT:-8088}:80"
     volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data
       - caddy-config:/config
     networks: [internal]

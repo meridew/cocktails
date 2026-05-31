@@ -23,6 +23,7 @@ jobs:
           cat > infra/.env <<EOF
           API_IMAGE=cocktails-api:local
           WEB_IMAGE=cocktails-web:local
+          CADDY_IMAGE=cocktails-caddy:local
           ALLOWED_ORIGIN=${ALLOWED_ORIGIN}
           PUBLIC_PORT=8088
           BARTENDER_KEY=${BARTENDER_KEY}
