@@ -1,79 +1,86 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="loud">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>COCKTAILS!!!</title>
   <meta name="description" content="Margaritas, cocktails, mocktails & food — build an order, drop your name, get served." />
   <meta name="theme-color" content="#ffe600" />
-  <!-- Fun custom-drawn high-contrast cocktail glass favicon -->
   <link rel="icon" type="image/svg+xml" href="favicon.svg" />
   <link rel="apple-touch-icon" href="favicon.svg" />
-  <!-- Apply the saved theme before first paint to avoid a flash (default = loud) -->
-  <script>try{document.documentElement.setAttribute("data-theme",localStorage.getItem("cocktail_theme")||"loud");}catch(e){}</script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Bungee&family=Playfair+Display:ital,wght@0,700;0,900;1,500&family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <div class="wrap">
-    <header>
-      <button type="button" class="theme-btn" id="theme-btn" aria-label="Switch theme">🎩</button>
-      <span class="kicker">★ Open Bar ★</span>
-      <h1>Cocktails</h1>
-      <p class="sub">Build your order. Leave your name. We serve.</p>
-      <button type="button" class="surprise" id="surprise">🎲 Bartender's choice</button>
-      <button type="button" class="surprise mx-launch" id="mixology-open">🧪 Make a Drink</button>
+  <!-- App shell: a fixed, no-scroll frame. Views swap inside .stage; the
+       order lives in a right rail (desktop) / bottom sheet (mobile). -->
+  <div class="app" id="app">
+    <header class="appbar">
+      <span class="brand">Cocktails</span>
+      <nav class="topnav" aria-label="Sections">
+        <button type="button" class="nav-btn" data-go="menu" aria-current="true">Menu</button>
+        <button type="button" class="nav-btn" data-go="discover">Discover</button>
+        <button type="button" class="nav-btn" data-go="ask">Ask</button>
+      </nav>
+      <button type="button" class="appbar-bartender" id="bartender-open" aria-label="Bartender mode" title="Bartender">🍸</button>
     </header>
 
-    <!-- Ask the bar: natural-language / voice cocktail finder. Hidden until
-         app.js confirms the cocktail data loaded (progressive enhancement). -->
-    <section class="card askbar" id="askbar" hidden>
-      <h2 class="askbar-title">Ask the<br>bar</h2>
-      <p class="hint">▶ Describe what you fancy — <em>“something smoky, not too sweet”</em>, <em>“a fruity rum drink”</em>, <em>“surprise me”</em>.</p>
-      <form class="askbar-form" id="askbar-form">
-        <input type="text" id="askbar-input" class="askbar-input" placeholder="What are you in the mood for?" autocomplete="off" enterkeyhint="search" />
-        <button type="button" class="askbar-mic" id="askbar-mic" aria-label="Speak your request" hidden>🎙️</button>
-        <button type="submit" class="askbar-go" id="askbar-go">Find</button>
-      </form>
-      <div class="askbar-results" id="askbar-results" aria-live="polite"></div>
-    </section>
+    <main class="stage" id="stage">
+      <!-- MENU view: category chips + one category's cards at a time -->
+      <section class="view view-menu" id="view-menu" data-view="menu" aria-label="Menu">
+        <div class="menubar">
+          <div class="chips" id="menu-chips" role="tablist" aria-label="Drink categories"></div>
+          <button type="button" class="chip chip-surprise" id="surprise">🎲 Surprise</button>
+        </div>
+        <!-- menu sections are rendered from data in app.js -->
+        <div id="menu-sections"></div>
+      </section>
 
-    <!-- The full menu is rendered from data in app.js -->
-    <div id="menu-sections"></div>
+      <!-- ASK view: natural-language / voice cocktail finder -->
+      <section class="view view-ask" id="view-ask" data-view="ask" aria-label="Ask the bar" hidden>
+        <div class="askbar" id="askbar">
+          <p class="hint">▶ Describe what you fancy — <em>“something smoky, not too sweet”</em>, <em>“a fruity rum drink”</em>, <em>“surprise me”</em>.</p>
+          <form class="askbar-form" id="askbar-form">
+            <input type="text" id="askbar-input" class="askbar-input" placeholder="What are you in the mood for?" autocomplete="off" enterkeyhint="search" />
+            <button type="button" class="askbar-mic" id="askbar-mic" aria-label="Speak your request" hidden>🎙️</button>
+            <button type="submit" class="askbar-go" id="askbar-go">Find</button>
+          </form>
+          <div class="askbar-results" id="askbar-results" aria-live="polite"></div>
+        </div>
+      </section>
+    </main>
 
-    <section class="card" id="order-form">
-      <h2>Your<br>order</h2>
-      <p class="hint">▶ Add as many drinks &amp; dishes as you like, then drop your name &amp; send.</p>
+    <!-- ORDER: persistent rail on desktop, slide-up sheet on mobile -->
+    <aside class="order-rail" id="order-rail" aria-label="Your order">
+      <button type="button" class="order-sheet-close" id="order-close" aria-label="Close order">✕</button>
+      <section id="order-form">
+        <h2>Your order</h2>
+        <p class="hint">▶ Add drinks &amp; dishes, drop your name, send.</p>
+        <form id="request-form" action="https://formspree.io/f/xwvzzjab" method="POST">
+          <div class="basket" id="basket" aria-live="polite"></div>
+          <input type="hidden" name="order" id="order-field" />
+          <label for="name">Your name</label>
+          <input type="text" id="name" name="name" placeholder="DANIEL" autocomplete="name"
+                 autocapitalize="words" enterkeyhint="done" required />
+          <label for="note">Note (optional)</label>
+          <textarea id="note" name="note" placeholder="No ice! Extra lime! Make it spicy!"></textarea>
+          <button type="submit" class="send" id="submit-btn" disabled>Add something first</button>
+          <p class="status" id="status" role="status" aria-live="polite"></p>
+        </form>
+      </section>
+    </aside>
+    <div class="order-backdrop" id="order-backdrop" aria-hidden="true"></div>
 
-      <form id="request-form" action="https://formspree.io/f/xwvzzjab" method="POST">
-        <!-- Live order basket (filled by app.js) -->
-        <div class="basket" id="basket" aria-live="polite"></div>
-        <!-- Plain-text summary of the basket, sent to Formspree -->
-        <input type="hidden" name="order" id="order-field" />
-
-        <label for="name">Your name</label>
-        <input type="text" id="name" name="name" placeholder="DANIEL" autocomplete="name"
-               autocapitalize="words" enterkeyhint="done" required />
-
-        <label for="note">Note (optional)</label>
-        <textarea id="note" name="note" placeholder="No ice! Extra lime! Make it spicy!"></textarea>
-
-        <button type="submit" class="send" id="submit-btn" disabled>Add something first</button>
-        <p class="status" id="status" role="status" aria-live="polite"></p>
-      </form>
-    </section>
-
-    <footer>★ POURED VIA GITHUB PAGES ★ · <button type="button" class="bartender-link" id="bartender-open">Bartender</button></footer>
+    <!-- Bottom tab bar (mobile); desktop uses the top nav instead -->
+    <nav class="tabbar" aria-label="Main navigation">
+      <button type="button" class="tab" data-go="menu" aria-current="true">🍸<span>Menu</span></button>
+      <button type="button" class="tab" data-go="discover">🧪<span>Discover</span></button>
+      <button type="button" class="tab" data-go="ask">💬<span>Ask</span></button>
+      <button type="button" class="tab tab-order" id="order-tab" data-go="order">🧺<span>Order</span><b class="tab-badge" id="order-badge" hidden>0</b></button>
+    </nav>
   </div>
-
-  <!-- Floating basket pill: shows the running count, jumps to the order -->
-  <button type="button" class="basket-pill" id="basket-pill" hidden aria-label="View your order">
-    <span class="basket-pill-icon" aria-hidden="true">🧺</span>
-    <span class="basket-pill-count" id="basket-pill-count">0</span>
-    <span class="basket-pill-label">View order →</span>
-  </button>
 
   <!-- Customise bottom-sheet for boozy drinks (filled by app.js) -->
   <div class="sheet" id="customise" role="dialog" aria-modal="true" aria-labelledby="cz-title" hidden>
@@ -86,7 +93,7 @@
     </div>
   </div>
 
-  <!-- Build-a-drink discovery mode (full-screen, separate flow) -->
+  <!-- Make-a-Drink discovery flow (full-screen, launched from the Discover tab) -->
   <div class="mx" id="mixology" role="dialog" aria-modal="true" aria-labelledby="mx-title" hidden>
     <div class="mx-inner">
       <div class="mx-head">
@@ -94,11 +101,8 @@
         <h2 id="mx-title">Make a Drink</h2>
         <button type="button" class="mx-iconbtn mx-close" id="mixology-close" aria-label="Close">✕</button>
       </div>
-      <!-- running list of what you've added so far -->
       <div class="mx-build" id="mx-build" aria-live="polite"></div>
-      <!-- the current question + its legitimate options -->
       <div class="mx-step" id="mx-step"></div>
-      <!-- the reveal card (what you've made) lives here -->
       <div class="mx-result" id="mx-result" hidden></div>
     </div>
   </div>

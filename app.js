@@ -8,13 +8,8 @@
 (function () {
   "use strict";
 
-  // Two switchable identities. "classy" = noir / black-tie (default),
-  // "loud" = the original bright neo-brutalist look.
-  var THEMES = ["classy", "loud"];
-  var THEME_LABELS = { classy: "Classy", loud: "Loud" };
-  // The button shows the look you'll switch TO (an invitation).
-  var THEME_GLYPH = { classy: "🎉", loud: "🎩" };
-  var THEME_META  = { classy: "#0c0c0e", loud: "#ffe600" };
+  // Set once mixology boots — lets the Discover tab launch the builder.
+  var openDiscover = null;
 
   // Shared option block: every boozy drink offers the same strength choice.
   var STRENGTH_OPT = {
@@ -114,13 +109,11 @@
   var NAME_KEY  = "cocktail_name";
   var FAV_KEY   = "cocktail_favs";
   var LAST_KEY  = "cocktail_last_order";
-  var THEME_KEY = "cocktail_theme";
   var ORDERS_KEY = "cocktail_orders";
 
   var $ = function (id) { return document.getElementById(id); };
 
   var form       = $("request-form");
-  var formCard   = $("order-form");
   var nameInput  = $("name");
   var statusEl   = $("status");
   var submitBtn  = $("submit-btn");
@@ -128,10 +121,10 @@
   var orderField = $("order-field");
   var sectionsEl = $("menu-sections");
   var surpriseBtn = $("surprise");
-  var themeBtn    = $("theme-btn");
+  var chipsEl    = $("menu-chips");
+  var activeCat  = null;          // currently shown menu category
 
-  var pill      = $("basket-pill");
-  var pillCount = $("basket-pill-count");
+  var orderBadge = $("order-badge");
 
   var overlay       = $("celebrate");
   var overlayTitle  = $("celebrate-title");
@@ -284,9 +277,8 @@
     submitBtn.disabled = count === 0;
     submitBtn.textContent = count === 0 ? "Add something first" : "Send order (" + count + ") 🍹";
 
-    pillCount.textContent = count;
+    if (orderBadge) { orderBadge.textContent = count; orderBadge.hidden = count === 0; }
     orderField.value = orderSummary();
-    updatePillVisibility();
   }
 
   // Basket controls (event-delegated so they survive re-renders).
@@ -321,11 +313,14 @@
     }, 1100);
   }
 
+  // Pulse the Order tab when something's added, so the change is noticed.
   function bumpPill() {
     if (reducedMotion()) { return; }
-    pill.classList.remove("bump");
-    void pill.offsetWidth; // restart the animation
-    pill.classList.add("bump");
+    var tab = $("order-tab");
+    if (!tab) { return; }
+    tab.classList.remove("bump");
+    void tab.offsetWidth; // restart the animation
+    tab.classList.add("bump");
   }
 
   // ---- Build a menu card (used by both the menu and favourites) --------
@@ -430,6 +425,44 @@
     favSection.hidden = !has;
     favMenu.innerHTML = "";
     refs.forEach(function (r) { favMenu.appendChild(buildCard(r.item, r.section)); });
+    buildChips();
+  }
+
+  // ---- Menu category chips: show one category's cards at a time --------
+  function hasFavs() { return favs.map(function (id) { return itemIndex[id]; }).filter(Boolean).length > 0; }
+  function categoryList() {
+    var list = [];
+    if (hasFavs()) { list.push({ key: "favourites", emoji: "⭐", label: "Faves" }); }
+    SECTIONS.forEach(function (s) { list.push({ key: s.key, emoji: s.emoji, label: s.label }); });
+    return list;
+  }
+  function showCategory(key) {
+    activeCat = key;
+    var secs = sectionsEl.querySelectorAll(".menu-section");
+    Array.prototype.forEach.call(secs, function (sec) { sec.hidden = sec.id !== "section-" + key; });
+    if (chipsEl) {
+      Array.prototype.forEach.call(chipsEl.querySelectorAll(".chip"), function (ch) {
+        ch.setAttribute("aria-selected", ch.getAttribute("data-cat") === key ? "true" : "false");
+      });
+    }
+  }
+  function buildChips() {
+    if (!chipsEl) { return; }
+    var list = categoryList();
+    if (!list.length) { chipsEl.innerHTML = ""; return; }
+    if (!activeCat || !list.some(function (c) { return c.key === activeCat; })) { activeCat = list[0].key; }
+    chipsEl.innerHTML = list.map(function (c) {
+      return '<button type="button" class="chip" role="tab" data-cat="' + escapeHtml(c.key) +
+        '" aria-selected="' + (c.key === activeCat ? "true" : "false") + '"><span class="emoji">' +
+        c.emoji + "</span> " + escapeHtml(c.label) + "</button>";
+    }).join("");
+    showCategory(activeCat);
+  }
+  if (chipsEl) {
+    chipsEl.addEventListener("click", function (e) {
+      var ch = e.target.closest(".chip");
+      if (ch) { showCategory(ch.getAttribute("data-cat")); }
+    });
   }
 
   // ---- Build the full menu (sections stacked top to bottom) ------------
@@ -486,6 +519,7 @@
       surpriseBtn.classList.add("spin");
     }
 
+    showCategory(section.key);  // flip to the picked drink's category first
     var card = document.querySelector("#section-" + section.key + ' [data-id="' + baseId(item, section) + '"]');
     if (card) {
       card.scrollIntoView({ behavior: reducedMotion() ? "auto" : "smooth", block: "center" });
@@ -496,46 +530,51 @@
     }
   });
 
-  // ---- 🎨 Theme switcher ------------------------------------------------
-  function applyTheme(name) {
-    if (THEMES.indexOf(name) === -1) { name = "loud"; }
-    document.documentElement.setAttribute("data-theme", name);
-    lsSet(THEME_KEY, name);
-    var other = THEMES[(THEMES.indexOf(name) + 1) % THEMES.length];
-    themeBtn.textContent = THEME_GLYPH[name];        // glyph = the look you'd switch to
-    themeBtn.setAttribute("aria-label", "Switch to the " + THEME_LABELS[other] + " theme");
-    themeBtn.title = "Switch to " + THEME_LABELS[other];
-    var meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) { meta.setAttribute("content", THEME_META[name]); }
-  }
-  applyTheme(lsGet(THEME_KEY) || "loud");
-  themeBtn.addEventListener("click", function () {
-    var cur = document.documentElement.getAttribute("data-theme") || "loud";
-    applyTheme(THEMES[(THEMES.indexOf(cur) + 1) % THEMES.length]);
-    if (!reducedMotion()) {
-      themeBtn.classList.remove("pop");
-      void themeBtn.offsetWidth;
-      themeBtn.classList.add("pop");
-    }
-  });
+  // ---- App-shell navigation: tabs / top-nav swap views; Order is a
+  //      slide-up sheet (mobile) or the always-on rail (desktop). --------
+  var stageViews = { menu: $("view-menu"), ask: $("view-ask") };
+  var orderRail = $("order-rail");
+  var orderBackdrop = $("order-backdrop");
+  var navButtons = document.querySelectorAll("[data-go]");
 
-  // ---- Floating pill: jumps to the order, hides once it's in view ------
-  var orderInView = false;
-  function updatePillVisibility() {
-    var count = totalCount();
-    pill.hidden = count === 0 || orderInView;
-    pill.setAttribute("aria-label", "View your order — " + count + (count === 1 ? " item" : " items"));
+  function orderSheetOpen() { return orderRail && orderRail.classList.contains("open"); }
+  function setOrderSheet(open) {
+    if (!orderRail) { return; }
+    orderRail.classList.toggle("open", !!open);
+    if (orderBackdrop) { orderBackdrop.classList.toggle("open", !!open); }
   }
-  pill.addEventListener("click", function () {
-    formCard.scrollIntoView({ behavior: reducedMotion() ? "auto" : "smooth", block: "start" });
-    if (!nameInput.value.trim()) { nameInput.focus({ preventScroll: true }); }
+  function closeOrderSheet() { setOrderSheet(false); }
+
+  function setActiveNav(go) {
+    Array.prototype.forEach.call(navButtons, function (b) {
+      b.setAttribute("aria-current", b.getAttribute("data-go") === go ? "true" : "false");
+    });
+  }
+  function go(view) {
+    if (view === "order") { setOrderSheet(!orderSheetOpen()); return; }
+    if (view === "discover") { closeOrderSheet(); if (openDiscover) { openDiscover(); } return; }
+    // "menu" / "ask": swap the stage views in place.
+    closeOrderSheet();
+    Object.keys(stageViews).forEach(function (k) {
+      if (stageViews[k]) { stageViews[k].hidden = (k !== view); }
+    });
+    setActiveNav(view);
+    var v = stageViews[view];
+    if (v) {
+      v.scrollTop = 0;
+      var h = v.querySelector("h2, .askbar-title, .hint");
+      if (h) { h.setAttribute("tabindex", "-1"); try { h.focus({ preventScroll: true }); } catch (e) {} }
+    }
+  }
+  Array.prototype.forEach.call(navButtons, function (b) {
+    b.addEventListener("click", function () { go(b.getAttribute("data-go")); });
   });
-  if ("IntersectionObserver" in window) {
-    new IntersectionObserver(function (entries) {
-      orderInView = entries[0].isIntersecting;
-      updatePillVisibility();
-    }, { threshold: 0.25 }).observe(formCard);
-  }
+  if (orderBackdrop) { orderBackdrop.addEventListener("click", closeOrderSheet); }
+  var orderCloseBtn = $("order-close");
+  if (orderCloseBtn) { orderCloseBtn.addEventListener("click", closeOrderSheet); }
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && orderSheetOpen()) { closeOrderSheet(); }
+  });
 
   // ---- Remember the name across visits ---------------------------------
   try {
@@ -624,6 +663,7 @@
     overlayMsg.innerHTML =
       "Your order is on the way. 🍹" +
       '<ul class="celebrate-order">' + list + "</ul>";
+    closeOrderSheet();          // tuck the (now-empty) order sheet away
     overlay.hidden = false;
     document.body.style.overflow = "hidden"; // lock background scroll while open
     fireBurst();
@@ -806,7 +846,7 @@
     var stepEl    = $("mx-step");
     var resultEl  = $("mx-result");
     var backBtn   = $("mx-back");
-    if (!launchBtn || !overlay) { return; }
+    if (!overlay) { return; }
 
     // Emoji per base for the basket line (falls back to a cocktail glass).
     var BASE_EMOJI = {
@@ -1054,14 +1094,14 @@
         start();   // start() renders + moves focus into the panel
       });
     }
+    openDiscover = open;   // let the Discover tab launch this flow
     function close() {
       overlay.hidden = true;
       document.body.style.overflow = "";
       if (location.hash === "#make") { history.replaceState(null, "", location.pathname + location.search); }
-      launchBtn.focus();
     }
 
-    launchBtn.addEventListener("click", open);
+    if (launchBtn) { launchBtn.addEventListener("click", open); }
     closeBtn.addEventListener("click", close);
     if (backBtn) { backBtn.addEventListener("click", goBack); }
     overlay.addEventListener("click", function (e) { if (e.target === overlay) { close(); } });
