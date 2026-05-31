@@ -14,8 +14,8 @@ export default defineConfig({
         name: 'Cocktails',
         short_name: 'Cocktails',
         description: 'Build a round, drop your name, get served.',
-        theme_color: '#ff2e88',
-        background_color: '#0a0a14',
+        theme_color: '#ffe600',
+        background_color: '#ffe600',
         display: 'standalone',
         start_url: '/',
         icons: [

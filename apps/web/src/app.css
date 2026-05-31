@@ -1,85 +1,30 @@
-@import 'open-props/style';
-@import 'open-props/normalize';
+/* The full bespoke neo-brutalist design lives in neo.css (the original
+   stylesheet, verbatim). This file only adds the canvas-confetti layer,
+   which replaces the original DOM-based background confetti. */
 
-/* ---- bespoke neon tokens (layered on Open Props) ---- */
-:root {
-  --neon-pink: #ff2e88;
-  --neon-cyan: #29ffe3;
-  --neon-lime: #c6ff00;
-  --neon-yellow: #ffe600;
-  --neon-purple: #b14bff;
-  --bg: #07060f;
-  --surface: #ffffff0a;
-  --panel: #16132a;
-  --line: #322a55;
-  --text: #f6f4ff;
-  --muted: #b3a9da;
-  --font-display: 'Bungee', system-ui, sans-serif;
-  --font-heavy: 'Archivo Black', system-ui, sans-serif;
-}
-
-html {
-  color-scheme: dark;
-}
-body {
-  margin: 0;
-  background:
-    radial-gradient(1100px 620px at 85% -12%, #3a0f54 0%, transparent 60%),
-    radial-gradient(900px 560px at -12% 8%, #0a3a52 0%, transparent 55%),
-    radial-gradient(800px 800px at 50% 120%, #14063a 0%, transparent 60%),
-    var(--bg);
-  color: var(--text);
-  font-family: 'Space Grotesk', system-ui, sans-serif;
-  min-block-size: 100dvh;
-  -webkit-font-smoothing: antialiased;
-  overflow-x: hidden;
-}
-
-h1,
-h2,
-h3 {
-  font-family: var(--font-display);
-  letter-spacing: 0.5px;
-  line-height: 1.05;
-}
-
-button {
-  font: inherit;
-  cursor: pointer;
-}
-
-/* loud neon text */
-.neon {
-  color: #fff;
-  text-shadow:
-    0 0 6px var(--neon-pink),
-    0 0 18px var(--neon-pink),
-    0 0 42px var(--neon-pink);
-}
-.neon-cyan {
-  text-shadow:
-    0 0 6px var(--neon-cyan),
-    0 0 18px var(--neon-cyan);
-}
-
-/* subtle pulse used on the brand */
-@keyframes neon-pulse {
-  0%,
-  100% {
-    filter: brightness(1) saturate(1.1);
-  }
-  50% {
-    filter: brightness(1.25) saturate(1.4);
-  }
-}
-
-/* the background confetti canvas sits behind everything */
+/* background party-popper cannon canvas — behind the .app shell (z-index 1) */
 .bg-cannon {
   position: fixed;
   inset: 0;
-  inline-size: 100%;
-  block-size: 100%;
+  width: 100%;
+  height: 100%;
   z-index: 0;
   pointer-events: none;
-  opacity: 0.92;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bg-cannon {
+    display: none;
+  }
+}
+
+/* the 'serving / INCOMING' status — a 4th state the original 3-state CSS lacks */
+.bt-order.s-serving {
+  border-left-color: #ffe600;
+}
+.bt-badge.b-serving {
+  background: #c08a00;
+}
+.bt-act.serve {
+  background: #ffe600;
 }
