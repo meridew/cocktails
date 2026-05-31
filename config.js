@@ -7,4 +7,4 @@
    Example:
      window.COCKTAIL_API = "https://yourname.synology.me/cocktail-api.php";
    ============================================================ */
-window.COCKTAIL_API = "https://CHANGE-ME.synology.me/cocktail-api.php";
+window.COCKTAIL_API = "https://meridew.asuscomm.com:9443/cocktail-api.php";
