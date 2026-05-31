@@ -1,63 +1,38 @@
-name: build-and-deploy (NAS)
+name: deploy (NAS)
 
-# Hybrid CI/CD: GitHub's free cloud runners BUILD + push images to GHCR,
-# then a self-hosted runner on the NAS PULLS + redeploys. Nothing inbound.
-#
-# Phase 2 activation (when the NAS runner + GHCR are set up and we cut over
-# from GitHub Pages): uncomment the `push` trigger below and delete deploy.yml.
+# Self-hosted runner on the NAS builds + deploys the stack on every push.
+# Fully self-contained: no GHCR, no registry auth, nothing inbound — the
+# runner dials out to GitHub, the job runs on the NAS against the host docker.
 on:
+  push:
+    branches: [modernise, main]
   workflow_dispatch:
-  # push:
-  #   branches: [main]
 
 concurrency:
   group: nas-deploy
   cancel-in-progress: true
 
-permissions:
-  contents: read
-  packages: write
-
 jobs:
-  build:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        include:
-          - name: api
-            dockerfile: apps/api/Dockerfile
-            image: ghcr.io/${{ github.repository_owner }}/cocktails-api
-          - name: web
-            dockerfile: apps/web/Dockerfile
-            image: ghcr.io/${{ github.repository_owner }}/cocktails-web
-    steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: ${{ matrix.dockerfile }}
-          push: true
-          tags: |
-            ${{ matrix.image }}:latest
-            ${{ matrix.image }}:${{ github.sha }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
   deploy:
-    needs: build
-    # The self-hosted runner installed on the NAS (label: nas).
     runs-on: [self-hosted, nas]
     steps:
       - uses: actions/checkout@v4
-      - name: Pull & redeploy on the NAS
+
+      - name: Write infra/.env
+        run: |
+          cat > infra/.env <<EOF
+          API_IMAGE=cocktails-api:local
+          WEB_IMAGE=cocktails-web:local
+          ALLOWED_ORIGIN=${ALLOWED_ORIGIN}
+          PUBLIC_PORT=8088
+          BARTENDER_KEY=${BARTENDER_KEY}
+          EOF
+        env:
+          BARTENDER_KEY: ${{ secrets.BARTENDER_KEY }}
+          ALLOWED_ORIGIN: https://cock.meridew.com
+
+      - name: Build + deploy
         working-directory: infra
         run: |
-          docker compose pull
-          docker compose up -d --remove-orphans
+          docker-compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
           docker image prune -f

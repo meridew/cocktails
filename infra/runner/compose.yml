@@ -1,0 +1,26 @@
+# Self-hosted GitHub Actions runner — lives on the NAS, dials OUT to GitHub.
+# Runs the deploy job (.github/workflows/nas-deploy.yml) against the host docker.
+# Deployed manually on the NAS (it's the thing that deploys everything else):
+#   cd /volume1/docker/cocktails-runner && sudo docker-compose up -d
+name: cocktails-runner
+
+services:
+  runner:
+    image: myoung34/github-runner:latest
+    restart: unless-stopped
+    environment:
+      REPO_URL: https://github.com/meridew/cocktails
+      RUNNER_NAME: nas
+      RUNNER_SCOPE: repo
+      LABELS: nas
+      DISABLE_AUTO_UPDATE: "true"
+      RUN_AS_ROOT: "true"
+      RUNNER_ALLOW_RUNASROOT: "1"
+      # Short-lived registration token (NOT a PAT). Regenerate with:
+      #   gh api -X POST repos/meridew/cocktails/actions/runners/registration-token --jq .token
+      # Set in this folder's .env. Note: after a NAS reboot, refresh it.
+      RUNNER_TOKEN: ${RUNNER_TOKEN:?set RUNNER_TOKEN in .env}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      # host's static compose binary → so `docker-compose` works in the job
+      - /var/packages/ContainerManager/target/usr/bin/docker-compose:/usr/local/bin/docker-compose:ro
