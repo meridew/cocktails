@@ -85,3 +85,23 @@ subscriptions  device_id, role(guest|bartender), subscription(json), created_at
 - *Dev-server pushes to `main`* → we work on a **branch**, keep `main` deployable, reconcile before cutover.
 - *Don't break the live party app mid-rebuild* → legacy PHP + flat app stay live until Phase 1 parity is proven, then retire.
 - *Synology Docker port 80/443 grab* → Caddy on alt ports + Cloudflare-later → we never fight DSM for 80/443.
+
+## 10. Progress log
+- **Branch `modernise`** holds the rebuild; `main` + the live flat app are untouched.
+- **Phase 0 (core) ☑** — monorepo (npm workspaces); `@cocktails/shared` typed contracts;
+  `apps/api` (Hono + Node 24 + `node:sqlite`) with full PHP parity + `serving` status +
+  subscription plumbing — **smoke-tested + typechecks**; `apps/web` (Svelte 5 + Vite + PWA +
+  Open Props) core order loop (menu → configurator → basket → order) + bartender — **builds,
+  svelte-check 0 errors, verified web→proxy→API→SQLite end-to-end**.
+- **Phase 0 (remaining)** — port advanced flows: Make-a-Drink engine (`cocktails.json`),
+  voice/NL Ask finder, favourites, full background confetti.
+- **Phase 1–2 (plumbing ☑, on-NAS ☐)** — Caddy/compose/Dockerfiles + GitHub Actions→GHCR→NAS
+  workflow are written; standing them up + the self-hosted runner + GHCR + making the repo
+  private all wait until NAS root + repo admin are available.
+
+### Run it locally
+```
+npm install
+npm run dev:api      # Hono API on :8787  (BARTENDER_KEY defaults to 1337)
+npm run dev:web      # Vite on :5173, proxies /api → the API
+```
