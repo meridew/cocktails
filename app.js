@@ -1005,7 +1005,11 @@
           (drink.blurb ? '<p class="mx-blurb">' + escapeHtml(drink.blurb) + "</p>" : "") +
           '<dl class="mx-spec">' +
             '<dt>Base</dt><dd>' + escapeHtml(drink.base) + "</dd>" +
-            (drink.ingredients.length ? "<dt>With</dt><dd>" + escapeHtml(drink.ingredients.join(", ")) + "</dd>" : "") +
+            (function () {
+              var withList = drink.ingredients.filter(function (i) { return catOf(i) !== "method"; });
+              return withList.length ? "<dt>With</dt><dd>" + escapeHtml(withList.join(", ")) + "</dd>" : "";
+            })() +
+            (drink.method ? "<dt>Method</dt><dd>" + escapeHtml(drink.method) + "</dd>" : "") +
             (drink.garnish ? "<dt>Garnish</dt><dd>" + escapeHtml(drink.garnish) + "</dd>" : "") +
             (drink.ice ? "<dt>Ice</dt><dd>" + escapeHtml(drink.ice) + "</dd>" : "") +
             (drink.glass ? "<dt>Glass</dt><dd>" + escapeHtml(drink.glass) + "</dd>" : "") +
