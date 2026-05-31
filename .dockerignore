@@ -1,0 +1,11 @@
+**/node_modules
+.git
+**/dist
+**/build
+data
+**/data
+*.sqlite
+*.sqlite-*
+.env
+**/.env
+*.local

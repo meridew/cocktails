@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <rect width="100" height="100" rx="22" fill="#ffe600"/>
+  <rect x="5" y="5" width="90" height="90" rx="18" fill="none" stroke="#0a0a12" stroke-width="6"/>
+  <!-- drink fill -->
+  <path d="M30 31 L70 31 L50 54 Z" fill="#ff2e88"/>
+  <!-- olive garnish on a pick -->
+  <line x1="58" y1="14" x2="44" y2="40" stroke="#0a0a12" stroke-width="4" stroke-linecap="round"/>
+  <circle cx="60" cy="15" r="7" fill="#acff00" stroke="#0a0a12" stroke-width="4"/>
+  <!-- glass: bowl, stem, base in bold ink -->
+  <g fill="none" stroke="#0a0a12" stroke-width="7" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M22 27 L78 27 L50 58 Z"/>
+    <line x1="50" y1="58" x2="50" y2="80"/>
+    <line x1="33" y1="83" x2="67" y2="83"/>
+  </g>
+</svg>
