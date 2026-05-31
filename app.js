@@ -184,8 +184,9 @@
   var btOpen        = $("bartender-open");
   var btClose       = $("bartender-close");
   var btShowDone    = $("bt-show-done");
-  var btExport      = $("bt-export");
   var btClear       = $("bt-clear");
+  var btCount       = $("bt-count");
+  var btShowDoneOn  = false;
 
   // ---- Helpers ----------------------------------------------------------
   function reducedMotion() {
@@ -720,39 +721,72 @@
     setOrders(orders);
   }
 
-  function fmtTime(ts) {
-    try { return new Date(ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }); }
-    catch (e) { return ""; }
+  // relative "x ago" from a ms timestamp
+  function ago(ts) {
+    var s = Math.max(0, Math.floor((Date.now() - ts) / 1000));
+    if (s < 60) { return s + "s ago"; }
+    var m = Math.floor(s / 60);
+    if (m < 60) { return m + "m ago"; }
+    return Math.floor(m / 60) + "h " + (m % 60) + "m ago";
   }
 
+  function setCount(n) {
+    if (n == null) { btCount.textContent = "—"; btCount.className = "bt-count zero"; return; }
+    btCount.textContent = n + " WAITING";
+    btCount.className = "bt-count" + (n === 0 ? " zero" : "");
+  }
+
+  // status order for the queue: active (oldest first) above done
+  var BT_RANK = { pending: 0, making: 1, done: 2 };
+
   function renderOrders(ordersIn) {
-    var orders = (ordersIn || getOrders()).slice().sort(function (a, b) { return b.ts - a.ts; });
-    var pending = orders.filter(function (o) { return o.status !== "done"; });
-    var view = btShowDone.checked ? orders : pending;
+    var orders = (ordersIn || getOrders()).slice().sort(function (a, b) {
+      var ra = BT_RANK[a.status] != null ? BT_RANK[a.status] : 0;
+      var rb = BT_RANK[b.status] != null ? BT_RANK[b.status] : 0;
+      if (ra !== rb) { return ra - rb; }
+      return a.ts - b.ts; // FIFO within a group
+    });
 
-    btTitle.textContent = "🍸 Bartender" + (pending.length ? " (" + pending.length + ")" : "");
+    var waiting = orders.filter(function (o) { return o.status !== "done"; }).length;
+    setCount(waiting);
 
+    var view = btShowDoneOn ? orders : orders.filter(function (o) { return o.status !== "done"; });
     if (!view.length) {
       bartenderList.innerHTML = '<p class="bt-empty">' +
-        (btShowDone.checked ? "No orders yet." : "No pending orders. 🎉") + "</p>";
+        (btShowDoneOn ? "No orders yet." : "All caught up. 🎉") + "</p>";
       return;
     }
-    bartenderList.innerHTML = view.map(function (o) {
-      var done = o.status === "done";
-      var items = o.items.map(function (it) { return "<li>" + it.qty + "× " + escapeHtml(it.name) + "</li>"; }).join("");
-      return (
-        '<article class="bt-order' + (done ? " done" : "") + '">' +
-          '<div class="bt-order-head"><span class="bt-name">' + escapeHtml(o.name) + "</span>" +
-            '<span class="bt-time">' + fmtTime(o.ts) + "</span></div>" +
-          '<ul class="bt-items">' + items + "</ul>" +
-          (o.note ? '<p class="bt-note">📝 ' + escapeHtml(o.note) + "</p>" : "") +
-          '<div class="bt-actions">' +
-            '<button type="button" class="bt-toggle-done" data-id="' + escapeHtml(o.id) + '">' + (done ? "↩ Reopen" : "✓ Complete") + "</button>" +
-            '<button type="button" class="bt-del" data-id="' + escapeHtml(o.id) + '" aria-label="Delete order">🗑</button>' +
-          "</div>" +
-        "</article>"
-      );
+    bartenderList.innerHTML = view.map(btCardHtml).join("");
+  }
+
+  function btCardHtml(o) {
+    var st = (o.status === "making" || o.status === "done") ? o.status : "pending";
+    var label = { pending: "NEW", making: "MAKING", done: "DONE" }[st];
+    var items = o.items.map(function (it) {
+      return "<li>" + it.qty + "× " + escapeHtml(it.name) + "</li>";
     }).join("");
+
+    var acts;
+    if (st === "pending") {
+      acts = '<button type="button" class="bt-act start" data-act="making" data-id="' + escapeHtml(o.id) + '">▶ Start</button>' +
+             '<button type="button" class="bt-act done" data-act="done" data-id="' + escapeHtml(o.id) + '">✓ Done</button>';
+    } else if (st === "making") {
+      acts = '<button type="button" class="bt-act done" data-act="done" data-id="' + escapeHtml(o.id) + '">✓ Done</button>';
+    } else {
+      acts = '<button type="button" class="bt-act reopen" data-act="pending" data-id="' + escapeHtml(o.id) + '">↺ Reopen</button>';
+    }
+    acts += '<button type="button" class="bt-act del" data-act="delete" data-id="' + escapeHtml(o.id) + '" aria-label="Delete order">🗑</button>';
+
+    return (
+      '<article class="bt-order s-' + st + '">' +
+        '<div class="bt-row"><span class="bt-name">' + escapeHtml(o.name) + "</span>" +
+          '<span class="bt-badge b-' + st + '">' + label + "</span></div>" +
+        '<ul class="bt-items">' + items + "</ul>" +
+        (o.note ? '<p class="bt-note">📝 ' + escapeHtml(o.note) + "</p>" : "") +
+        '<div class="bt-foot"><span class="bt-ago" data-ts="' + o.ts + '">' + ago(o.ts) + "</span>" +
+          '<div class="bt-acts">' + acts + "</div></div>" +
+      "</article>"
+    );
   }
 
   // ---- NAS-backed bartender (shared across devices) -------------------
@@ -776,15 +810,13 @@
 
   function btGate(msg) {
     stopBtPoll();
-    btTitle.textContent = "🍸 Bartender";
+    setCount(null);
     bartenderList.innerHTML =
-      '<div class="bt-empty" style="text-align:left">' +
-        "<p>Enter the bartender passcode to see orders from every device.</p>" +
-        '<input type="password" id="bt-key" placeholder="Passcode" autocomplete="current-password" ' +
-        'style="width:100%;padding:13px;border-radius:10px;border:3px solid #0a0a12;font-size:16px;margin-bottom:10px" />' +
-        '<button type="button" id="bt-unlock" ' +
-        'style="width:100%;padding:13px;border:3px solid #0a0a12;border-radius:10px;background:#ffe600;font-weight:700;cursor:pointer">Unlock 🔓</button>' +
-        (msg ? '<p style="color:#ff2e88;font-weight:700;margin-top:10px">' + escapeHtml(msg) + "</p>" : "") +
+      '<div class="bt-gate">' +
+        '<p class="bt-gate-msg">🔒 Enter the bartender PIN to see live orders.</p>' +
+        '<input id="bt-key" inputmode="numeric" autocomplete="off" placeholder="••••" aria-label="Bartender PIN" />' +
+        '<button type="button" class="bt-unlock" id="bt-unlock">Unlock</button>' +
+        (msg ? '<p class="bt-err">' + escapeHtml(msg) + "</p>" : "") +
       "</div>";
     var keyEl = $("bt-key");
     function tryKey() {
@@ -792,7 +824,7 @@
       if (!k) { return; }
       apiCall("list", {}, k)
         .then(function (d) { btKey = k; lsSet(BT_KEY_STORE, k); renderOrders(d.orders || []); startBtPoll(); })
-        .catch(function (err) { btGate(err && err.unauthorized ? "Wrong passcode — try again." : "Can't reach the bar API."); });
+        .catch(function (err) { btGate(err && err.unauthorized ? "Wrong PIN — try again." : "Can't reach the bar."); });
     }
     $("bt-unlock").addEventListener("click", tryKey);
     keyEl.addEventListener("keydown", function (e) { if (e.key === "Enter") { e.preventDefault(); tryKey(); } });
@@ -800,26 +832,21 @@
   }
 
   bartenderList.addEventListener("click", function (e) {
-    var doneBtn = e.target.closest(".bt-toggle-done");
-    var delBtn = e.target.closest(".bt-del");
-    if (doneBtn) {
-      var id = doneBtn.getAttribute("data-id");
-      if (API) {
-        var toPending = doneBtn.textContent.indexOf("Reopen") !== -1; // currently done → reopen
-        apiCall("status", { method: "POST", json: { id: id, status: toPending ? "pending" : "done" } }, btKey)
-          .then(fetchBt).catch(noop);
-      } else {
+    var btn = e.target.closest(".bt-act");
+    if (!btn) { return; }
+    var id = btn.getAttribute("data-id");
+    var act = btn.getAttribute("data-act"); // making | done | pending | delete
+    btn.disabled = true;
+    function fail() { btn.disabled = false; }
+    if (act === "delete") {
+      if (API) { apiCall("delete", { method: "POST", json: { id: id } }, btKey).then(fetchBt).catch(fail); }
+      else { setOrders(getOrders().filter(function (o) { return o.id !== id; })); renderOrders(); }
+    } else {
+      if (API) { apiCall("status", { method: "POST", json: { id: id, status: act } }, btKey).then(fetchBt).catch(fail); }
+      else {
         var orders = getOrders();
-        orders.forEach(function (o) { if (o.id === id) { o.status = (o.status === "done") ? "pending" : "done"; } });
+        orders.forEach(function (o) { if (o.id === id) { o.status = act; } });
         setOrders(orders);
-        renderOrders();
-      }
-    } else if (delBtn) {
-      var did = delBtn.getAttribute("data-id");
-      if (API) {
-        apiCall("delete", { method: "POST", json: { id: did } }, btKey).then(fetchBt).catch(noop);
-      } else {
-        setOrders(getOrders().filter(function (o) { return o.id !== did; }));
         renderOrders();
       }
     }
@@ -843,24 +870,13 @@
       history.replaceState(null, "", location.pathname + location.search);
     }
   }
-  function exportOrders() {
-    var blob = new Blob([JSON.stringify(getOrders(), null, 2)], { type: "application/json" });
-    var url = URL.createObjectURL(blob);
-    var a = document.createElement("a");
-    a.href = url;
-    a.download = "cocktail-orders-" + new Date().toISOString().slice(0, 10) + ".json";
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
-  }
-
   btOpen.addEventListener("click", openBartender);
   btClose.addEventListener("click", closeBartender);
-  btShowDone.addEventListener("change", function () {
+  btShowDone.addEventListener("click", function () {
+    btShowDoneOn = !btShowDoneOn;
+    btShowDone.setAttribute("aria-pressed", btShowDoneOn ? "true" : "false");
     if (API && btKey) { fetchBt(); } else { renderOrders(); }
   });
-  btExport.addEventListener("click", exportOrders);
   btClear.addEventListener("click", function () {
     if (API) {
       if (btKey) { apiCall("clear", { method: "POST", json: { which: "done" } }, btKey).then(fetchBt).catch(noop); }

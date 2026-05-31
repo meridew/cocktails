@@ -141,7 +141,7 @@ switch ($action) {
     require_key();
     $id = isset($body['id']) ? (string)$body['id'] : '';
     $st = isset($body['status']) ? (string)$body['status'] : '';
-    if (!in_array($st, ['pending', 'done'], true)) out(['ok' => false, 'error' => 'bad status'], 422);
+    if (!in_array($st, ['pending', 'making', 'done'], true)) out(['ok' => false, 'error' => 'bad status'], 422);
     $resp = with_store($DATA_FILE, $GUARD, function ($orders) use ($id, $st) {
       $found = false;
       foreach ($orders as &$o) { if ($o['id'] === $id) { $o['status'] = $st; $found = true; break; } }

@@ -133,20 +133,20 @@
     </div>
   </div>
 
-  <!-- Bartender mode: a local order queue (orders saved on THIS device) -->
+  <!-- Bartender mode: the shared live order queue (served from the NAS) -->
   <div class="bartender" id="bartender" role="dialog" aria-modal="true" aria-labelledby="bartender-title" hidden>
-    <div class="bartender-head">
-      <h2 id="bartender-title">🍸 Bartender</h2>
-    </div>
-    <div class="bartender-bar">
-      <label class="bt-toggle"><input type="checkbox" id="bt-show-done" /> Show completed</label>
-      <button type="button" id="bt-export">⬇ Export JSON</button>
-      <button type="button" id="bt-clear">Clear completed</button>
-    </div>
+    <header class="bt-top">
+      <div class="bt-title">
+        <h2 id="bartender-title">🍸 Bar</h2>
+        <span class="bt-count zero" id="bt-count" aria-live="polite">—</span>
+      </div>
+      <div class="bt-tools">
+        <button type="button" class="bt-chip" id="bt-show-done" aria-pressed="false">Show done</button>
+        <button type="button" class="bt-chip" id="bt-clear">Clear done</button>
+        <button type="button" class="bt-x" id="bartender-close" aria-label="Close bartender mode">✕</button>
+      </div>
+    </header>
     <div class="bartender-list" id="bartender-list"></div>
-    <div class="flowbar">
-      <button type="button" class="flowbar-back" id="bartender-close" aria-label="Close bartender mode">← Back</button>
-    </div>
   </div>
 
   <script src="config.js" defer></script>
