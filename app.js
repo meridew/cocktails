@@ -200,6 +200,31 @@
   function lsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* ignore */ } }
   function lsJSON(k) { try { var v = JSON.parse(lsGet(k)); return Array.isArray(v) ? v : []; } catch (e) { return []; } }
 
+  // ---- NAS order API (set window.COCKTAIL_API in config.js) ------------
+  // When configured, orders POST to the NAS and bartender mode reads the
+  // shared queue from it. Otherwise everything falls back to local/email.
+  var API = (function () {
+    var a = window.COCKTAIL_API;
+    return (a && a.indexOf("CHANGE-ME") === -1 && /^https:\/\//.test(a)) ? a : null;
+  })();
+  var BT_KEY_STORE = "bartender_key";
+  function noop() {}
+  function apiCall(action, init, key) {
+    init = init || {};
+    var headers = {};
+    if (key) { headers["X-Bartender-Key"] = key; }
+    if (init.json) { headers["Content-Type"] = "application/json"; }
+    return fetch(API + "?action=" + action, {
+      method: init.method || "GET",
+      headers: headers,
+      body: init.json ? JSON.stringify(init.json) : undefined,
+    }).then(function (res) {
+      if (res.status === 401) { var e = new Error("unauthorized"); e.unauthorized = true; throw e; }
+      if (!res.ok) { throw new Error("http " + res.status); }
+      return res.json();
+    });
+  }
+
   // Every drink is configured the same way; its id is just its name.
   function baseId(item) { return item.name; }
   function isBoozy(item, config) {
@@ -558,19 +583,15 @@
     statusEl.className = "status";
     statusEl.textContent = "SENDING…";
 
-    fetch(form.action, {
-      method: "POST",
-      body: new FormData(form),
-      headers: { Accept: "application/json" },
-    })
-      .then(function (res) {
-        if (!res.ok) { throw new Error("Bad response"); }
-        var orderedName = nameInput.value.trim();
-        var orderedLines = basket.slice();
-        var orderedNote = ($("note").value || "").trim();
+    var orderedName = nameInput.value.trim();
+    var orderedLines = basket.slice();
+    var orderedNote = ($("note").value || "").trim();
+
+    deliverOrder(orderedName, orderedLines, orderedNote)
+      .then(function () {
         lastOrder = orderedLines.slice();
         lsSet(LAST_KEY, JSON.stringify(lastOrder));
-        saveOrderRecord(orderedName, orderedLines, orderedNote);
+        saveOrderRecord(orderedName, orderedLines, orderedNote); // local cache / offline export
         basket = [];
         renderBasket();           // clears the list + disables the button
         form.reset();
@@ -584,6 +605,22 @@
         statusEl.textContent = "OOPS — try that again!";
         submitBtn.disabled = false;
       });
+  }
+
+  // Send the order to the NAS shared store when configured; else email it.
+  function deliverOrder(name, lines, note) {
+    if (API) {
+      var items = lines.map(function (l) { return { name: l.name, qty: l.qty }; });
+      return apiCall("order", { method: "POST", json: { name: name, items: items, note: note } });
+    }
+    return fetch(form.action, {
+      method: "POST",
+      body: new FormData(form),
+      headers: { Accept: "application/json" },
+    }).then(function (res) {
+      if (!res.ok) { throw new Error("Bad response"); }
+      return res.json();
+    });
   }
 
   // ---- "Had enough already?" confirmation gate -------------------------
@@ -688,8 +725,8 @@
     catch (e) { return ""; }
   }
 
-  function renderOrders() {
-    var orders = getOrders().slice().sort(function (a, b) { return b.ts - a.ts; });
+  function renderOrders(ordersIn) {
+    var orders = (ordersIn || getOrders()).slice().sort(function (a, b) { return b.ts - a.ts; });
     var pending = orders.filter(function (o) { return o.status !== "done"; });
     var view = btShowDone.checked ? orders : pending;
 
@@ -697,7 +734,7 @@
 
     if (!view.length) {
       bartenderList.innerHTML = '<p class="bt-empty">' +
-        (btShowDone.checked ? "No orders saved on this device yet." : "No pending orders. 🎉") + "</p>";
+        (btShowDone.checked ? "No orders yet." : "No pending orders. 🎉") + "</p>";
       return;
     }
     bartenderList.innerHTML = view.map(function (o) {
@@ -718,30 +755,90 @@
     }).join("");
   }
 
+  // ---- NAS-backed bartender (shared across devices) -------------------
+  // When window.COCKTAIL_API is set, the queue lives on the NAS and the
+  // bartender unlocks it with the passcode, then we poll for live updates.
+  var btKey = lsGet(BT_KEY_STORE) || "";
+  var btTimer = null;
+
+  function stopBtPoll() { if (btTimer) { clearInterval(btTimer); btTimer = null; } }
+  function startBtPoll() { stopBtPoll(); btTimer = setInterval(fetchBt, 4000); }
+
+  function fetchBt() {
+    if (!API || !btKey) { return; }
+    apiCall("list", {}, btKey)
+      .then(function (d) { renderOrders(d.orders || []); })
+      .catch(function (err) {
+        if (err && err.unauthorized) { btKey = ""; lsSet(BT_KEY_STORE, ""); btGate("Re-enter the passcode."); }
+        // network blips: keep the last view and retry on the next tick
+      });
+  }
+
+  function btGate(msg) {
+    stopBtPoll();
+    btTitle.textContent = "🍸 Bartender";
+    bartenderList.innerHTML =
+      '<div class="bt-empty" style="text-align:left">' +
+        "<p>Enter the bartender passcode to see orders from every device.</p>" +
+        '<input type="password" id="bt-key" placeholder="Passcode" autocomplete="current-password" ' +
+        'style="width:100%;padding:13px;border-radius:10px;border:3px solid #0a0a12;font-size:16px;margin-bottom:10px" />' +
+        '<button type="button" id="bt-unlock" ' +
+        'style="width:100%;padding:13px;border:3px solid #0a0a12;border-radius:10px;background:#ffe600;font-weight:700;cursor:pointer">Unlock 🔓</button>' +
+        (msg ? '<p style="color:#ff2e88;font-weight:700;margin-top:10px">' + escapeHtml(msg) + "</p>" : "") +
+      "</div>";
+    var keyEl = $("bt-key");
+    function tryKey() {
+      var k = keyEl.value;
+      if (!k) { return; }
+      apiCall("list", {}, k)
+        .then(function (d) { btKey = k; lsSet(BT_KEY_STORE, k); renderOrders(d.orders || []); startBtPoll(); })
+        .catch(function (err) { btGate(err && err.unauthorized ? "Wrong passcode — try again." : "Can't reach the bar API."); });
+    }
+    $("bt-unlock").addEventListener("click", tryKey);
+    keyEl.addEventListener("keydown", function (e) { if (e.key === "Enter") { e.preventDefault(); tryKey(); } });
+    keyEl.focus();
+  }
+
   bartenderList.addEventListener("click", function (e) {
     var doneBtn = e.target.closest(".bt-toggle-done");
     var delBtn = e.target.closest(".bt-del");
     if (doneBtn) {
       var id = doneBtn.getAttribute("data-id");
-      var orders = getOrders();
-      orders.forEach(function (o) { if (o.id === id) { o.status = (o.status === "done") ? "pending" : "done"; } });
-      setOrders(orders);
-      renderOrders();
+      if (API) {
+        var toPending = doneBtn.textContent.indexOf("Reopen") !== -1; // currently done → reopen
+        apiCall("status", { method: "POST", json: { id: id, status: toPending ? "pending" : "done" } }, btKey)
+          .then(fetchBt).catch(noop);
+      } else {
+        var orders = getOrders();
+        orders.forEach(function (o) { if (o.id === id) { o.status = (o.status === "done") ? "pending" : "done"; } });
+        setOrders(orders);
+        renderOrders();
+      }
     } else if (delBtn) {
-      setOrders(getOrders().filter(function (o) { return o.id !== delBtn.getAttribute("data-id"); }));
-      renderOrders();
+      var did = delBtn.getAttribute("data-id");
+      if (API) {
+        apiCall("delete", { method: "POST", json: { id: did } }, btKey).then(fetchBt).catch(noop);
+      } else {
+        setOrders(getOrders().filter(function (o) { return o.id !== did; }));
+        renderOrders();
+      }
     }
   });
 
   function openBartender() {
     bartender.hidden = false;
     document.body.style.overflow = "hidden";
-    renderOrders();
+    if (API) {
+      if (btKey) { fetchBt(); startBtPoll(); } else { btGate(""); }
+    } else {
+      renderOrders();
+    }
     btClose.focus();
   }
   function closeBartender() {
     bartender.hidden = true;
     document.body.style.overflow = "";
+    stopBtPoll();
     if (location.hash === "#bartender") {
       history.replaceState(null, "", location.pathname + location.search);
     }
@@ -760,11 +857,17 @@
 
   btOpen.addEventListener("click", openBartender);
   btClose.addEventListener("click", closeBartender);
-  btShowDone.addEventListener("change", renderOrders);
+  btShowDone.addEventListener("change", function () {
+    if (API && btKey) { fetchBt(); } else { renderOrders(); }
+  });
   btExport.addEventListener("click", exportOrders);
   btClear.addEventListener("click", function () {
-    setOrders(getOrders().filter(function (o) { return o.status !== "done"; }));
-    renderOrders();
+    if (API) {
+      if (btKey) { apiCall("clear", { method: "POST", json: { which: "done" } }, btKey).then(fetchBt).catch(noop); }
+    } else {
+      setOrders(getOrders().filter(function (o) { return o.status !== "done"; }));
+      renderOrders();
+    }
   });
   document.addEventListener("keydown", function (e) {
     if (e.key === "Escape" && !bartender.hidden) { closeBartender(); }
