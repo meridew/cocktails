@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { listOrders, setStatus, deleteOrder, clearOrders, Unauthorized } from './api';
+  import { dialog } from './dialog';
   import { STATUS_META } from '@cocktails/shared';
   import type { Order, OrderStatus } from '@cocktails/shared';
 
@@ -125,7 +126,7 @@
   });
 </script>
 
-<div class="bartender">
+<div class="bartender" role="dialog" aria-modal="true" aria-label="Bartender" tabindex="-1" use:dialog={{ onclose }}>
   <header class="bt-top">
     <div class="bt-title">
       <h2>🍸 Bar</h2>

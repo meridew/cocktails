@@ -1,5 +1,6 @@
 <script lang="ts">
   import { visibleAxes, buildLine, defaultConfig, type Drink, type Config } from './data';
+  import { dialog } from './dialog';
 
   let { drink, onadd, onclose }: {
     drink: Drink;
@@ -19,19 +20,19 @@
   }
 </script>
 
-<svelte:window onkeydown={(e) => e.key === 'Escape' && onclose()} />
-
+<!-- svelte-ignore a11y_click_events_have_key_events -->
 <div
   class="sheet"
   role="dialog"
   aria-modal="true"
+  aria-label={`Customise ${drink.name}`}
   tabindex="-1"
+  use:dialog={{ onclose }}
   onclick={(e) => {
     if (e.target === e.currentTarget) onclose();
   }}
-  onkeydown={(e) => e.key === 'Escape' && onclose()}
 >
-  <div class="sheet-card" role="document">
+  <div class="sheet-card">
     <button type="button" class="sheet-close" onclick={onclose} aria-label="Close">✕</button>
     <h2><span class="emoji">{drink.emoji}</span> {drink.name}</h2>
 

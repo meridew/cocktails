@@ -6,6 +6,7 @@
   import Configurator from './lib/Configurator.svelte';
   import Bartender from './lib/Bartender.svelte';
   import { startBackgroundCannon, celebrate as fireConfetti } from './lib/confetti';
+  import { dialog, lockBackground } from './lib/dialog';
 
   let selected = $state<Drink | null>(null);
   let showBartender = $state(false);
@@ -41,6 +42,20 @@
   let cannon = $state<HTMLCanvasElement>();
   $effect(() => {
     if (cannon) return startBackgroundCannon(cannon);
+  });
+
+  // On mobile the order sheet is a modal: focus it + make the menu behind inert.
+  // (On desktop it's a persistent rail, so we skip.)
+  $effect(() => {
+    if (!orderOpen) return;
+    if (window.matchMedia('(min-width: 900px)').matches) return;
+    const release = lockBackground();
+    const prev = document.activeElement as HTMLElement | null;
+    queueMicrotask(() => document.getElementById('name')?.focus());
+    return () => {
+      release();
+      prev?.focus?.();
+    };
   });
 
   function surprise() {
@@ -86,7 +101,7 @@
   <header class="appbar">
     <span class="brand">COCKTAILS</span>
     <nav class="topnav" aria-label="Sections">
-      <button type="button" class="nav-btn" aria-current="true">Menu</button>
+      <span class="nav-btn" aria-current="true">Menu</span>
     </nav>
     <button type="button" class="appbar-bartender" onclick={() => (showBartender = true)} aria-label="Bartender mode">
       <span class="emoji">🍸</span>
@@ -123,7 +138,7 @@
   </main>
 
   <nav class="tabbar" aria-label="Main navigation">
-    <button type="button" class="tab" aria-current="true"><span class="emoji">🍸</span><span>Menu</span></button>
+    <div class="tab" aria-current="true"><span class="emoji">🍸</span><span>Menu</span></div>
     <button type="button" class="tab tab-order" onclick={() => (orderOpen = true)}>
       <span class="emoji">🧺</span><span>Order</span>
       {#if count}<b class="tab-badge">{count}</b>{/if}
@@ -187,15 +202,17 @@
   <Bartender onclose={() => (showBartender = false)} />
 {/if}
 {#if celebrate}
+  <!-- svelte-ignore a11y_click_events_have_key_events -->
   <div
     class="celebrate"
     role="dialog"
     aria-modal="true"
+    aria-label="Order sent"
     tabindex="-1"
+    use:dialog={{ onclose: () => (celebrate = false) }}
     onclick={(e) => {
       if (e.target === e.currentTarget) celebrate = false;
     }}
-    onkeydown={(e) => e.key === 'Escape' && (celebrate = false)}
   >
     <div class="celebrate-card">
       <h2>Cheers! 🥂</h2>
