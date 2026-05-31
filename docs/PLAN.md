@@ -95,9 +95,18 @@ subscriptions  device_id, role(guest|bartender), subscription(json), created_at
   svelte-check 0 errors, verified web→proxy→API→SQLite end-to-end**.
 - **Phase 0 (remaining)** — port advanced flows: Make-a-Drink engine (`cocktails.json`),
   voice/NL Ask finder, favourites, full background confetti.
-- **Phase 1–2 (plumbing ☑, on-NAS ☐)** — Caddy/compose/Dockerfiles + GitHub Actions→GHCR→NAS
-  workflow are written; standing them up + the self-hosted runner + GHCR + making the repo
-  private all wait until NAS root + repo admin are available.
+- **Phase 1 ☑ — live on the NAS.** `api · web · caddy` containers via ContainerManager
+  behind Caddy on `:8088` (LAN-only for now); SQLite in a Docker volume; auto-restart on boot.
+  Verified end-to-end. Old PHP left untouched.
+- **Phase 2 ☑ — CI/CD live.** Self-hosted `myoung34/github-runner` on the NAS (label `nas`,
+  registration-token auth, host docker socket + host compose binary mounted). Push to
+  `modernise`/`main` → runner checks out, writes `infra/.env` from the `BARTENDER_KEY` secret,
+  `docker-compose up -d --build`. No GHCR, nothing inbound. Caddyfile baked into a `caddy`
+  image (no host bind-mount under docker-out-of-docker).
+- **Still pending:** cutover (point `cock.meridew.com` at the NAS, migrate orders, retire PHP,
+  make repo private — only at cutover so Pages stays up); visual restoration; Make-a-Drink.
+- **Known niggles:** `actions/checkout` Node-20 deprecation warning (bump later); runner needs
+  its registration token refreshed after a NAS reboot (or swap for a fine-grained PAT).
 
 ### Run it locally
 ```

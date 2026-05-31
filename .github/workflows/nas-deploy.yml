@@ -6,6 +6,9 @@ name: deploy (NAS)
 on:
   push:
     branches: [modernise, main]
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
   workflow_dispatch:
 
 concurrency:
