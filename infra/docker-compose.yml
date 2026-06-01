@@ -40,12 +40,28 @@ services:
         condition: service_healthy
       web:
         condition: service_started
-    # Host port → Caddy. Point the router port-forward here (no 80/443 = no DSM fight).
+    # Host port → Caddy. LAN access + the router port-forward target.
     ports:
       - "${PUBLIC_PORT:-8088}:80"
     volumes:
       - caddy-data:/data
       - caddy-config:/config
+    networks: [internal]
+
+  # Cloudflare Tunnel — public HTTPS with NO inbound ports (it dials out).
+  # Dormant unless the `tunnel` profile is active (CI enables it only when a
+  # TUNNEL_TOKEN secret is set). Configure the tunnel's Public Hostname in the
+  # Cloudflare dashboard: cock.meridew.com → service http://caddy:80.
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    profiles: ["tunnel"]
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${TUNNEL_TOKEN:-}
+    depends_on:
+      caddy:
+        condition: service_started
     networks: [internal]
 
 volumes:

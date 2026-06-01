@@ -45,14 +45,20 @@ jobs:
           PUBLIC_PORT=8088
           STAFF_EMAIL=${STAFF_EMAIL}
           STAFF_PASSWORD=${STAFF_PASSWORD}
+          TUNNEL_TOKEN=${TUNNEL_TOKEN}
           EOF
         env:
           STAFF_EMAIL: ${{ secrets.STAFF_EMAIL }}
           STAFF_PASSWORD: ${{ secrets.STAFF_PASSWORD }}
+          TUNNEL_TOKEN: ${{ secrets.TUNNEL_TOKEN }}
           ALLOWED_ORIGIN: https://cock.meridew.com
 
       - name: Build + deploy
         working-directory: infra
         run: |
+          # Bring up the Cloudflare Tunnel only once a token secret exists.
+          if [ -n "${TUNNEL_TOKEN}" ]; then export COMPOSE_PROFILES=tunnel; fi
           docker-compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
           docker image prune -f --filter "label=com.docker.compose.project=cocktails"
+        env:
+          TUNNEL_TOKEN: ${{ secrets.TUNNEL_TOKEN }}
