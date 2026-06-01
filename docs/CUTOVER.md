@@ -49,6 +49,25 @@
 - Make the repo **private** (kills Pages — fine, since the tunnel replaced it).
 - Cloudflare **Access** policy on the tunnel if you ever want to gate the whole site behind a login.
 
+## ⚠️ Known LAN gotcha — split-DNS on the AD domain controller
+`cock.meridew.com` works from **anywhere except inside the home LAN**, because the AD domain
+controller (`DC00`, 192.168.1.200) cached the *old* `cock → meridew.github.io` record and keeps
+serving it, so LAN clients hit GitHub Pages (404) instead of the Cloudflare tunnel. Confirmed: forcing
+the Cloudflare IP (`curl --resolve cock.meridew.com:443:104.21.41.29 …`) returns the live app; the
+authoritative Cloudflare record is correct.
+- **Fix on the LAN:** clear the DC's DNS cache — on `DC00`, PowerShell `Clear-DnsServerCache -Force`
+  (or DNS Manager → right-click the server → *Clear Cache*). Then `ipconfig /flushdns` on clients.
+- **Off-LAN (phone on cellular, etc.) it already works** — this is purely an internal-resolver cache.
+
+## ⚠️ Set a real staff password
+The live staff account is locked behind a random password until you set one (the `cocktails`
+placeholder is closed). To use the live bartender:
+```sh
+gh secret set STAFF_PASSWORD -R meridew/cocktails   # type your chosen password
+gh workflow run "deploy (NAS)" -R meridew/cocktails --ref modernise
+```
+Login stays `bar@meridew.com`; the seed upserts the new password on deploy.
+
 ## Notes
 - No router port-forward needed anymore (the tunnel dials out). The `:8088` host port stays for LAN.
 - Caddy is unchanged — it still path-routes `/api`→api, everything else→web. The tunnel just feeds it.
