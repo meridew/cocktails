@@ -9,6 +9,7 @@
     "build:native": "vite build --mode native",
     "preview": "vite preview",
     "check": "svelte-check --tsconfig ./tsconfig.json",
+    "icons": "node scripts/gen-icons.mjs",
     "cap:sync": "npm run build:native && cap sync",
     "cap:android": "npm run cap:sync && cap open android",
     "cap:ios": "npm run cap:sync && cap open ios",
