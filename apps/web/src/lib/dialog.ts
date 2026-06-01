@@ -1,28 +1,27 @@
 /**
  * Shared modal behaviour: focus the dialog on open, trap Tab inside it, close
- * on Escape, make the background `inert`, and restore focus to the trigger on
+ * on Escape, make the *background* inert, and restore focus to the trigger on
  * close. Used by every overlay so a11y is consistent and DRY.
+ *
+ * Dialogs are direct children of #app (Svelte's mount target), so we inert the
+ * dialog's *siblings* — never #app itself, which would also inert the dialog and
+ * make it unclickable.
  */
 import type { Action } from 'svelte/action';
 
-let depth = 0;
-function appInert(on: boolean) {
+/**
+ * Inert every sibling of `keep` inside #app; returns an undo fn. Only touches
+ * elements that aren't already inert, so stacked locks nest and unwind cleanly.
+ */
+export function lockBackground(keep?: HTMLElement): () => void {
   const app = document.getElementById('app');
-  if (!app) return;
-  if (on) app.setAttribute('inert', '');
-  else app.removeAttribute('inert');
-}
-
-/** Refcounted background lock (so the menu behind a modal isn't tabbable/AT-reachable). */
-export function lockBackground(): () => void {
-  depth++;
-  if (depth === 1) appInert(true);
-  let released = false;
+  if (!app) return () => {};
+  const locked = Array.from(app.children).filter(
+    (el): el is HTMLElement => el instanceof HTMLElement && el !== keep && !el.hasAttribute('inert'),
+  );
+  for (const el of locked) el.setAttribute('inert', '');
   return () => {
-    if (released) return;
-    released = true;
-    depth--;
-    if (depth === 0) appInert(false);
+    for (const el of locked) el.removeAttribute('inert');
   };
 }
 
@@ -32,7 +31,7 @@ const FOCUSABLE =
 export const dialog: Action<HTMLElement, { onclose?: () => void } | undefined> = (node, params) => {
   let opts = params ?? {};
   const prev = document.activeElement as HTMLElement | null;
-  const release = lockBackground();
+  const release = lockBackground(node);
 
   const focusables = () =>
     Array.from(node.querySelectorAll<HTMLElement>(FOCUSABLE)).filter((el) => el.offsetParent !== null);

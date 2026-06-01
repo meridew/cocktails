@@ -42,6 +42,8 @@
 
   // background party-popper cannon
   let cannon = $state<HTMLCanvasElement>();
+  // the mobile order sheet — kept interactive while its background is inert
+  let orderRail = $state<HTMLElement>();
   $effect(() => {
     if (cannon) return startBackgroundCannon(cannon);
   });
@@ -51,7 +53,7 @@
   $effect(() => {
     if (!orderOpen) return;
     if (window.matchMedia('(min-width: 900px)').matches) return;
-    const release = lockBackground();
+    const release = lockBackground(orderRail);
     const prev = document.activeElement as HTMLElement | null;
     queueMicrotask(() => document.getElementById('name')?.focus());
     return () => {
@@ -158,7 +160,7 @@
   </nav>
 </div>
 
-<aside class="order-rail" class:open={orderOpen} aria-label="Your order">
+<aside class="order-rail" class:open={orderOpen} bind:this={orderRail} aria-label="Your order">
   <section id="order-form">
     <h2>Your order</h2>
     <p class="hint">▶ Add drinks, drop your name, send.</p>
