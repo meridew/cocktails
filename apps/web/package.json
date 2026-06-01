@@ -6,10 +6,21 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:native": "vite build --mode native",
     "preview": "vite preview",
-    "check": "svelte-check --tsconfig ./tsconfig.json"
+    "check": "svelte-check --tsconfig ./tsconfig.json",
+    "cap:sync": "npm run build:native && cap sync",
+    "cap:android": "npm run cap:sync && cap open android",
+    "cap:ios": "npm run cap:sync && cap open ios",
+    "cap:assets": "capacitor-assets generate --iconBackgroundColor #ffe600 --splashBackgroundColor #ffe600"
   },
   "dependencies": {
+    "@capacitor/android": "^8.3.4",
+    "@capacitor/app": "^8.1.0",
+    "@capacitor/core": "^8.3.4",
+    "@capacitor/ios": "^8.3.4",
+    "@capacitor/preferences": "^8.0.1",
+    "@capacitor/status-bar": "^8.0.2",
     "@cocktails/shared": "*",
     "@fontsource/archivo-black": "^5.1.0",
     "@fontsource/bungee": "^5.1.0",
@@ -17,9 +28,11 @@
     "canvas-confetti": "^1.9.3"
   },
   "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^8.3.4",
     "@sveltejs/vite-plugin-svelte": "^5.0.3",
-    "@types/canvas-confetti": "^1.6.4",
     "@tsconfig/svelte": "^5.0.4",
+    "@types/canvas-confetti": "^1.6.4",
     "open-props": "^1.7.15",
     "svelte": "^5.16.0",
     "svelte-check": "^4.1.4",
