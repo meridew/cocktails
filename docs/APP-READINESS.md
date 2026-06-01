@@ -143,10 +143,15 @@ Checkbox legend: ☐ todo · ◐ in progress · ☑ done
 > `/api` proxy → new schema persisted the order. Favourites round-trip (write/read/live-toggle) confirmed.
 
 ### Phase B — Auth + Web Push (decision, then build)
-- ☐ Decide auth backend → integrate Better Auth on Hono
+- ☑ **Web Push server backbone** — `push.ts` VAPID sender, `/api/push/key`, wired to
+  new-order (→ bartender) and making/serving (→ guest). Deployed **dormant** (no keys + no HTTPS yet).
+- ☑ Web Push **client** — own the SW via `injectManifest` (`src/sw.ts`: precache + push +
+  notificationclick), `lib/push.ts` subscribe flow (device-keyed, no login), "🔔 Notify me" in the
+  order-sent dialog + bartender "🔔 Alerts". Verified on localhost (SW activates, denied-path handled).
+  **Granted subscribe→deliver needs HTTPS** (the cutover) — dormant in prod until then.
+- ☐ Decide auth backend → integrate (Better Auth recommended; resolve `node:sqlite` adapter first)
 - ☐ Staff passwordless login + allowlist → retire PIN gate
-- ☐ Web Push client (VAPID) + server sender wired to status transitions
-- ☐ Confirm + implement notification moments
+- ☐ Confirm notification moments (current: making, serving → guest; new order → bartender)
 
 ### Phase C — Human prerequisites (parallel)
 - ☐ Cutover: public HTTPS (Cloudflare Tunnel → Caddy), migrate legacy orders, retire PHP

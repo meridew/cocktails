@@ -16,6 +16,10 @@ export default defineConfig({
       ? []
       : [
           VitePWA({
+            // We own the service worker (src/sw.ts) so it can handle Web Push.
+            strategies: 'injectManifest',
+            srcDir: 'src',
+            filename: 'sw.ts',
             registerType: 'autoUpdate',
             includeAssets: ['favicon.svg'],
             manifest: {
@@ -30,13 +34,12 @@ export default defineConfig({
                 { src: 'favicon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any maskable' },
               ],
             },
-            // Phase 3 swaps this for injectManifest so we own the service worker
-            // (Web Push lives there). For now: generateSW for offline shell.
-            workbox: {
+            injectManifest: {
               globPatterns: ['**/*.{js,css,html,svg,woff2}'],
-              navigateFallback: '/index.html',
             },
-            devOptions: { enabled: false },
+            // Run the SW in dev too so push can be tested on http://localhost
+            // (a secure context). Disabled automatically for the native build.
+            devOptions: { enabled: true, type: 'module', navigateFallback: '/index.html' },
           }),
         ]),
   ],

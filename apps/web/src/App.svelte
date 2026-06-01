@@ -5,6 +5,7 @@
   import { getDeviceId, getSavedName, saveName } from './lib/device';
   import { storage } from './lib/storage';
   import { SvelteSet } from 'svelte/reactivity';
+  import { enablePush, pushSupported, pushPermission } from './lib/push';
   import Configurator from './lib/Configurator.svelte';
   import Bartender from './lib/Bartender.svelte';
   import { startBackgroundCannon, celebrate as fireConfetti } from './lib/confetti';
@@ -59,6 +60,16 @@
 
   function surprise() {
     selected = DRINKS[Math.floor(Math.random() * DRINKS.length)]!;
+  }
+
+  // push: "notify me when my drink is ready" (anonymous, device-keyed)
+  let notify = $state<'idle' | 'working' | 'on' | 'denied' | 'unavailable'>(
+    pushPermission() === 'granted' ? 'on' : 'idle',
+  );
+  async function notifyMe() {
+    notify = 'working';
+    const r = await enablePush('guest');
+    notify = r.ok ? 'on' : r.reason === 'denied' ? 'denied' : 'unavailable';
   }
 
   async function send() {
@@ -216,6 +227,19 @@
     <div class="celebrate-card">
       <h2>Cheers! 🥂</h2>
       <p class="celebrate-msg">Your drinks are <strong>on the way</strong>. 🍹</p>
+      {#if pushSupported()}
+        {#if notify === 'on'}
+          <p class="notify-on">🔔 You'll get a buzz when it's ready.</p>
+        {:else if notify === 'denied'}
+          <p class="notify-note">Notifications are blocked — enable them in your browser settings.</p>
+        {:else if notify === 'unavailable'}
+          <p class="notify-note">Notifications aren't available right now.</p>
+        {:else}
+          <button type="button" class="notify-btn" onclick={notifyMe} disabled={notify === 'working'}>
+            {notify === 'working' ? 'Enabling…' : '🔔 Notify me when ready'}
+          </button>
+        {/if}
+      {/if}
       <button type="button" class="send" onclick={() => (celebrate = false)}>Start another 🍸</button>
     </div>
   </div>

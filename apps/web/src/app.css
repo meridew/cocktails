@@ -53,3 +53,38 @@
   width: 44px;
   height: 44px;
 }
+
+/* "Notify me" Web Push opt-in (celebrate dialog) */
+.notify-btn {
+  display: inline-block;
+  margin: 0 0 12px;
+  padding: 12px 18px;
+  min-height: 44px;
+  font-family: 'Bungee', system-ui, sans-serif;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #0a0a12;
+  background: #ffe600;
+  border: 3px solid #0a0a12;
+  border-radius: 10px;
+  box-shadow: 4px 4px 0 #0a0a12;
+  cursor: pointer;
+}
+.notify-btn:active {
+  transform: translate(2px, 2px);
+  box-shadow: 2px 2px 0 #0a0a12;
+}
+.notify-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.notify-on {
+  margin: 0 0 12px;
+  font-weight: 700;
+}
+.notify-note {
+  margin: 0 0 12px;
+  font-size: 0.85rem;
+  opacity: 0.8;
+}

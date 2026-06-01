@@ -3,6 +3,7 @@ import type {
   Order,
   OrderStatus,
   ClearWhich,
+  SubscriberRole,
   OrderCreatedResponse,
   OrderListResponse,
   OkResponse,
@@ -64,3 +65,13 @@ export const clearOrders = (which: ClearWhich, key: string) =>
     method: 'POST',
     body: JSON.stringify({ which }),
   }, key);
+
+// ---- Web Push ----
+
+export const pushKey = () => req<{ ok: true; enabled: boolean; key: string }>('/push/key');
+
+export const subscribePush = (body: {
+  deviceId: string;
+  role: SubscriberRole;
+  subscription: unknown;
+}) => req<OkResponse>('/subscriptions', { method: 'POST', body: JSON.stringify(body) });

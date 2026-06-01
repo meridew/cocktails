@@ -3,6 +3,7 @@
   import { listOrders, setStatus, deleteOrder, clearOrders, Unauthorized } from './api';
   import { dialog } from './dialog';
   import { storage } from './storage';
+  import { enablePush, pushSupported, pushPermission } from './push';
   import { STATUS_META } from '@cocktails/shared';
   import type { Order, OrderStatus } from '@cocktails/shared';
 
@@ -121,6 +122,16 @@
     return m < 60 ? `${m}m` : `${Math.round(m / 60)}h`;
   }
 
+  // push: alert the bar when a new order lands (device-keyed, role=bartender)
+  let notify = $state<'idle' | 'working' | 'on' | 'off'>(
+    pushPermission() === 'granted' ? 'on' : 'idle',
+  );
+  async function notifyOrders() {
+    notify = 'working';
+    const r = await enablePush('bartender');
+    notify = r.ok ? 'on' : 'off';
+  }
+
   onMount(() => {
     if (key) unlock();
     return () => stop();
@@ -139,6 +150,17 @@
           Show done
         </button>
         <button type="button" class="bt-chip" onclick={clearDone}>Clear done</button>
+        {#if pushSupported()}
+          <button
+            type="button"
+            class="bt-chip"
+            aria-pressed={notify === 'on'}
+            disabled={notify === 'working'}
+            onclick={notifyOrders}
+          >
+            {notify === 'on' ? '🔔 On' : notify === 'working' ? '…' : '🔔 Alerts'}
+          </button>
+        {/if}
       {/if}
       <button type="button" class="bt-x" onclick={onclose} aria-label="Close bartender mode">✕</button>
     </div>
