@@ -32,4 +32,14 @@ export const config = {
   bartenderKey: resolveBartenderKey(),
   /** SQLite file path (a Docker volume on the NAS). Relative to the API cwd. */
   dbPath: process.env.DB_PATH ?? './data/cocktails.sqlite',
+  /**
+   * Web Push (VAPID). Empty keys → push is disabled and the sender no-ops.
+   * Generate a pair with `npm -w @cocktails/api run gen-vapid`, then set
+   * VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY (secret!) / VAPID_SUBJECT in env.
+   */
+  vapid: {
+    subject: process.env.VAPID_SUBJECT ?? 'mailto:bar@meridew.com',
+    publicKey: process.env.VAPID_PUBLIC_KEY ?? '',
+    privateKey: process.env.VAPID_PRIVATE_KEY ?? '',
+  },
 } as const;

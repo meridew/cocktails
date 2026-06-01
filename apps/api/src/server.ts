@@ -5,6 +5,7 @@ import { timingSafeEqual } from 'node:crypto';
 import { isOrderStatus, LIMITS } from '@cocktails/shared';
 import type {
   ClearWhich,
+  Order,
   OrderItem,
   SubscriberRole,
   OrderCreatedResponse,
@@ -18,9 +19,31 @@ import {
   deleteOrder,
   listOrders,
   now,
+  orderDeviceId,
   saveSubscription,
   setOrderStatus,
 } from './db.ts';
+import { pushEnabled, pushToDevice, pushToRole, vapidPublicKey, type PushPayload } from './push.ts';
+
+// ---- notification copy (the moments we push on) ----------------------------
+
+/** Guest "your drink" push for a status change — null for moments we skip. */
+function guestStatusPush(order: Order): PushPayload | null {
+  switch (order.status) {
+    case 'making':
+      return { title: '👩‍🍳 On it!', body: `${order.name}, your order is being made.`, tag: order.id };
+    case 'serving':
+      return { title: '🍹 INCOMING!', body: `${order.name}, come grab your drink!`, tag: order.id };
+    default:
+      return null; // pending/done: no push (done → "how was it?" comes later)
+  }
+}
+
+/** Bartender push when a new order lands. */
+function newOrderPush(order: Order): PushPayload {
+  const summary = order.items.map((i) => `${i.qty}× ${i.name}`).join(', ');
+  return { title: '🔔 New order', body: `${order.name}: ${summary}`, tag: order.id };
+}
 
 // ---- validation helpers (mirror the old PHP sanitising) --------------------
 
@@ -84,6 +107,9 @@ const requireKey: Parameters<typeof app.use>[1] = async (c, next) => {
 
 app.get('/api/health', (c) => c.json({ ok: true, now: now() }));
 
+// ---- public: VAPID key so a client can subscribe to Web Push ----
+app.get('/api/push/key', (c) => c.json({ ok: true, enabled: pushEnabled(), key: vapidPublicKey() }));
+
 // ---- public: place an order ----
 app.post('/api/orders', async (c) => {
   const body = await c.req.json().catch(() => ({}) as Record<string, unknown>);
@@ -95,6 +121,7 @@ app.post('/api/orders', async (c) => {
     return c.json({ ok: false, error: 'name and at least one item required' }, 422);
   }
   const order = createOrder({ name, items, note, deviceId });
+  void pushToRole('bartender', newOrderPush(order)); // fire-and-forget
   return c.json({ ok: true, id: order.id, order } satisfies OrderCreatedResponse);
 });
 
@@ -110,7 +137,12 @@ app.patch('/api/orders/:id', requireKey, async (c) => {
   if (!isOrderStatus(status)) return c.json({ ok: false, error: 'bad status' }, 422);
   const updated = setOrderStatus(c.req.param('id'), status);
   if (!updated) return c.json({ ok: false, error: 'not found' }, 404);
-  // Phase 3: fire the "your drink is being served / INCOMING" push from here.
+  // Notify the guest's device on the moments that matter (making → serving).
+  const payload = guestStatusPush(updated);
+  if (payload) {
+    const dev = orderDeviceId(updated.id);
+    if (dev) void pushToDevice(dev, payload); // fire-and-forget
+  }
   return c.json({ ok: true, order: updated });
 });
 

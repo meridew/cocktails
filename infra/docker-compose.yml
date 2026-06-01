@@ -11,6 +11,10 @@ services:
       ALLOWED_ORIGIN: ${ALLOWED_ORIGIN:-https://cock.meridew.com}
       BARTENDER_KEY: ${BARTENDER_KEY:?set BARTENDER_KEY in infra/.env}
       DB_PATH: /data/cocktails.sqlite
+      # Web Push (VAPID). Empty → push disabled. Generate with `gen-vapid`.
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:bar@meridew.com}
     volumes:
       - cocktails-data:/data
     healthcheck:

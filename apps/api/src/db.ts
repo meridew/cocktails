@@ -106,6 +106,7 @@ const stSetStatus = db.prepare(`UPDATE orders SET status = ?, updated_at = ? WHE
 const stDeleteOrder = db.prepare(`DELETE FROM orders WHERE id = ?`);
 const stClearDone = db.prepare(`DELETE FROM orders WHERE status = 'done'`);
 const stClearAll = db.prepare(`DELETE FROM orders`);
+const stOrderDeviceId = db.prepare(`SELECT device_id FROM orders WHERE id = ?`);
 
 export function createOrder(input: {
   name: string;
@@ -156,6 +157,12 @@ export function clearOrders(which: ClearWhich): void {
   else stClearDone.run();
 }
 
+/** The anonymous device that placed an order, for routing "your drink" pushes. */
+export function orderDeviceId(id: string): string | null {
+  const row = stOrderDeviceId.get(id) as { device_id: string | null } | undefined;
+  return row?.device_id ?? null;
+}
+
 // ---- subscriptions (Phase 3 plumbing, present now so the schema is stable) --
 
 const stUpsertSub = db.prepare(
@@ -169,6 +176,7 @@ const stUpsertSub = db.prepare(
 );
 const stSubsByDevice = db.prepare(`SELECT * FROM subscriptions WHERE device_id = ?`);
 const stSubsByRole = db.prepare(`SELECT * FROM subscriptions WHERE role = ?`);
+const stDeleteSub = db.prepare(`DELETE FROM subscriptions WHERE device_id = ? AND endpoint = ?`);
 
 interface SubRow {
   device_id: string;
@@ -215,4 +223,9 @@ export function subscriptionsForDevice(deviceId: string): SubscriptionRecord[] {
 
 export function subscriptionsForRole(role: SubscriberRole): SubscriptionRecord[] {
   return (stSubsByRole.all(role) as unknown as SubRow[]).map(rowToSub);
+}
+
+/** Remove a dead subscription (called when a push returns 404/410 Gone). */
+export function deleteSubscription(deviceId: string, endpoint: string): void {
+  stDeleteSub.run(deviceId, endpoint);
 }

@@ -5,9 +5,10 @@
   "type": "module",
   "main": "src/server.ts",
   "scripts": {
-    "dev": "node --watch src/server.ts",
+    "dev": "node --env-file-if-exists=.env --watch src/server.ts",
     "start": "node src/server.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "gen-vapid": "node -e \"const k=require('web-push').generateVAPIDKeys();console.log('VAPID_PUBLIC_KEY='+k.publicKey+'\\nVAPID_PRIVATE_KEY='+k.privateKey)\""
   },
   "dependencies": {
     "@cocktails/shared": "*",
