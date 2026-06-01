@@ -46,11 +46,17 @@ jobs:
           STAFF_EMAIL=${STAFF_EMAIL}
           STAFF_PASSWORD=${STAFF_PASSWORD}
           TUNNEL_TOKEN=${TUNNEL_TOKEN}
+          VAPID_PUBLIC_KEY=${VAPID_PUBLIC_KEY}
+          VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY}
+          VAPID_SUBJECT=${VAPID_SUBJECT}
           EOF
         env:
           STAFF_EMAIL: ${{ secrets.STAFF_EMAIL }}
           STAFF_PASSWORD: ${{ secrets.STAFF_PASSWORD }}
           TUNNEL_TOKEN: ${{ secrets.TUNNEL_TOKEN }}
+          VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY }}
+          VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
+          VAPID_SUBJECT: mailto:bar@meridew.com
           ALLOWED_ORIGIN: https://cock.meridew.com
 
       - name: Build + deploy
