@@ -1,3 +1,17 @@
+import { randomBytes } from 'node:crypto';
+
+/**
+ * Seed staff password. In production, a MISSING secret must never fall back to
+ * a known/guessable value — so we lock the account behind a random password
+ * until STAFF_PASSWORD is set. Dev uses a fixed convenience password (localhost).
+ */
+function resolveStaffPassword(): string {
+  const p = process.env.STAFF_PASSWORD;
+  if (p) return p;
+  if (process.env.NODE_ENV === 'production') return randomBytes(24).toString('hex');
+  return 'cocktails';
+}
+
 /**
  * CORS origins allowed to call the API. `ALLOWED_ORIGIN` is a comma-separated
  * list. In production the website is same-origin via Caddy (no CORS needed), so
@@ -25,7 +39,7 @@ export const config = {
    */
   staff: {
     email: (process.env.STAFF_EMAIL ?? 'bar@local').trim().toLowerCase(),
-    password: process.env.STAFF_PASSWORD ?? 'cocktails',
+    password: resolveStaffPassword(),
   },
   /** SQLite file path (a Docker volume on the NAS). Relative to the API cwd. */
   dbPath: process.env.DB_PATH ?? './data/cocktails.sqlite',

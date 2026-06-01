@@ -81,8 +81,7 @@ export const me = (token: string) => req<MeResponse>('/auth/me', {}, token);
 
 export const pushKey = () => req<{ ok: true; enabled: boolean; key: string }>('/push/key');
 
-export const subscribePush = (body: {
-  deviceId: string;
-  role: SubscriberRole;
-  subscription: unknown;
-}) => req<OkResponse>('/subscriptions', { method: 'POST', body: JSON.stringify(body) });
+export const subscribePush = (
+  body: { deviceId: string; role: SubscriberRole; subscription: unknown },
+  token?: string,
+) => req<OkResponse>('/subscriptions', { method: 'POST', body: JSON.stringify(body) }, token);

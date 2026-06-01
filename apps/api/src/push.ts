@@ -44,11 +44,19 @@ async function deliver(rec: SubscriptionRecord, payload: PushPayload): Promise<v
 /** Fire-and-forget: notify every subscription for an anonymous device id. */
 export async function pushToDevice(deviceId: string, payload: PushPayload): Promise<void> {
   if (!enabled || !deviceId) return;
-  await Promise.all(subscriptionsForDevice(deviceId).map((s) => deliver(s, payload)));
+  try {
+    await Promise.all(subscriptionsForDevice(deviceId).map((s) => deliver(s, payload)));
+  } catch {
+    /* fire-and-forget: never reject (a DB hiccup here must not crash the request) */
+  }
 }
 
 /** Fire-and-forget: notify everyone in a role (e.g. all bartenders). */
 export async function pushToRole(role: SubscriberRole, payload: PushPayload): Promise<void> {
   if (!enabled) return;
-  await Promise.all(subscriptionsForRole(role).map((s) => deliver(s, payload)));
+  try {
+    await Promise.all(subscriptionsForRole(role).map((s) => deliver(s, payload)));
+  } catch {
+    /* fire-and-forget: never reject */
+  }
 }

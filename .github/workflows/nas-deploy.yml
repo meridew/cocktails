@@ -57,7 +57,7 @@ jobs:
           VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY }}
           VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
           VAPID_SUBJECT: mailto:bar@meridew.com
-          ALLOWED_ORIGIN: https://cock.meridew.com
+          ALLOWED_ORIGIN: https://cock.meridew.com,capacitor://localhost,https://localhost
 
       - name: Build + deploy
         working-directory: infra

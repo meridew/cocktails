@@ -1,7 +1,8 @@
 import { serve } from '@hono/node-server';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
-import type { Context } from 'hono';
+import { bodyLimit } from 'hono/body-limit';
+import type { Context, MiddlewareHandler } from 'hono';
 import { isOrderStatus, LIMITS } from '@cocktails/shared';
 import type {
   ClearWhich,
@@ -13,6 +14,7 @@ import type {
   OkResponse,
   LoginResponse,
   MeResponse,
+  Staff,
 } from '@cocktails/shared';
 import { config } from './config.ts';
 import {
@@ -26,7 +28,7 @@ import {
   setOrderStatus,
 } from './db.ts';
 import { pushEnabled, pushToDevice, pushToRole, vapidPublicKey, type PushPayload } from './push.ts';
-import { login, logout, seedStaff, sessionStaff } from './auth.ts';
+import { login, logout, loginBlocked, noteLoginAttempt, seedStaff, sessionStaff } from './auth.ts';
 
 // ---- notification copy (the moments we push on) ----------------------------
 
@@ -81,7 +83,8 @@ function cleanItems(raw: unknown): OrderItem[] {
 
 // ---- app -------------------------------------------------------------------
 
-const app = new Hono();
+type AppEnv = { Variables: { staff: Staff } };
+const app = new Hono<AppEnv>();
 
 app.use(
   '/api/*',
@@ -93,17 +96,23 @@ app.use(
   }),
 );
 
+// Cap request bodies on the public API (DoS guard) — every endpoint is small JSON.
+app.use(
+  '/api/*',
+  bodyLimit({ maxSize: 256 * 1024, onError: (c) => c.json({ ok: false, error: 'payload too large' }, 413) }),
+);
+
 /** Pull the bearer token from the Authorization header. */
-function bearer(c: Context): string | undefined {
+function bearer(c: Context<AppEnv>): string | undefined {
   const h = c.req.header('authorization');
   return h && /^bearer /i.test(h) ? h.slice(7) : undefined;
 }
 
 /** Staff-only guard (replaces the old shared PIN). */
-const requireStaff: Parameters<typeof app.use>[1] = async (c, next) => {
-  if (!sessionStaff(bearer(c))) {
-    return c.json({ ok: false, error: 'unauthorized' }, 401);
-  }
+const requireStaff: MiddlewareHandler<AppEnv> = async (c, next) => {
+  const staff = sessionStaff(bearer(c));
+  if (!staff) return c.json({ ok: false, error: 'unauthorized' }, 401);
+  c.set('staff', staff);
   await next();
 };
 
@@ -114,10 +123,13 @@ app.get('/api/push/key', (c) => c.json({ ok: true, enabled: pushEnabled(), key: 
 
 // ---- staff auth ----
 app.post('/api/auth/login', async (c) => {
+  const ip = c.req.header('cf-connecting-ip') ?? c.req.header('x-forwarded-for') ?? 'local';
+  if (loginBlocked(ip)) return c.json({ ok: false, error: 'too many attempts — try again later' }, 429);
   const body = await c.req.json().catch(() => ({}) as Record<string, unknown>);
   const email = cleanStr(body?.email, 120);
   const password = typeof body?.password === 'string' ? body.password : '';
   const result = login(email, password);
+  noteLoginAttempt(ip, !!result);
   if (!result) return c.json({ ok: false, error: 'wrong email or password' }, 401);
   return c.json({ ok: true, token: result.token, staff: result.staff } satisfies LoginResponse);
 });
@@ -126,7 +138,7 @@ app.post('/api/auth/logout', requireStaff, (c) => {
   return c.json({ ok: true } satisfies OkResponse);
 });
 app.get('/api/auth/me', requireStaff, (c) => {
-  return c.json({ ok: true, staff: sessionStaff(bearer(c))! } satisfies MeResponse);
+  return c.json({ ok: true, staff: c.get('staff') } satisfies MeResponse);
 });
 
 // ---- public: place an order ----
@@ -182,7 +194,10 @@ app.post('/api/orders/clear', requireStaff, async (c) => {
 app.post('/api/subscriptions', async (c) => {
   const body = await c.req.json().catch(() => ({}) as Record<string, unknown>);
   const deviceId = cleanStr(body?.deviceId, 80);
-  const role: SubscriberRole = body?.role === 'bartender' ? 'bartender' : 'guest';
+  // Only authenticated staff may register a 'bartender' subscription — otherwise
+  // anyone could enroll and receive guests' order details via push. Else: guest.
+  const role: SubscriberRole =
+    body?.role === 'bartender' && sessionStaff(bearer(c)) ? 'bartender' : 'guest';
   const sub = body?.subscription as { endpoint?: unknown; keys?: { auth?: unknown } } | undefined;
   if (!deviceId || typeof sub?.endpoint !== 'string' || typeof sub?.keys?.auth !== 'string') {
     return c.json({ ok: false, error: 'invalid subscription' }, 422);

@@ -4,6 +4,7 @@
   import { dialog } from './dialog';
   import { storage } from './storage';
   import { enablePush, pushSupported, pushPermission } from './push';
+  import { SvelteSet } from 'svelte/reactivity';
   import { STATUS_META } from '@cocktails/shared';
   import type { Order, OrderStatus } from '@cocktails/shared';
 
@@ -28,7 +29,7 @@
   let loaded = $state(false); // first successful fetch completed
   let orders = $state<Order[]>([]);
   let showDone = $state(false);
-  let busy = $state(new Set<string>()); // order ids with an in-flight mutation
+  let busy = new SvelteSet<string>(); // order ids with an in-flight mutation (reactive)
   let timer: ReturnType<typeof setInterval> | undefined;
 
   let sorted = $derived(
@@ -149,7 +150,7 @@
   );
   async function notifyOrders() {
     notify = 'working';
-    const r = await enablePush('bartender');
+    const r = await enablePush('bartender', token);
     notify = r.ok ? 'on' : 'off';
   }
 

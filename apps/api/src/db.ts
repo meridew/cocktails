@@ -251,7 +251,6 @@ const stInsertStaff = db.prepare(
 const stStaffByEmail = db.prepare(`SELECT * FROM staff WHERE email = ?`);
 const stStaffById = db.prepare(`SELECT * FROM staff WHERE id = ?`);
 const stUpdateStaffPw = db.prepare(`UPDATE staff SET password_hash = ? WHERE id = ?`);
-const stCountStaff = db.prepare(`SELECT COUNT(*) AS n FROM staff`);
 const stInsertSession = db.prepare(
   `INSERT INTO staff_sessions (token_hash, staff_id, expires_at, created_at) VALUES (?, ?, ?, ?)`,
 );
@@ -273,7 +272,6 @@ interface SessionRow {
   created_at: number;
 }
 
-export const countStaff = (): number => (stCountStaff.get() as { n: number }).n;
 export const staffByEmail = (email: string): StaffRow | null =>
   (stStaffByEmail.get(email) as StaffRow | undefined) ?? null;
 export const staffById = (id: string): StaffRow | null =>

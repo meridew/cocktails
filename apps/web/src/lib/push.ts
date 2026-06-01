@@ -36,8 +36,12 @@ function urlBase64ToUint8Array(base64: string): Uint8Array<ArrayBuffer> {
   return arr;
 }
 
-/** Request permission + subscribe this device for pushes in the given role. */
-export async function enablePush(role: SubscriberRole = 'guest'): Promise<EnableResult> {
+/**
+ * Request permission + subscribe this device for pushes in the given role.
+ * A `token` (staff session) is required for the 'bartender' role — the server
+ * downgrades unauthenticated bartender requests to 'guest'.
+ */
+export async function enablePush(role: SubscriberRole = 'guest', token?: string): Promise<EnableResult> {
   if (!pushSupported()) return { ok: false, reason: 'unsupported' };
   try {
     const info = await pushKey();
@@ -54,7 +58,7 @@ export async function enablePush(role: SubscriberRole = 'guest'): Promise<Enable
         applicationServerKey: urlBase64ToUint8Array(info.key),
       }));
 
-    await subscribePush({ deviceId: getDeviceId(), role, subscription: subscription.toJSON() });
+    await subscribePush({ deviceId: getDeviceId(), role, subscription: subscription.toJSON() }, token);
     return { ok: true };
   } catch {
     return { ok: false, reason: 'error' };

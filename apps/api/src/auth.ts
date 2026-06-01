@@ -22,6 +22,7 @@ import {
 } from './db.ts';
 
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+const DUMMY_SALT = randomBytes(16); // constant-time "no such user" path
 
 /** `salt:hash` (hex). scrypt is intentionally slow — a built-in brute-force brake. */
 export function hashPassword(password: string): string {
@@ -66,11 +67,37 @@ export function seedStaff(): void {
 /** Verify credentials → issue a session token. Returns null on bad creds. */
 export function login(email: string, password: string): { token: string; staff: Staff } | null {
   const row = staffByEmail(email.trim().toLowerCase());
-  if (!row || !verifyPassword(password, row.password_hash)) return null;
+  if (!row) {
+    scryptSync(password, DUMMY_SALT, 64); // equalize timing → no username oracle
+    return null;
+  }
+  if (!verifyPassword(password, row.password_hash)) return null;
   purgeExpiredSessions();
   const token = randomBytes(32).toString('hex');
   createStaffSession(hashToken(token), row.id, now() + SESSION_TTL_MS);
   return { token, staff: { email: row.email, role: row.role } };
+}
+
+// ---- login throttle (per client IP) — a brute-force brake on the public endpoint.
+const loginHits = new Map<string, { n: number; resetAt: number }>();
+const LOGIN_WINDOW_MS = 15 * 60 * 1000;
+const LOGIN_MAX = 10;
+
+export function loginBlocked(ip: string): boolean {
+  const r = loginHits.get(ip);
+  return !!r && r.resetAt > now() && r.n >= LOGIN_MAX;
+}
+export function noteLoginAttempt(ip: string, ok: boolean): void {
+  if (ok) {
+    loginHits.delete(ip);
+    return;
+  }
+  const r = loginHits.get(ip);
+  if (!r || r.resetAt <= now()) loginHits.set(ip, { n: 1, resetAt: now() + LOGIN_WINDOW_MS });
+  else r.n += 1;
+  if (loginHits.size > 5000) {
+    for (const [k, v] of loginHits) if (v.resetAt <= now()) loginHits.delete(k);
+  }
 }
 
 /** Resolve a bearer token to a staff member, or null if invalid/expired. */
