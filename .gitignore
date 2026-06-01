@@ -2,6 +2,9 @@ node_modules/
 dist/
 dev-dist/
 build/
+# capacitor-assets PWA output — unused (vite-plugin-pwa owns the web manifest + icons)
+/apps/web/public/manifest.webmanifest
+/apps/web/icons/
 *.tsbuildinfo
 .env
 .env.*
