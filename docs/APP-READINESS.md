@@ -156,9 +156,12 @@ Checkbox legend: ☐ todo · ◐ in progress · ☑ done
 - ☑ Notification moments confirmed (making, serving → guest; new order → bartender)
 
 ### Phase C — Human prerequisites (parallel)
-- ☐ Cutover: public HTTPS (Cloudflare Tunnel → Caddy), migrate legacy orders, retire PHP
+- ☑ **Cutover DONE** — `https://cock.meridew.com` live via Cloudflare Tunnel → Caddy (no open ports).
+  Staff auth + **Web Push both live and verified over HTTPS**. (Legacy PHP/Pages can be retired anytime;
+  repo can go private — both optional now that the tunnel owns the domain.)
 - ☐ Apple Dev + Google Play accounts; Google OAuth client; FCM/APNs keys
 - ☐ Icon/splash source art
+- ☐ Set a real `STAFF_PASSWORD` secret (currently the `cocktails` placeholder)
 
 ### Phase D — Wrap (mechanical, last)
 - ☐ `apps/mobile/` Capacitor project; native adapters (Preferences/Browser/Push)
