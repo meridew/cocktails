@@ -44,7 +44,10 @@ export default defineConfig({
         ]),
   ],
   server: {
-    port: 5173,
+    // Dedicated port (not Vite's default 5173) so it never clashes with other
+    // projects. The dev hub lives at http://localhost:5180/dev.html.
+    port: 5180,
+    strictPort: true,
     proxy: {
       '/api': { target: 'http://localhost:8787', changeOrigin: true },
     },

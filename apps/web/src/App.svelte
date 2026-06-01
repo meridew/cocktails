@@ -11,9 +11,11 @@
   import { startBackgroundCannon, celebrate as fireConfetti } from './lib/confetti';
   import { dialog, lockBackground } from './lib/dialog';
 
+  // dev-hub deep links: /?bartender opens the bar, /?order opens the order sheet
+  const params = new URLSearchParams(typeof location !== 'undefined' ? location.search : '');
   let selected = $state<Drink | null>(null);
-  let showBartender = $state(false);
-  let orderOpen = $state(false);
+  let showBartender = $state(params.has('bartender'));
+  let orderOpen = $state(params.has('order'));
   let name = $state(getSavedName());
   let note = $state('');
   let sending = $state(false);

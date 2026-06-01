@@ -1,0 +1,128 @@
+<!doctype html>
+<!--
+  Dev hub — the single "central" place to test the app. Served by Vite in dev
+  only (it is NOT an app entry, so it never ships to the production build).
+  Open: http://localhost:5180/dev.html
+-->
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Cocktails — Dev Hub</title>
+    <style>
+      :root { --ink: #0a0a12; --hi: #ffe600; }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0; min-height: 100vh; padding: 32px 20px 48px;
+        background: var(--hi);
+        background-image:
+          repeating-linear-gradient(45deg, rgba(0,0,0,0.05) 0 14px, transparent 14px 28px);
+        color: var(--ink);
+        font-family: system-ui, -apple-system, Segoe UI, sans-serif;
+      }
+      .wrap { max-width: 880px; margin: 0 auto; }
+      header h1 {
+        margin: 0; font-size: clamp(2rem, 7vw, 3.5rem); font-weight: 900;
+        letter-spacing: -1px; text-transform: uppercase;
+        text-shadow: 3px 3px 0 #00e5ff, 6px 6px 0 var(--ink);
+      }
+      header p { margin: 6px 0 0; font-weight: 600; opacity: 0.8; }
+      .status {
+        display: flex; flex-wrap: wrap; gap: 10px; margin: 22px 0 26px;
+      }
+      .badge {
+        display: inline-flex; align-items: center; gap: 8px;
+        padding: 8px 14px; background: #fff; border: 3px solid var(--ink);
+        border-radius: 10px; box-shadow: 4px 4px 0 var(--ink);
+        font-weight: 700; font-size: 0.85rem;
+      }
+      .dot { width: 12px; height: 12px; border-radius: 50%; background: #aaa; }
+      .dot.ok { background: #19c37d; } .dot.bad { background: #ff4d4d; }
+      .dot.warn { background: #f5a623; }
+      h2 { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px; opacity: 0.7; margin: 26px 0 12px; }
+      .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; }
+      a.card {
+        display: block; padding: 18px; text-decoration: none; color: var(--ink);
+        background: #fff; border: 3px solid var(--ink); border-radius: 14px;
+        box-shadow: 5px 5px 0 var(--ink); transition: transform 0.08s, box-shadow 0.08s;
+      }
+      a.card:hover { transform: translate(-2px, -2px); box-shadow: 7px 7px 0 var(--ink); }
+      a.card:active { transform: translate(2px, 2px); box-shadow: 3px 3px 0 var(--ink); }
+      a.card.cyan { background: #00e5ff; } a.card.lime { background: #c6ff4d; }
+      a.card.pink { background: #ff7ae0; }
+      .card .emoji { font-size: 1.8rem; }
+      .card h3 { margin: 8px 0 4px; font-size: 1.05rem; text-transform: uppercase; }
+      .card p { margin: 0; font-size: 0.85rem; line-height: 1.35; opacity: 0.85; }
+      .note {
+        margin-top: 22px; padding: 14px 16px; background: #fff;
+        border: 3px dashed var(--ink); border-radius: 12px; font-size: 0.88rem; line-height: 1.5;
+      }
+      footer { margin-top: 30px; font-weight: 600; opacity: 0.7; font-size: 0.85rem; }
+      code { background: rgba(0,0,0,0.08); padding: 1px 6px; border-radius: 5px; }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header>
+        <h1>Cocktails 🍸 Dev Hub</h1>
+        <p>One server, one URL — your central place to test everything.</p>
+      </header>
+
+      <div class="status">
+        <span class="badge"><span class="dot" id="api-dot"></span> API <span id="api-txt">checking…</span></span>
+        <span class="badge"><span class="dot" id="push-dot"></span> Web Push <span id="push-txt">checking…</span></span>
+      </div>
+
+      <h2>Local — the app</h2>
+      <div class="grid">
+        <a class="card cyan" href="/">
+          <div class="emoji">🍸</div><h3>Order app</h3>
+          <p>Guest flow: menu → configure → basket → send an order.</p>
+        </a>
+        <a class="card lime" href="/?bartender">
+          <div class="emoji">🧑‍🍳</div><h3>Bartender</h3>
+          <p>Opens bartender mode directly. PIN <code>1337</code>.</p>
+        </a>
+        <a class="card pink" href="/?order">
+          <div class="emoji">🧺</div><h3>Order sheet</h3>
+          <p>Opens the order panel straight away.</p>
+        </a>
+      </div>
+
+      <h2>Local — API (via Vite proxy → :8787)</h2>
+      <div class="grid">
+        <a class="card" href="/api/health" target="_blank"><div class="emoji">🩺</div><h3>Health</h3><p><code>/api/health</code></p></a>
+        <a class="card" href="/api/push/key" target="_blank"><div class="emoji">🔑</div><h3>Push key</h3><p><code>/api/push/key</code> — VAPID public key + enabled flag.</p></a>
+      </div>
+
+      <h2>Live — NAS (LAN)</h2>
+      <div class="grid">
+        <a class="card" href="http://192.168.1.1:8088/" target="_blank"><div class="emoji">🌐</div><h3>Live app</h3><p>The deployed stack on the NAS, <code>:8088</code>.</p></a>
+        <a class="card" href="http://192.168.1.1:8088/api/health" target="_blank"><div class="emoji">📡</div><h3>Live health</h3><p>NAS API health.</p></a>
+      </div>
+
+      <div class="note">
+        <strong>🔔 Testing push:</strong> open <a href="/?bartender">Bartender</a> in one tab and the
+        <a href="/">app</a> in another. In the app, place an order and tap <em>“Notify me when ready”</em>
+        (grant the browser prompt). Then in Bartender, hit <strong>▶ Start</strong> / <strong>🍹 Serve</strong>
+        — a notification fires. Needs VAPID keys set on the API (<code>gen-vapid</code> → <code>apps/api/.env</code>)
+        and a secure context (<code>http://localhost</code> works; the LAN HTTP site does not until the HTTPS cutover).
+      </div>
+
+      <footer>Bookmark <code>http://localhost:5180/dev.html</code> · start the <code>cocktails</code> preview.</footer>
+    </div>
+
+    <script type="module">
+      const set = (id, cls, txt) => {
+        document.getElementById(id + '-dot').className = 'dot ' + cls;
+        document.getElementById(id + '-txt').textContent = txt;
+      };
+      fetch('/api/health').then((r) => r.json())
+        .then((d) => set('api', d.ok ? 'ok' : 'bad', d.ok ? 'up' : 'error'))
+        .catch(() => set('api', 'bad', 'down (start the API)'));
+      fetch('/api/push/key').then((r) => r.json())
+        .then((d) => set('push', d.enabled ? 'ok' : 'warn', d.enabled ? 'enabled' : 'off (no VAPID keys)'))
+        .catch(() => set('push', 'bad', 'unknown'));
+    </script>
+  </body>
+</html>

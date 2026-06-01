@@ -91,13 +91,16 @@ docs/      PLAN.md, OUTSTANDING.md, HANDOFF.md (this).
 ## 5. Local dev
 ```
 npm install
-npm run dev        # concurrently runs api (:8787) + web (:5173, proxies /api → api)
+npm run dev        # concurrently runs api (:8787) + web (:5180, proxies /api → api)
 # or separately: npm run dev:api  /  npm run dev:web
 npm run check      # api typecheck + web svelte-check  (same gate CI runs)
 ```
-> NOTE: the failed preview earlier was only because the *previous* `dead-vector` session was
-> squatting :5173 on this machine. In a clean session this is a non-issue. (There may be **stray
-> background node processes** from this session — API on :8787, Vite on :5173/:5199 — kill them if they get in the way.)
+> **🎛️ Dev hub — the central place to test:** open **http://localhost:5180/dev.html**. Live API/push
+> status badges + links to the app, bartender (`/?bartender`), order sheet (`/?order`), the local API
+> endpoints, and the live NAS. Start the Claude preview with the **`cocktails`** launch config (runs the
+> full stack on :5180). Web uses a **dedicated :5180** (not Vite's default :5173) so it never clashes
+> with other projects (e.g. the old `dead-vector` session that squatted :5173). The API dev runner
+> (`apps/api/dev.mjs`) pins :8787 even when the preview injects its own `PORT`.
 
 ## 6. Status by phase  (see PLAN.md)
 - ✅ **Phase 0** — full rebuild, feature-parity core (menu/configurator/basket/order/bartender, favourites, surprise, celebrate). Verified.

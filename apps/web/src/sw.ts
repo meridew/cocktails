@@ -13,8 +13,9 @@ declare const self: ServiceWorkerGlobalScope & {
 };
 
 const CACHE = 'cocktails-shell-v1';
-// Injected at build time; an empty list in dev.
-const ASSETS = (self.__WB_MANIFEST ?? []).map((e) => e.url);
+// Injected at build time (replaced in place by vite-plugin-pwa).
+const manifest = self.__WB_MANIFEST;
+const ASSETS = Array.isArray(manifest) ? manifest.map((e) => e.url) : [];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -35,14 +36,16 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Cache-first for the precached shell; everything else (incl. /api) hits network.
+// Navigations: network-first so real pages (the app, /dev.html) load live and
+// only fall back to the cached shell when offline. Other GETs: cache-first for
+// the precached assets, else network. /api + cross-origin always hit network.
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   if (request.method !== 'GET') return;
   const url = new URL(request.url);
-  if (url.origin !== self.location.origin) return; // never intercept the API/cross-origin
+  if (url.origin !== self.location.origin) return;
   if (request.mode === 'navigate') {
-    event.respondWith(caches.match('/index.html').then((r) => r ?? fetch(request)));
+    event.respondWith(fetch(request).catch(() => caches.match('/index.html').then((r) => r ?? Response.error())));
     return;
   }
   event.respondWith(caches.match(request).then((r) => r ?? fetch(request)));
