@@ -2,12 +2,13 @@
   import { onMount } from 'svelte';
   import { listOrders, setStatus, deleteOrder, clearOrders, Unauthorized } from './api';
   import { dialog } from './dialog';
+  import { storage } from './storage';
   import { STATUS_META } from '@cocktails/shared';
   import type { Order, OrderStatus } from '@cocktails/shared';
 
   let { onclose }: { onclose: () => void } = $props();
 
-  const KEY_STORE = 'cocktail_bt_key';
+  const BT_KEY = 'bt_key'; // bartender PIN today; becomes an auth token after Phase B
   // CSS modifier for the forward-action button (matches neo.css / app.css colours)
   const ACT_CLASS: Record<OrderStatus, string> = {
     pending: 'start',
@@ -16,7 +17,7 @@
     done: '',
   };
 
-  let key = $state(localStorage.getItem(KEY_STORE) ?? '');
+  let key = $state(storage.read(BT_KEY) ?? '');
   let unlocked = $state(false);
   let pin = $state('');
   let gateErr = $state('');
@@ -63,7 +64,7 @@
   async function unlock() {
     key = pin.trim() || key;
     if (!key) return;
-    localStorage.setItem(KEY_STORE, key);
+    storage.write(BT_KEY, key);
     await fetchOrders();
     if (unlocked) start();
   }

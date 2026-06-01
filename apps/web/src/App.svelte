@@ -3,6 +3,8 @@
   import { basket, addLine, setQty, clearBasket, basketCount } from './lib/basket.svelte';
   import { createOrder } from './lib/api';
   import { getDeviceId, getSavedName, saveName } from './lib/device';
+  import { storage } from './lib/storage';
+  import { SvelteSet } from 'svelte/reactivity';
   import Configurator from './lib/Configurator.svelte';
   import Bartender from './lib/Bartender.svelte';
   import { startBackgroundCannon, celebrate as fireConfetti } from './lib/confetti';
@@ -17,22 +19,19 @@
   let celebrate = $state(false);
   let errMsg = $state('');
 
-  // favourites (localStorage)
-  const FAV_KEY = 'cocktail_favs';
-  let favs = $state(new Set<string>(load()));
+  // favourites (persisted via the storage seam). SvelteSet so add/delete are
+  // reactive — a plain Set wrapped in $state doesn't re-render on mutation.
+  const FAV = 'favs';
+  let favs = new SvelteSet<string>(loadFavs());
   let favesOnly = $state(false);
-  function load(): string[] {
-    try {
-      const v = JSON.parse(localStorage.getItem(FAV_KEY) ?? '[]');
-      return Array.isArray(v) ? v : [];
-    } catch {
-      return [];
-    }
+  function loadFavs(): string[] {
+    const v = storage.readJSON<unknown>(FAV, []);
+    return Array.isArray(v) ? (v as string[]) : [];
   }
   function toggleFav(n: string) {
     if (favs.has(n)) favs.delete(n);
     else favs.add(n);
-    localStorage.setItem(FAV_KEY, JSON.stringify([...favs]));
+    storage.writeJSON(FAV, [...favs]);
     if (favs.size === 0) favesOnly = false;
   }
 

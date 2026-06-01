@@ -7,9 +7,11 @@ import type {
   Order,
   OrderItem,
   OrderStatus,
+  Platform,
   PushSubscriptionJSON,
   SubscriberRole,
   SubscriptionRecord,
+  SubscriptionTransport,
 } from '@cocktails/shared';
 import { LIMITS } from '@cocktails/shared';
 import { config } from './config.ts';
@@ -27,6 +29,7 @@ db.exec(`
     note       TEXT NOT NULL DEFAULT '',
     status     TEXT NOT NULL DEFAULT 'pending',
     device_id  TEXT,
+    user_id    TEXT,
     created_at INTEGER NOT NULL,
     updated_at INTEGER NOT NULL
   );
@@ -35,10 +38,28 @@ db.exec(`
     role         TEXT NOT NULL,
     subscription TEXT NOT NULL,
     endpoint     TEXT NOT NULL,
+    transport    TEXT NOT NULL DEFAULT 'webpush',
+    platform     TEXT NOT NULL DEFAULT 'web',
     created_at   INTEGER NOT NULL,
     PRIMARY KEY (device_id, endpoint)
   );
 `);
+
+// ---- idempotent migrations (bring an already-deployed NAS db up to date) ----
+// Auth tables (users/sessions) are intentionally NOT created here: the auth
+// library chosen in Phase B owns its own schema. These columns are ours —
+// backend-agnostic, populated by the auth/push layers later. Table names are
+// hardcoded literals (no user input), so the interpolation is injection-safe.
+function tableColumns(table: string): Set<string> {
+  const rows = db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[];
+  return new Set(rows.map((r) => r.name));
+}
+function addColumn(table: string, column: string, ddl: string): void {
+  if (!tableColumns(table).has(column)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${ddl}`);
+}
+addColumn('orders', 'user_id', 'user_id TEXT'); // nullable → anonymous orders stay valid
+addColumn('subscriptions', 'transport', "transport TEXT NOT NULL DEFAULT 'webpush'");
+addColumn('subscriptions', 'platform', "platform TEXT NOT NULL DEFAULT 'web'");
 
 export const now = (): number => Date.now();
 export const genId = (): string => randomBytes(6).toString('hex');
@@ -138,11 +159,13 @@ export function clearOrders(which: ClearWhich): void {
 // ---- subscriptions (Phase 3 plumbing, present now so the schema is stable) --
 
 const stUpsertSub = db.prepare(
-  `INSERT INTO subscriptions (device_id, role, subscription, endpoint, created_at)
-   VALUES (?, ?, ?, ?, ?)
+  `INSERT INTO subscriptions (device_id, role, subscription, endpoint, transport, platform, created_at)
+   VALUES (?, ?, ?, ?, ?, ?, ?)
    ON CONFLICT(device_id, endpoint) DO UPDATE SET
      role = excluded.role,
-     subscription = excluded.subscription`,
+     subscription = excluded.subscription,
+     transport = excluded.transport,
+     platform = excluded.platform`,
 );
 const stSubsByDevice = db.prepare(`SELECT * FROM subscriptions WHERE device_id = ?`);
 const stSubsByRole = db.prepare(`SELECT * FROM subscriptions WHERE role = ?`);
@@ -152,6 +175,8 @@ interface SubRow {
   role: string;
   subscription: string;
   endpoint: string;
+  transport: string;
+  platform: string;
   created_at: number;
 }
 
@@ -160,6 +185,8 @@ function rowToSub(r: SubRow): SubscriptionRecord {
     deviceId: r.device_id,
     role: r.role as SubscriberRole,
     subscription: JSON.parse(r.subscription) as PushSubscriptionJSON,
+    transport: r.transport as SubscriptionTransport,
+    platform: r.platform as Platform,
     createdAt: r.created_at,
   };
 }
@@ -168,8 +195,18 @@ export function saveSubscription(
   deviceId: string,
   role: SubscriberRole,
   subscription: PushSubscriptionJSON,
+  transport: SubscriptionTransport = 'webpush',
+  platform: Platform = 'web',
 ): void {
-  stUpsertSub.run(deviceId, role, JSON.stringify(subscription), subscription.endpoint, now());
+  stUpsertSub.run(
+    deviceId,
+    role,
+    JSON.stringify(subscription),
+    subscription.endpoint,
+    transport,
+    platform,
+    now(),
+  );
 }
 
 export function subscriptionsForDevice(deviceId: string): SubscriptionRecord[] {

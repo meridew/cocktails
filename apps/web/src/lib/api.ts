@@ -8,8 +8,10 @@ import type {
   OkResponse,
 } from '@cocktails/shared';
 
-// Same-origin: dev → Vite proxy, prod → Caddy. Both route /api to the API.
-const BASE = '/api';
+// Same-origin by default: dev → Vite proxy, prod → Caddy, both route /api.
+// The native (Capacitor) build has no same-origin server, so it sets
+// VITE_API_BASE to the public HTTPS origin (including the /api suffix).
+const BASE = import.meta.env.VITE_API_BASE ?? '/api';
 
 export class Unauthorized extends Error {
   constructor() {

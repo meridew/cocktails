@@ -2,7 +2,8 @@
 
 > Context snapshot so a fresh session (started in **this** folder,
 > `C:\Users\danie\vscode-workspace\cocktails`) can continue seamlessly.
-> Companion docs: **`PLAN.md`** (roadmap/phases) and **`OUTSTANDING.md`** (parked decisions).
+> Companion docs: **`PLAN.md`** (roadmap/phases), **`OUTSTANDING.md`** (parked decisions),
+> and **`APP-READINESS.md`** (locked design + plan for getting to iOS/Android-app-ready).
 
 ## TL;DR
 The cocktails party-ordering app has been **fully rebuilt** on a modern self-hosted stack and is
