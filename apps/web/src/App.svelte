@@ -8,6 +8,7 @@
   import { enablePush, pushSupported, pushPermission } from './lib/push';
   import Configurator from './lib/Configurator.svelte';
   import Bartender from './lib/Bartender.svelte';
+  import InstallButton from './lib/InstallButton.svelte';
   import { startBackgroundCannon, celebrate as fireConfetti } from './lib/confetti';
   import { dialog, lockBackground } from './lib/dialog';
 
@@ -129,6 +130,7 @@
           <button type="button" class="chip chip-fav" aria-pressed={favesOnly} onclick={() => (favesOnly = !favesOnly)}>⭐ Faves</button>
         {/if}
         <button type="button" class="chip chip-surprise" onclick={surprise}>🎲 Surprise</button>
+        <InstallButton />
       </div>
 
       <div class="menu" class:faves-only={favesOnly}>

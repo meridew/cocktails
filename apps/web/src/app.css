@@ -88,3 +88,35 @@
   font-size: 0.85rem;
   opacity: 0.8;
 }
+
+/* "Install app" PWA chip + the iOS Add-to-Home-Screen tip */
+.chip-install {
+  background: #00e5ff;
+}
+.install-tip {
+  position: fixed;
+  inset: 0;
+  z-index: 1300;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.6);
+}
+.install-tip-card {
+  max-width: 340px;
+  padding: 22px;
+  text-align: center;
+  color: #0a0a12;
+  background: #fff;
+  border: 3px solid #0a0a12;
+  border-radius: 16px;
+  box-shadow: 8px 8px 0 #0a0a12;
+}
+.install-tip-card h3 {
+  margin: 0 0 10px;
+  text-transform: uppercase;
+}
+.install-tip-card p {
+  margin: 0 0 16px;
+  line-height: 1.5;
+}
