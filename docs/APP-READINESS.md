@@ -149,9 +149,11 @@ Checkbox legend: ☐ todo · ◐ in progress · ☑ done
   notificationclick), `lib/push.ts` subscribe flow (device-keyed, no login), "🔔 Notify me" in the
   order-sent dialog + bartender "🔔 Alerts". Verified on localhost (SW activates, denied-path handled).
   **Granted subscribe→deliver needs HTTPS** (the cutover) — dormant in prod until then.
-- ☐ Decide auth backend → integrate (Better Auth recommended; resolve `node:sqlite` adapter first)
-- ☐ Staff passwordless login + allowlist → retire PIN gate
-- ☐ Confirm notification moments (current: making, serving → guest; new order → bartender)
+- ☑ **Staff auth** — lightweight self-hosted (Node built-ins on `node:sqlite`): email+password with
+  `scrypt` hashing + revocable bearer sessions; login/logout/persist UI; env-seeded account (`seedStaff`
+  upserts from `STAFF_EMAIL`/`STAFF_PASSWORD`); **PIN retired**. Chose this over Better Auth to avoid a
+  native `better-sqlite3` dep; passkeys/social can layer on post-cutover.
+- ☑ Notification moments confirmed (making, serving → guest; new order → bartender)
 
 ### Phase C — Human prerequisites (parallel)
 - ☐ Cutover: public HTTPS (Cloudflare Tunnel → Caddy), migrate legacy orders, retire PHP

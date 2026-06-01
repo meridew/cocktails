@@ -112,6 +112,26 @@ export interface OkResponse {
   ok: true;
 }
 
+// ---- Staff auth ------------------------------------------------------------
+
+/** A logged-in staff member (no secrets). */
+export interface Staff {
+  email: string;
+  role: string;
+}
+
+export interface LoginResponse {
+  ok: true;
+  /** bearer session token — sent as `Authorization: Bearer …` on staff calls */
+  token: string;
+  staff: Staff;
+}
+
+export interface MeResponse {
+  ok: true;
+  staff: Staff;
+}
+
 // ---- Menu (filled with data during the UI port) ----------------------------
 
 export interface MenuItem {

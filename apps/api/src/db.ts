@@ -43,6 +43,19 @@ db.exec(`
     created_at   INTEGER NOT NULL,
     PRIMARY KEY (device_id, endpoint)
   );
+  CREATE TABLE IF NOT EXISTS staff (
+    id            TEXT PRIMARY KEY,
+    email         TEXT NOT NULL UNIQUE,
+    password_hash TEXT NOT NULL,
+    role          TEXT NOT NULL DEFAULT 'bartender',
+    created_at    INTEGER NOT NULL
+  );
+  CREATE TABLE IF NOT EXISTS staff_sessions (
+    token_hash TEXT PRIMARY KEY,
+    staff_id   TEXT NOT NULL,
+    expires_at INTEGER NOT NULL,
+    created_at INTEGER NOT NULL
+  );
 `);
 
 // ---- idempotent migrations (bring an already-deployed NAS db up to date) ----
@@ -229,3 +242,62 @@ export function subscriptionsForRole(role: SubscriberRole): SubscriptionRecord[]
 export function deleteSubscription(deviceId: string, endpoint: string): void {
   stDeleteSub.run(deviceId, endpoint);
 }
+
+// ---- staff auth (email + password, server-side bearer sessions) ------------
+
+const stInsertStaff = db.prepare(
+  `INSERT INTO staff (id, email, password_hash, role, created_at) VALUES (?, ?, ?, ?, ?)`,
+);
+const stStaffByEmail = db.prepare(`SELECT * FROM staff WHERE email = ?`);
+const stStaffById = db.prepare(`SELECT * FROM staff WHERE id = ?`);
+const stUpdateStaffPw = db.prepare(`UPDATE staff SET password_hash = ? WHERE id = ?`);
+const stCountStaff = db.prepare(`SELECT COUNT(*) AS n FROM staff`);
+const stInsertSession = db.prepare(
+  `INSERT INTO staff_sessions (token_hash, staff_id, expires_at, created_at) VALUES (?, ?, ?, ?)`,
+);
+const stSessionByHash = db.prepare(`SELECT * FROM staff_sessions WHERE token_hash = ?`);
+const stDeleteSession = db.prepare(`DELETE FROM staff_sessions WHERE token_hash = ?`);
+const stPurgeSessions = db.prepare(`DELETE FROM staff_sessions WHERE expires_at < ?`);
+
+export interface StaffRow {
+  id: string;
+  email: string;
+  password_hash: string;
+  role: string;
+  created_at: number;
+}
+interface SessionRow {
+  token_hash: string;
+  staff_id: string;
+  expires_at: number;
+  created_at: number;
+}
+
+export const countStaff = (): number => (stCountStaff.get() as { n: number }).n;
+export const staffByEmail = (email: string): StaffRow | null =>
+  (stStaffByEmail.get(email) as StaffRow | undefined) ?? null;
+export const staffById = (id: string): StaffRow | null =>
+  (stStaffById.get(id) as StaffRow | undefined) ?? null;
+
+export function createStaff(s: {
+  id: string;
+  email: string;
+  passwordHash: string;
+  role: string;
+}): void {
+  stInsertStaff.run(s.id, s.email, s.passwordHash, s.role, now());
+}
+export function updateStaffPassword(id: string, passwordHash: string): void {
+  stUpdateStaffPw.run(passwordHash, id);
+}
+export function createStaffSession(tokenHash: string, staffId: string, expiresAt: number): void {
+  stInsertSession.run(tokenHash, staffId, expiresAt, now());
+}
+export const staffSession = (tokenHash: string): SessionRow | null =>
+  (stSessionByHash.get(tokenHash) as SessionRow | undefined) ?? null;
+export const deleteStaffSession = (tokenHash: string): void => {
+  stDeleteSession.run(tokenHash);
+};
+export const purgeExpiredSessions = (): void => {
+  stPurgeSessions.run(now());
+};

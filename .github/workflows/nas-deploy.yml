@@ -43,10 +43,12 @@ jobs:
           CADDY_IMAGE=cocktails-caddy:local
           ALLOWED_ORIGIN=${ALLOWED_ORIGIN}
           PUBLIC_PORT=8088
-          BARTENDER_KEY=${BARTENDER_KEY}
+          STAFF_EMAIL=${STAFF_EMAIL}
+          STAFF_PASSWORD=${STAFF_PASSWORD}
           EOF
         env:
-          BARTENDER_KEY: ${{ secrets.BARTENDER_KEY }}
+          STAFF_EMAIL: ${{ secrets.STAFF_EMAIL }}
+          STAFF_PASSWORD: ${{ secrets.STAFF_PASSWORD }}
           ALLOWED_ORIGIN: https://cock.meridew.com
 
       - name: Build + deploy

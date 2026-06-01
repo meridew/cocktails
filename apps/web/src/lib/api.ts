@@ -7,6 +7,8 @@ import type {
   OrderCreatedResponse,
   OrderListResponse,
   OkResponse,
+  LoginResponse,
+  MeResponse,
 } from '@cocktails/shared';
 
 // Same-origin by default: dev → Vite proxy, prod → Caddy, both route /api.
@@ -20,10 +22,10 @@ export class Unauthorized extends Error {
   }
 }
 
-async function req<T>(path: string, init: RequestInit = {}, key?: string): Promise<T> {
+async function req<T>(path: string, init: RequestInit = {}, token?: string): Promise<T> {
   const headers = new Headers(init.headers);
   if (init.body) headers.set('Content-Type', 'application/json');
-  if (key) headers.set('X-Bartender-Key', key);
+  if (token) headers.set('Authorization', `Bearer ${token}`);
 
   let res: Response;
   try {
@@ -49,22 +51,31 @@ export const createOrder = (input: NewOrderInput) =>
     body: JSON.stringify(input),
   });
 
-export const listOrders = (key: string) => req<OrderListResponse>('/orders', {}, key);
+export const listOrders = (token: string) => req<OrderListResponse>('/orders', {}, token);
 
-export const setStatus = (id: string, status: OrderStatus, key: string) =>
+export const setStatus = (id: string, status: OrderStatus, token: string) =>
   req<{ ok: true; order: Order }>(`/orders/${id}`, {
     method: 'PATCH',
     body: JSON.stringify({ status }),
-  }, key);
+  }, token);
 
-export const deleteOrder = (id: string, key: string) =>
-  req<{ ok: boolean }>(`/orders/${id}`, { method: 'DELETE' }, key);
+export const deleteOrder = (id: string, token: string) =>
+  req<{ ok: boolean }>(`/orders/${id}`, { method: 'DELETE' }, token);
 
-export const clearOrders = (which: ClearWhich, key: string) =>
+export const clearOrders = (which: ClearWhich, token: string) =>
   req<OkResponse>('/orders/clear', {
     method: 'POST',
     body: JSON.stringify({ which }),
-  }, key);
+  }, token);
+
+// ---- staff auth ----
+
+export const login = (email: string, password: string) =>
+  req<LoginResponse>('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) });
+
+export const logout = (token: string) => req<OkResponse>('/auth/logout', { method: 'POST' }, token);
+
+export const me = (token: string) => req<MeResponse>('/auth/me', {}, token);
 
 // ---- Web Push ----
 

@@ -1,7 +1,7 @@
 import { serve } from '@hono/node-server';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
-import { timingSafeEqual } from 'node:crypto';
+import type { Context } from 'hono';
 import { isOrderStatus, LIMITS } from '@cocktails/shared';
 import type {
   ClearWhich,
@@ -11,6 +11,8 @@ import type {
   OrderCreatedResponse,
   OrderListResponse,
   OkResponse,
+  LoginResponse,
+  MeResponse,
 } from '@cocktails/shared';
 import { config } from './config.ts';
 import {
@@ -24,6 +26,7 @@ import {
   setOrderStatus,
 } from './db.ts';
 import { pushEnabled, pushToDevice, pushToRole, vapidPublicKey, type PushPayload } from './push.ts';
+import { login, logout, seedStaff, sessionStaff } from './auth.ts';
 
 // ---- notification copy (the moments we push on) ----------------------------
 
@@ -76,13 +79,6 @@ function cleanItems(raw: unknown): OrderItem[] {
   return out;
 }
 
-function keyOk(sent: string | undefined): boolean {
-  if (!sent) return false;
-  const a = Buffer.from(sent);
-  const b = Buffer.from(config.bartenderKey);
-  return a.length === b.length && timingSafeEqual(a, b);
-}
-
 // ---- app -------------------------------------------------------------------
 
 const app = new Hono();
@@ -92,14 +88,20 @@ app.use(
   cors({
     origin: config.allowedOrigin,
     allowMethods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowHeaders: ['Content-Type', 'X-Bartender-Key'],
+    allowHeaders: ['Content-Type', 'Authorization'],
     maxAge: 86400,
   }),
 );
 
-/** Bartender-only guard. */
-const requireKey: Parameters<typeof app.use>[1] = async (c, next) => {
-  if (!keyOk(c.req.header('x-bartender-key'))) {
+/** Pull the bearer token from the Authorization header. */
+function bearer(c: Context): string | undefined {
+  const h = c.req.header('authorization');
+  return h && /^bearer /i.test(h) ? h.slice(7) : undefined;
+}
+
+/** Staff-only guard (replaces the old shared PIN). */
+const requireStaff: Parameters<typeof app.use>[1] = async (c, next) => {
+  if (!sessionStaff(bearer(c))) {
     return c.json({ ok: false, error: 'unauthorized' }, 401);
   }
   await next();
@@ -109,6 +111,23 @@ app.get('/api/health', (c) => c.json({ ok: true, now: now() }));
 
 // ---- public: VAPID key so a client can subscribe to Web Push ----
 app.get('/api/push/key', (c) => c.json({ ok: true, enabled: pushEnabled(), key: vapidPublicKey() }));
+
+// ---- staff auth ----
+app.post('/api/auth/login', async (c) => {
+  const body = await c.req.json().catch(() => ({}) as Record<string, unknown>);
+  const email = cleanStr(body?.email, 120);
+  const password = typeof body?.password === 'string' ? body.password : '';
+  const result = login(email, password);
+  if (!result) return c.json({ ok: false, error: 'wrong email or password' }, 401);
+  return c.json({ ok: true, token: result.token, staff: result.staff } satisfies LoginResponse);
+});
+app.post('/api/auth/logout', requireStaff, (c) => {
+  logout(bearer(c));
+  return c.json({ ok: true } satisfies OkResponse);
+});
+app.get('/api/auth/me', requireStaff, (c) => {
+  return c.json({ ok: true, staff: sessionStaff(bearer(c))! } satisfies MeResponse);
+});
 
 // ---- public: place an order ----
 app.post('/api/orders', async (c) => {
@@ -126,12 +145,12 @@ app.post('/api/orders', async (c) => {
 });
 
 // ---- bartender: read the queue ----
-app.get('/api/orders', requireKey, (c) => {
+app.get('/api/orders', requireStaff, (c) => {
   return c.json({ ok: true, orders: listOrders(), now: now() } satisfies OrderListResponse);
 });
 
 // ---- bartender: change status ----
-app.patch('/api/orders/:id', requireKey, async (c) => {
+app.patch('/api/orders/:id', requireStaff, async (c) => {
   const body = await c.req.json().catch(() => ({}) as Record<string, unknown>);
   const status = body?.status;
   if (!isOrderStatus(status)) return c.json({ ok: false, error: 'bad status' }, 422);
@@ -147,12 +166,12 @@ app.patch('/api/orders/:id', requireKey, async (c) => {
 });
 
 // ---- bartender: delete one ----
-app.delete('/api/orders/:id', requireKey, (c) => {
+app.delete('/api/orders/:id', requireStaff, (c) => {
   return c.json({ ok: deleteOrder(c.req.param('id')) });
 });
 
 // ---- bartender: bulk clear ----
-app.post('/api/orders/clear', requireKey, async (c) => {
+app.post('/api/orders/clear', requireStaff, async (c) => {
   const body = await c.req.json().catch(() => ({}) as Record<string, unknown>);
   const which: ClearWhich = body?.which === 'all' ? 'all' : 'done';
   clearOrders(which);
@@ -171,6 +190,8 @@ app.post('/api/subscriptions', async (c) => {
   saveSubscription(deviceId, role, sub as never);
   return c.json({ ok: true });
 });
+
+seedStaff();
 
 serve({ fetch: app.fetch, port: config.port }, (info) => {
   console.log(`\u{1F378} cocktails API listening on http://localhost:${info.port}`);

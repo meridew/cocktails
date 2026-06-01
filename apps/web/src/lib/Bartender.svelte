@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { listOrders, setStatus, deleteOrder, clearOrders, Unauthorized } from './api';
+  import { listOrders, setStatus, deleteOrder, clearOrders, login, logout, Unauthorized } from './api';
   import { dialog } from './dialog';
   import { storage } from './storage';
   import { enablePush, pushSupported, pushPermission } from './push';
@@ -9,7 +9,7 @@
 
   let { onclose }: { onclose: () => void } = $props();
 
-  const BT_KEY = 'bt_key'; // bartender PIN today; becomes an auth token after Phase B
+  const TOKEN_KEY = 'staff_token'; // bearer session token (replaces the old PIN)
   // CSS modifier for the forward-action button (matches neo.css / app.css colours)
   const ACT_CLASS: Record<OrderStatus, string> = {
     pending: 'start',
@@ -18,9 +18,11 @@
     done: '',
   };
 
-  let key = $state(storage.read(BT_KEY) ?? '');
-  let unlocked = $state(false);
-  let pin = $state('');
+  let token = $state(storage.read(TOKEN_KEY) ?? '');
+  let unlocked = $state(false); // signed in + first fetch ok
+  let email = $state('');
+  let password = $state('');
+  let loggingIn = $state(false);
   let gateErr = $state('');
   let connErr = $state(''); // transient "reconnecting/failed action" banner
   let loaded = $state(false); // first successful fetch completed
@@ -36,22 +38,26 @@
   );
   let waiting = $derived(orders.filter((o) => o.status !== 'done').length);
 
+  /** Drop the session locally (expired token, sign-out, or auth error). */
+  function signedOut(msg = '') {
+    unlocked = false;
+    token = '';
+    storage.remove(TOKEN_KEY);
+    gateErr = msg;
+    stop();
+  }
+
   async function fetchOrders() {
     try {
-      const r = await listOrders(key);
+      const r = await listOrders(token);
       orders = r.orders;
       unlocked = true;
       loaded = true;
       gateErr = '';
       connErr = '';
     } catch (e) {
-      if (e instanceof Unauthorized) {
-        unlocked = false;
-        gateErr = 'Wrong PIN';
-        stop();
-      } else {
-        connErr = 'Reconnecting…';
-      }
+      if (e instanceof Unauthorized) signedOut('Session expired — sign in again.');
+      else connErr = 'Reconnecting…';
     }
   }
   function start() {
@@ -62,12 +68,34 @@
     if (timer) clearInterval(timer);
     timer = undefined;
   }
-  async function unlock() {
-    key = pin.trim() || key;
-    if (!key) return;
-    storage.write(BT_KEY, key);
-    await fetchOrders();
-    if (unlocked) start();
+
+  async function doLogin() {
+    const e = email.trim();
+    if (!e || !password || loggingIn) return;
+    loggingIn = true;
+    gateErr = '';
+    try {
+      const r = await login(e, password);
+      token = r.token;
+      storage.write(TOKEN_KEY, token);
+      password = '';
+      await fetchOrders();
+      if (unlocked) start();
+    } catch (err) {
+      gateErr = err instanceof Unauthorized ? 'Wrong email or password' : (err as Error).message;
+    } finally {
+      loggingIn = false;
+    }
+  }
+
+  async function doLogout() {
+    const t = token;
+    signedOut();
+    try {
+      await logout(t); // best-effort server-side session delete
+    } catch {
+      /* already signed out locally */
+    }
   }
 
   /** Run a mutation with in-flight guard + error handling. */
@@ -78,13 +106,8 @@
     try {
       await fn();
     } catch (e) {
-      if (e instanceof Unauthorized) {
-        unlocked = false;
-        gateErr = 'PIN no longer valid — re-enter it.';
-        stop();
-      } else {
-        connErr = (e as Error).message || "That didn't go through — try again.";
-      }
+      if (e instanceof Unauthorized) signedOut('Signed out — sign in again.');
+      else connErr = (e as Error).message || "That didn't go through — try again.";
     } finally {
       busy.delete(id);
     }
@@ -92,26 +115,24 @@
 
   function act(o: Order, status: OrderStatus) {
     return withBusy(o.id, async () => {
-      const r = await setStatus(o.id, status, key);
+      const r = await setStatus(o.id, status, token);
       // merge the authoritative result to avoid a poll flicker
       orders = orders.map((x) => (x.id === o.id ? r.order : x));
     });
   }
   function del(o: Order) {
     return withBusy(o.id, async () => {
-      await deleteOrder(o.id, key);
+      await deleteOrder(o.id, token);
       orders = orders.filter((x) => x.id !== o.id);
     });
   }
   async function clearDone() {
     try {
-      await clearOrders('done', key);
+      await clearOrders('done', token);
       orders = orders.filter((o) => o.status !== 'done');
     } catch (e) {
-      if (e instanceof Unauthorized) {
-        unlocked = false;
-        stop();
-      } else connErr = "Couldn't clear — try again.";
+      if (e instanceof Unauthorized) signedOut('Signed out — sign in again.');
+      else connErr = "Couldn't clear — try again.";
     }
   }
 
@@ -133,7 +154,13 @@
   }
 
   onMount(() => {
-    if (key) unlock();
+    if (token) {
+      // validate the stored session; a 401 drops us back to the sign-in form
+      void (async () => {
+        await fetchOrders();
+        if (unlocked) start();
+      })();
+    }
     return () => stop();
   });
 </script>
@@ -161,6 +188,7 @@
             {notify === 'on' ? '🔔 On' : notify === 'working' ? '…' : '🔔 Alerts'}
           </button>
         {/if}
+        <button type="button" class="bt-chip" onclick={doLogout}>Log out</button>
       {/if}
       <button type="button" class="bt-x" onclick={onclose} aria-label="Close bartender mode">✕</button>
     </div>
@@ -170,14 +198,25 @@
 
   {#if !unlocked}
     <div class="bt-gate">
-      <p class="bt-gate-msg">Enter staff PIN</p>
+      <p class="bt-gate-msg">Staff sign-in</p>
       <input
-        inputmode="numeric"
-        bind:value={pin}
-        placeholder="••••"
-        onkeydown={(e) => e.key === 'Enter' && unlock()}
+        type="email"
+        autocomplete="username"
+        placeholder="email"
+        bind:value={email}
+        onkeydown={(e) => e.key === 'Enter' && document.getElementById('bt-pw')?.focus()}
       />
-      <button type="button" class="bt-unlock" onclick={unlock}>Unlock</button>
+      <input
+        id="bt-pw"
+        type="password"
+        autocomplete="current-password"
+        placeholder="password"
+        bind:value={password}
+        onkeydown={(e) => e.key === 'Enter' && doLogin()}
+      />
+      <button type="button" class="bt-unlock" onclick={doLogin} disabled={loggingIn}>
+        {loggingIn ? 'Signing in…' : 'Sign in'}
+      </button>
       {#if gateErr}<p class="bt-err" role="alert">{gateErr}</p>{/if}
     </div>
   {:else}

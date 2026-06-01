@@ -9,7 +9,8 @@ services:
     environment:
       PORT: "8787"
       ALLOWED_ORIGIN: ${ALLOWED_ORIGIN:-https://cock.meridew.com}
-      BARTENDER_KEY: ${BARTENDER_KEY:?set BARTENDER_KEY in infra/.env}
+      STAFF_EMAIL: ${STAFF_EMAIL:-bar@local}
+      STAFF_PASSWORD: ${STAFF_PASSWORD:-cocktails}
       DB_PATH: /data/cocktails.sqlite
       # Web Push (VAPID). Empty → push disabled. Generate with `gen-vapid`.
       VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}

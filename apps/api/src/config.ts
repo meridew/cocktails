@@ -1,13 +1,3 @@
-/** Bartender secret: required in production, convenient default in dev. */
-function resolveBartenderKey(): string {
-  const k = process.env.BARTENDER_KEY;
-  if (k) return k;
-  if (process.env.NODE_ENV === 'production') {
-    throw new Error('BARTENDER_KEY must be set in production');
-  }
-  return '1337'; // dev-only default
-}
-
 /**
  * CORS origins allowed to call the API. `ALLOWED_ORIGIN` is a comma-separated
  * list. In production the website is same-origin via Caddy (no CORS needed), so
@@ -28,8 +18,15 @@ export const config = {
   port: Number(process.env.PORT ?? 8787),
   /** CORS origin(s) allowed to call the API. */
   allowedOrigin: resolveAllowedOrigin(),
-  /** Bartender shared secret. Replaced by a proper staff login in Phase 3. */
-  bartenderKey: resolveBartenderKey(),
+  /**
+   * Seed staff account, created on first boot if the staff table is empty.
+   * Dev defaults make localhost work out of the box; set real values via env
+   * (STAFF_EMAIL / STAFF_PASSWORD) in production.
+   */
+  staff: {
+    email: (process.env.STAFF_EMAIL ?? 'bar@local').trim().toLowerCase(),
+    password: process.env.STAFF_PASSWORD ?? 'cocktails',
+  },
   /** SQLite file path (a Docker volume on the NAS). Relative to the API cwd. */
   dbPath: process.env.DB_PATH ?? './data/cocktails.sqlite',
   /**
