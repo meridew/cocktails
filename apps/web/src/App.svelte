@@ -1,56 +1,41 @@
 <script lang="ts">
-  import { DRINKS, type Drink } from './lib/data';
-  import { basket, addLine, setQty, clearBasket, basketCount } from './lib/basket.svelte';
-  import { createOrder } from './lib/api';
-  import { getDeviceId, getSavedName, saveName } from './lib/device';
-  import { storage } from './lib/storage';
-  import { SvelteSet } from 'svelte/reactivity';
-  import { enablePush, pushSupported, pushState, refreshPushState } from './lib/push.svelte';
+  /**
+   * App shell: the menu, and the orchestration of the overlays. State lives in
+   * `lib/*.svelte.ts` stores; this file wires them to components.
+   */
+  import { DRINKS, type Drink } from './lib/data.ts';
+  import { basketCount } from './lib/basket.svelte';
+  import { favourites } from './lib/favourites.svelte';
+  import { refreshPushState } from './lib/push.svelte';
   import Configurator from './lib/Configurator.svelte';
   import Bartender from './lib/Bartender.svelte';
   import InstallButton from './lib/InstallButton.svelte';
-  import { startBackgroundCannon, celebrate as fireConfetti } from './lib/confetti';
-  import { dialog, lockBackground } from './lib/dialog';
-  import { LIMITS } from '@cocktails/shared';
+  import OrderRail from './lib/OrderRail.svelte';
+  import SentCelebration from './lib/SentCelebration.svelte';
+  import { startBackgroundCannon, celebrate as fireConfetti } from './lib/confetti.ts';
+  import { lockBackground } from './lib/dialog.ts';
+  import { addLine } from './lib/basket.svelte';
 
   // dev-hub deep links: /?bartender opens the bar, /?order opens the order sheet
   const params = new URLSearchParams(typeof location !== 'undefined' ? location.search : '');
   let selected = $state<Drink | null>(null);
   let showBartender = $state(params.has('bartender'));
   let orderOpen = $state(params.has('order'));
-  let name = $state(getSavedName());
-  let note = $state('');
-  let sending = $state(false);
-  let celebrate = $state(false);
-  let errMsg = $state('');
-
-  // favourites (persisted via the storage seam). SvelteSet so add/delete are
-  // reactive — a plain Set wrapped in $state doesn't re-render on mutation.
-  const FAV = 'favs';
-  let favs = new SvelteSet<string>(loadFavs());
+  let celebrating = $state(false);
   let favesOnly = $state(false);
-  function loadFavs(): string[] {
-    const v = storage.readJSON<unknown>(FAV, []);
-    return Array.isArray(v) ? (v as string[]) : [];
-  }
-  function toggleFav(n: string) {
-    if (favs.has(n)) favs.delete(n);
-    else favs.add(n);
-    storage.writeJSON(FAV, [...favs]);
-    if (favs.size === 0) favesOnly = false;
-  }
 
   let count = $derived(basketCount());
 
   // background party-popper cannon
   let cannon = $state<HTMLCanvasElement>();
+  $effect(() => {
+    if (cannon) return startBackgroundCannon(cannon);
+  });
+
   // The mobile order sheet spans two siblings — the rail and its click-to-dismiss
   // backdrop — and both must stay interactive while the rest goes inert.
   let orderRail = $state<HTMLElement>();
   let orderBackdrop = $state<HTMLElement>();
-  $effect(() => {
-    if (cannon) return startBackgroundCannon(cannon);
-  });
 
   // On mobile the order sheet is a modal: focus it + make the menu behind inert.
   // (On desktop it's a persistent rail, so we skip.)
@@ -66,37 +51,22 @@
     };
   });
 
+  // Reconcile a previous visit's notification registration, without prompting.
+  void refreshPushState('guest');
+
   function surprise() {
     selected = DRINKS[Math.floor(Math.random() * DRINKS.length)]!;
   }
 
-  // push: "notify me when my drink is ready" (anonymous, device-keyed).
-  // State comes from the store, which resolves it from the real subscription.
-  let notify = $derived(pushState('guest'));
-  void refreshPushState('guest'); // reconcile a previous visit's registration
+  function toggleFav(name: string) {
+    favourites.toggle(name);
+    if (favourites.size === 0) favesOnly = false;
+  }
 
-  async function send() {
-    if (!name.trim() || basket.items.length === 0) return;
-    sending = true;
-    errMsg = '';
-    try {
-      saveName(name.trim());
-      await createOrder({
-        name: name.trim(),
-        items: [...basket.items],
-        note: note.trim(),
-        deviceId: getDeviceId(),
-      });
-      clearBasket();
-      note = '';
-      orderOpen = false;
-      celebrate = true;
-      fireConfetti();
-    } catch (e) {
-      errMsg = (e as Error).message;
-    } finally {
-      sending = false;
-    }
+  function onSent() {
+    orderOpen = false;
+    celebrating = true;
+    fireConfetti();
   }
 </script>
 
@@ -105,7 +75,7 @@
 <svelte:window
   onkeydown={(e) => {
     if (e.key !== 'Escape') return;
-    if (celebrate) celebrate = false;
+    if (celebrating) celebrating = false;
     else if (orderOpen) orderOpen = false;
   }}
 />
@@ -129,7 +99,7 @@
   <main class="stage">
     <section class="view view-menu" aria-label="Menu">
       <div class="menubar">
-        {#if favs.size}
+        {#if favourites.size}
           <button
             type="button"
             class="chip chip-fav"
@@ -141,17 +111,19 @@
         <InstallButton />
       </div>
 
+      <!-- Filtering is neo.css's job (.menu.faves-only hides non-favourites), so
+           the class drives it rather than a filtered list. -->
       <div class="menu" class:faves-only={favesOnly}>
         {#each DRINKS as d (d.name)}
-          <article class="cocktail" class:is-fav={favs.has(d.name)}>
+          <article class="cocktail" class:is-fav={favourites.has(d.name)}>
             <button
               type="button"
               class="fav"
-              aria-pressed={favs.has(d.name)}
+              aria-pressed={favourites.has(d.name)}
               onclick={() => toggleFav(d.name)}
               aria-label="Toggle favourite"
             >
-              {favs.has(d.name) ? '⭐' : '☆'}
+              {favourites.has(d.name) ? '⭐' : '☆'}
             </button>
             <h3><span class="emoji">{d.emoji}</span> {d.name}</h3>
             <button type="button" class="order" onclick={() => (selected = d)}>Add to order</button>
@@ -170,78 +142,12 @@
   </nav>
 </div>
 
-<aside class="order-rail" class:open={orderOpen} bind:this={orderRail} aria-label="Your order">
-  <section id="order-form">
-    <h2>Your order</h2>
-    <p class="hint">▶ Add drinks, drop your name, send.</p>
-
-    <div class="basket">
-      {#if basket.items.length === 0}
-        <p class="basket-empty"><strong>Nothing yet.</strong> Tap a drink to start your round.</p>
-      {:else}
-        <ul class="basket-list">
-          {#each basket.items as item (item.name)}
-            <li class="basket-item">
-              <span class="basket-item-name">{item.name}</span>
-              <div class="qty">
-                <button
-                  type="button"
-                  class="qty-btn"
-                  onclick={() => setQty(item.name, item.qty - 1)}
-                  aria-label="Less">−</button
-                >
-                <span class="qty-n">{item.qty}</span>
-                <button
-                  type="button"
-                  class="qty-btn"
-                  onclick={() => setQty(item.name, item.qty + 1)}
-                  aria-label="More">+</button
-                >
-              </div>
-            </li>
-          {/each}
-        </ul>
-        <button type="button" class="basket-clear" onclick={clearBasket}>Clear all</button>
-      {/if}
-    </div>
-
-    <!-- maxlength comes from the shared LIMITS the server enforces, so an
-         over-long value is prevented here rather than silently truncated there. -->
-    <label for="name">Your name</label>
-    <input
-      id="name"
-      bind:value={name}
-      placeholder="DANIEL"
-      autocomplete="name"
-      autocapitalize="words"
-      maxlength={LIMITS.maxFieldLen}
-    />
-    <label for="note">Note (optional)</label>
-    <textarea
-      id="note"
-      bind:value={note}
-      placeholder="No ice! Extra lime! Make it spicy!"
-      maxlength={LIMITS.maxFieldLen}></textarea>
-    {#if errMsg}<p class="status err" role="alert">{errMsg}</p>{/if}
-
-    <div class="flowbar">
-      <button
-        type="button"
-        class="send flowbar-primary"
-        disabled={!name.trim() || count === 0 || sending}
-        onclick={send}
-      >
-        {sending ? 'Sending…' : count === 0 ? 'Add something first' : 'Send order'}
-      </button>
-      <button
-        type="button"
-        class="flowbar-back"
-        onclick={() => (orderOpen = false)}
-        aria-label="Close order">✕</button
-      >
-    </div>
-  </section>
-</aside>
+<OrderRail
+  open={orderOpen}
+  onclose={() => (orderOpen = false)}
+  onsent={onSent}
+  bind:rail={orderRail}
+/>
 <div
   class="order-backdrop"
   class:open={orderOpen}
@@ -264,49 +170,6 @@
 {#if showBartender}
   <Bartender onclose={() => (showBartender = false)} />
 {/if}
-{#if celebrate}
-  <!-- svelte-ignore a11y_click_events_have_key_events -->
-  <div
-    class="celebrate"
-    role="dialog"
-    aria-modal="true"
-    aria-label="Order sent"
-    tabindex="-1"
-    use:dialog={{ onclose: () => (celebrate = false) }}
-    onclick={(e) => {
-      if (e.target === e.currentTarget) celebrate = false;
-    }}
-  >
-    <div class="celebrate-card">
-      <h2>Cheers! 🥂</h2>
-      <p class="celebrate-msg">Your drinks are <strong>on the way</strong>. 🍹</p>
-      {#if pushSupported() && notify !== 'unsupported'}
-        {#if notify === 'on'}
-          <p class="notify-on">🔔 You'll get a buzz when it's ready.</p>
-        {:else if notify === 'denied'}
-          <p class="notify-note">
-            Notifications are blocked — enable them in your browser settings.
-          </p>
-        {:else if notify === 'disabled'}
-          <p class="notify-note">Notifications aren't switched on at the bar tonight.</p>
-        {:else}
-          <button
-            type="button"
-            class="notify-btn"
-            onclick={() => enablePush('guest')}
-            disabled={notify === 'working'}
-          >
-            {notify === 'working'
-              ? 'Enabling…'
-              : notify === 'error'
-                ? '🔔 Try again'
-                : '🔔 Notify me when ready'}
-          </button>
-        {/if}
-      {/if}
-      <button type="button" class="send" onclick={() => (celebrate = false)}
-        >Start another 🍸</button
-      >
-    </div>
-  </div>
+{#if celebrating}
+  <SentCelebration onclose={() => (celebrating = false)} />
 {/if}

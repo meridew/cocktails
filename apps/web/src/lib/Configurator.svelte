@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { visibleAxes, buildLine, defaultConfig, type Drink, type Config } from './data';
-  import { dialog } from './dialog';
+  import { visibleAxes, buildLine, defaultConfig, type Drink, type Config } from './data.ts';
+  import { dialog } from './dialog.ts';
 
   let {
     drink,

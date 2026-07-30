@@ -12,9 +12,9 @@
  * permission made the UI claim "🔔 On" when no subscription existed.
  */
 import type { SubscriberRole } from '@cocktails/shared';
-import { getDeviceId } from './device';
-import { storage } from './storage';
-import { pushKey, subscribePush } from './api';
+import { getDeviceId } from './device.ts';
+import { storage } from './storage.ts';
+import { pushKey, subscribePush } from './api.ts';
 
 export type PushState =
   /** not registered yet, but could be */
@@ -85,12 +85,8 @@ function keyMismatch(sub: PushSubscription, serverKey: string): boolean {
 }
 
 /** Register a subscription with the API for this device + role. */
-async function register(
-  sub: PushSubscription,
-  role: SubscriberRole,
-  token?: string,
-): Promise<void> {
-  await subscribePush({ deviceId: getDeviceId(), role, subscription: sub.toJSON() }, token);
+async function register(sub: PushSubscription, role: SubscriberRole): Promise<void> {
+  await subscribePush({ deviceId: getDeviceId(), role, subscription: sub.toJSON() });
   rememberRole(role);
 }
 
@@ -101,7 +97,7 @@ async function register(
  * subscription, re-register it (the upsert is idempotent) so a pruned or
  * rotated server row heals itself on the next visit.
  */
-export async function refreshPushState(role: SubscriberRole, token?: string): Promise<PushState> {
+export async function refreshPushState(role: SubscriberRole): Promise<PushState> {
   if (!pushSupported()) return (states[role] = 'unsupported');
   try {
     const info = await pushKey();
@@ -113,7 +109,7 @@ export async function refreshPushState(role: SubscriberRole, token?: string): Pr
     if (!sub || keyMismatch(sub, info.key)) return (states[role] = 'idle');
     if (!rememberedRoles().includes(role)) return (states[role] = 'idle');
 
-    await register(sub, role, token);
+    await register(sub, role);
     return (states[role] = 'on');
   } catch {
     return (states[role] = 'idle');
@@ -122,10 +118,10 @@ export async function refreshPushState(role: SubscriberRole, token?: string): Pr
 
 /**
  * Ask permission if needed, then subscribe this device for `role`.
- * A `token` (staff session) is required for 'bartender' — the server downgrades
- * unauthenticated bartender requests to 'guest'.
+ * The API attaches the staff session automatically, so a signed-in bartender is
+ * honoured and anyone else is downgraded to 'guest' server-side.
  */
-export async function enablePush(role: SubscriberRole, token?: string): Promise<PushState> {
+export async function enablePush(role: SubscriberRole): Promise<PushState> {
   if (!pushSupported()) return (states[role] = 'unsupported');
   states[role] = 'working';
   try {
@@ -148,7 +144,7 @@ export async function enablePush(role: SubscriberRole, token?: string): Promise<
       applicationServerKey: urlBase64ToUint8Array(info.key),
     });
 
-    await register(sub, role, token);
+    await register(sub, role);
     return (states[role] = 'on');
   } catch {
     return (states[role] = 'error');

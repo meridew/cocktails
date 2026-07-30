@@ -8,7 +8,6 @@ import type {
   OrderListResponse,
   OkResponse,
   LoginResponse,
-  MeResponse,
 } from '@cocktails/shared';
 
 // Same-origin by default: dev → Vite proxy, prod → Caddy, both route /api.
@@ -29,9 +28,24 @@ export class NotFound extends Error {
   }
 }
 
-async function req<T>(path: string, init: RequestInit = {}, token?: string): Promise<T> {
+/**
+ * Auth is injected rather than imported, so this module stays the lowest layer
+ * (no cycle with the session store) and callers never thread a token through
+ * every signature. The session store registers itself once at startup.
+ */
+let readToken: () => string = () => '';
+let handleUnauthorized: () => void = () => {};
+
+export function configureAuth(hooks: { token: () => string; onUnauthorized: () => void }): void {
+  readToken = hooks.token;
+  handleUnauthorized = hooks.onUnauthorized;
+}
+
+async function req<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers = new Headers(init.headers);
   if (init.body) headers.set('Content-Type', 'application/json');
+  // Attached whenever a session exists; public endpoints simply ignore it.
+  const token = readToken();
   if (token) headers.set('Authorization', `Bearer ${token}`);
 
   let res: Response;
@@ -42,7 +56,10 @@ async function req<T>(path: string, init: RequestInit = {}, token?: string): Pro
     throw new Error("Can't reach the bar — check your connection.");
   }
 
-  if (res.status === 401) throw new Unauthorized();
+  if (res.status === 401) {
+    handleUnauthorized(); // one place decides what an expired session means
+    throw new Unauthorized();
+  }
   if (res.status === 404) throw new NotFound();
   const data = (await res.json().catch(() => ({}))) as T & { ok?: boolean; error?: string };
   if (!res.ok || data?.ok === false) {
@@ -59,45 +76,36 @@ export const createOrder = (input: NewOrderInput) =>
     body: JSON.stringify(input),
   });
 
-export const listOrders = (token: string) => req<OrderListResponse>('/orders', {}, token);
+export const listOrders = () => req<OrderListResponse>('/orders');
 
-export const setStatus = (id: string, status: OrderStatus, token: string) =>
-  req<{ ok: true; order: Order }>(
-    `/orders/${id}`,
-    {
-      method: 'PATCH',
-      body: JSON.stringify({ status }),
-    },
-    token,
-  );
+export const setStatus = (id: string, status: OrderStatus) =>
+  req<{ ok: true; order: Order }>(`/orders/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status }),
+  });
 
-export const deleteOrder = (id: string, token: string) =>
-  req<{ ok: boolean }>(`/orders/${id}`, { method: 'DELETE' }, token);
+export const deleteOrder = (id: string) =>
+  req<{ ok: boolean }>(`/orders/${id}`, { method: 'DELETE' });
 
-export const clearOrders = (which: ClearWhich, token: string) =>
-  req<OkResponse>(
-    '/orders/clear',
-    {
-      method: 'POST',
-      body: JSON.stringify({ which }),
-    },
-    token,
-  );
+export const clearOrders = (which: ClearWhich) =>
+  req<OkResponse>('/orders/clear', {
+    method: 'POST',
+    body: JSON.stringify({ which }),
+  });
 
 // ---- staff auth ----
 
 export const login = (email: string, password: string) =>
   req<LoginResponse>('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) });
 
-export const logout = (token: string) => req<OkResponse>('/auth/logout', { method: 'POST' }, token);
-
-export const me = (token: string) => req<MeResponse>('/auth/me', {}, token);
+export const logout = () => req<OkResponse>('/auth/logout', { method: 'POST' });
 
 // ---- Web Push ----
 
 export const pushKey = () => req<{ ok: true; enabled: boolean; key: string }>('/push/key');
 
-export const subscribePush = (
-  body: { deviceId: string; role: SubscriberRole; subscription: unknown },
-  token?: string,
-) => req<OkResponse>('/subscriptions', { method: 'POST', body: JSON.stringify(body) }, token);
+export const subscribePush = (body: {
+  deviceId: string;
+  role: SubscriberRole;
+  subscription: unknown;
+}) => req<OkResponse>('/subscriptions', { method: 'POST', body: JSON.stringify(body) });

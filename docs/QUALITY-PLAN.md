@@ -369,39 +369,39 @@ offline after a redeploy · only one shell cache generation present.
 
 ---
 
-## Phase 7 — Architecture & DRY cleanup
+## Phase 7 — Architecture & DRY cleanup ✅ DONE
 
-- [ ] **`lib/session.svelte.ts`** — own `token`/`staff`, `signIn`/`signOut`, and the storage key.
+- [x] **`lib/session.svelte.ts`** — own `token`/`staff`, `signIn`/`signOut`, and the storage key.
       Today `TOKEN_KEY` (an auth-persistence policy) is declared in a UI file, `token` is hand-threaded
       through 6 API signatures, and `Unauthorized` is handled in 4 places with 4 different messages.
       `api.ts` should read the session inside `req()` and invoke an `onUnauthorized` hook — the `token`
       parameter then disappears from every signature.
-- [ ] **`lib/favourites.svelte.ts`** — favourites currently have load/parse/validate/persist logic
+- [x] **`lib/favourites.svelte.ts`** — favourites currently have load/parse/validate/persist logic
       inline in `App.svelte` while the structurally identical basket lives in `lib/*.svelte.ts`. Make the
       rule uniform: state in stores, components render.
-- [ ] **Persist the basket** — the one piece of state a guest would actually mourn is the one that
+- [x] **Persist the basket** — the one piece of state a guest would actually mourn is the one that
       isn't saved; a phone lock + reload mid-party loses the round. Use the existing `storage` seam.
-- [ ] **Extract `StaffGate.svelte`** from `Bartender.svelte` (263 lines doing three jobs: auth gate,
+- [x] **Extract `StaffGate.svelte`** from `Bartender.svelte` (263 lines doing three jobs: auth gate,
       poll loop, order queue). The sign-in form shares nothing with the queue but `unlocked`. Leaves a
       coherent ~140-line queue component.
-- [ ] **Extract `OrderRail.svelte`** and **`SentCelebration.svelte`** from `App.svelte` (252 lines).
+- [x] **Extract `OrderRail.svelte`** and **`SentCelebration.svelte`** from `App.svelte` (252 lines).
       The rail owns `name`/`note`/`errMsg`/`sending`/`send()` + ~48 lines of markup; the celebration owns
       the push opt-in. Leaves App as shell + menu + orchestration (~110 lines).
       🚫 **Do not** extract the menu grid — it's a 15-line `#each`; a `DrinkCard` would only add prop plumbing.
-- [ ] **`ACT_CLASS` → `STATUS_META`.** A parallel `Record<OrderStatus, string>` in `Bartender.svelte` is
+- [x] **`ACT_CLASS` → `STATUS_META`.** A parallel `Record<OrderStatus, string>` in `Bartender.svelte` is
       exactly what `STATUS_META` exists to prevent. Add the field to the shared table (or reuse the
       `s-{status}` class already on the card). Also: `STATUS_META.label` is defined and never used — use or delete.
-- [ ] **`clearDone()` duplicates `withBusy`'s error handling** because it has no order id. Make the id
+- [x] **`clearDone()` duplicates `withBusy`'s error handling** because it has no order id. Make the id
       optional (`withBusy(id = '__bulk', fn)`) and call it.
-- [ ] **Delete dead code** (all verified zero call sites): `api.ts` `health`; `db.ts` `getOrder`;
+- [x] **Delete dead code** (all verified zero call sites): `api.ts` `health`; `db.ts` `getOrder`;
       shared `ApiError`, `MenuItem`, `MenuSection` (superseded by `data.ts`'s `Drink`/`Axis` — the menu is
       legitimately client-only, so delete rather than move); the stale _"Menu (filled with data during the
       UI port)"_ comment. Either use `api.ts` `me()` for session validation on mount (it's the right tool —
       `Bartender` open-codes it with `fetchOrders()`) or delete it.
-- [ ] **`device.ts`** — delete the unreachable `Math.random` branch. The comment conflates two things:
+- [x] **`device.ts`** — delete the unreachable `Math.random` branch. The comment conflates two things:
       `crypto.randomUUID` is secure-context-gated, but `crypto.getRandomValues` is **not**, so the fallback
       never runs in any targeted browser. Removing it also drops the only non-CSPRNG path. Fix the comment.
-- [ ] Consider `PRAGMA busy_timeout` beside `journal_mode = WAL` if more than one process ever writes.
+- [x] Consider `PRAGMA busy_timeout` beside `journal_mode = WAL` if more than one process ever writes.
 
 **Exit criteria:** no `localStorage` outside `storage.ts` · no `fetch` outside `api.ts` · no storage keys
 or TTLs declared in `.svelte` files · no parallel per-status maps · `App.svelte` and `Bartender.svelte`

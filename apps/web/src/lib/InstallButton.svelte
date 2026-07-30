@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { Capacitor } from '@capacitor/core';
-  import { dialog } from './dialog';
+  import { dialog } from './dialog.ts';
 
   // The Chrome/Android "you can install this PWA" event.
   type BIPEvent = Event & {

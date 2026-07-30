@@ -1,38 +1,42 @@
 <script lang="ts">
+  /**
+   * Bartender mode: the live order queue. Sign-in lives in StaffGate and the
+   * token lives in the session store, so this component only has to poll and
+   * mutate — it never sees a credential.
+   */
   import { onMount } from 'svelte';
   import {
     listOrders,
     setStatus,
     deleteOrder,
     clearOrders,
-    login,
-    logout,
     Unauthorized,
     NotFound,
-  } from './api';
-  import { dialog } from './dialog';
-  import { storage } from './storage';
+  } from './api.ts';
+  import { dialog } from './dialog.ts';
   import { enablePush, pushSupported, pushState, refreshPushState } from './push.svelte';
+  import { session, signOut } from './session.svelte';
+  import StaffGate from './StaffGate.svelte';
+  import OrderCard from './OrderCard.svelte';
   import { SvelteSet } from 'svelte/reactivity';
   import { STATUS_META } from '@cocktails/shared';
   import type { Order, OrderStatus } from '@cocktails/shared';
 
   let { onclose }: { onclose: () => void } = $props();
 
-  const TOKEN_KEY = 'staff_token'; // bearer session token (replaces the old PIN)
+  const POLL_MS = 4000;
+  /** Scopes the in-flight guard for actions that aren't tied to one order. */
+  const BULK = '__bulk';
 
-  let token = $state(storage.read(TOKEN_KEY) ?? '');
-  let unlocked = $state(false); // signed in + first fetch ok
-  let email = $state('');
-  let password = $state('');
-  let loggingIn = $state(false);
-  let gateErr = $state('');
-  let connErr = $state(''); // transient "reconnecting/failed action" banner
   let loaded = $state(false); // first successful fetch completed
+  let connErr = $state(''); // transient "reconnecting / action failed" banner
   let orders = $state<Order[]>([]);
   let showDone = $state(false);
-  let busy = new SvelteSet<string>(); // order ids with an in-flight mutation (reactive)
+  let busy = new SvelteSet<string>(); // order ids with an in-flight mutation
   let timer: ReturnType<typeof setInterval> | undefined;
+
+  let signedIn = $derived(session.signedIn);
+  let notify = $derived(pushState('bartender'));
 
   let sorted = $derived(
     [...orders]
@@ -44,155 +48,96 @@
   );
   let waiting = $derived(orders.filter((o) => o.status !== 'done').length);
 
-  /**
-   * Bumped on every sign-out. A poll or mutation that was already in flight
-   * compares the generation it started under and discards its result, so a
-   * response landing after logout can't resurrect the signed-in view.
-   */
-  let generation = 0;
-
-  /** Drop the session locally (expired token, sign-out, or auth error). */
-  function signedOut(msg = '') {
-    generation += 1;
-    unlocked = false;
-    token = '';
-    storage.remove(TOKEN_KEY);
-    gateErr = msg;
-    stop();
-  }
-
   async function fetchOrders() {
-    // Skip while a mutation is in flight: `orders = r.orders` would otherwise
-    // overwrite the optimistic merge with a snapshot taken before the PATCH
-    // committed, making a status visibly revert for up to one poll interval.
+    // Yield while a mutation is in flight: replacing the whole array with a
+    // snapshot taken before it committed makes a status visibly revert.
     if (busy.size > 0) return;
 
-    const started = generation;
+    const started = session.generation;
     try {
-      const r = await listOrders(token);
-      if (started !== generation) return; // signed out while this was in flight
+      const r = await listOrders();
+      if (started !== session.generation) return; // session dropped mid-flight
       orders = r.orders;
-      unlocked = true;
       loaded = true;
-      gateErr = '';
       connErr = '';
     } catch (e) {
-      if (started !== generation) return;
-      if (e instanceof Unauthorized) signedOut('Session expired — sign in again.');
-      else connErr = 'Reconnecting…';
+      if (started !== session.generation) return;
+      // A 401 already ended the session inside api.ts; nothing to do here.
+      if (!(e instanceof Unauthorized)) connErr = 'Reconnecting…';
     }
   }
-  function start() {
-    stop();
-    timer = setInterval(fetchOrders, 4000);
+
+  function startPolling() {
+    stopPolling();
+    timer = setInterval(fetchOrders, POLL_MS);
   }
-  function stop() {
+  function stopPolling() {
     if (timer) clearInterval(timer);
     timer = undefined;
   }
 
-  async function doLogin() {
-    const e = email.trim();
-    if (!e || !password || loggingIn) return;
-    loggingIn = true;
-    gateErr = '';
-    try {
-      const r = await login(e, password);
-      token = r.token;
-      storage.write(TOKEN_KEY, token);
-      password = '';
-      await fetchOrders();
-      if (unlocked) start();
-    } catch (err) {
-      gateErr = err instanceof Unauthorized ? 'Wrong email or password' : (err as Error).message;
-    } finally {
-      loggingIn = false;
-    }
+  /** Load the queue and begin polling; also reconciles the bar's push state. */
+  async function begin() {
+    await fetchOrders();
+    if (!session.signedIn) return;
+    startPolling();
+    void refreshPushState('bartender');
   }
 
-  async function doLogout() {
-    const t = token;
-    signedOut();
-    try {
-      await logout(t); // best-effort server-side session delete
-    } catch {
-      /* already signed out locally */
-    }
-  }
-
-  /**
-   * Run a mutation with an in-flight guard and one error path. `id` scopes the
-   * guard to a row; bulk actions pass a sentinel so they share the same handling
-   * rather than re-implementing it.
-   */
-  async function withBusy(id: string, fn: () => Promise<void>) {
+  /** One in-flight guard and one error path for every mutation. */
+  async function mutate(id: string, fn: () => Promise<void>) {
     if (busy.has(id)) return;
     busy.add(id);
     connErr = '';
-    const started = generation;
+    const started = session.generation;
     try {
       await fn();
     } catch (e) {
-      if (started !== generation) return; // signed out mid-flight
-      if (e instanceof Unauthorized) signedOut('Signed out — sign in again.');
-      else connErr = (e as Error).message || "That didn't go through — try again.";
+      if (started !== session.generation) return;
+      if (!(e instanceof Unauthorized)) {
+        connErr = (e as Error).message || "That didn't go through — try again.";
+      }
     } finally {
       busy.delete(id);
     }
   }
 
-  function act(o: Order, status: OrderStatus) {
-    return withBusy(o.id, async () => {
-      const r = await setStatus(o.id, status, token);
+  const act = (o: Order, status: OrderStatus) =>
+    mutate(o.id, async () => {
+      const r = await setStatus(o.id, status);
       // Merge the authoritative row so the next poll doesn't flicker.
       orders = orders.map((x) => (x.id === o.id ? r.order : x));
     });
-  }
 
-  function del(o: Order) {
-    return withBusy(o.id, async () => {
+  const del = (o: Order) =>
+    mutate(o.id, async () => {
       try {
-        await deleteOrder(o.id, token);
+        await deleteOrder(o.id);
       } catch (e) {
-        // Another bartender already deleted it — the goal is met either way.
+        // Another bartender already removed it — the goal is met either way.
         if (!(e instanceof NotFound)) throw e;
       }
       orders = orders.filter((x) => x.id !== o.id);
     });
-  }
 
-  function clearDone() {
-    return withBusy('__bulk', async () => {
-      await clearOrders('done', token);
+  const clearDone = () =>
+    mutate(BULK, async () => {
+      await clearOrders('done');
       orders = orders.filter((o) => o.status !== 'done');
     });
-  }
 
-  function ago(ts: number): string {
-    const s = Math.max(0, Math.round((Date.now() - ts) / 1000));
-    if (s < 60) return `${s}s`;
-    const m = Math.round(s / 60);
-    return m < 60 ? `${m}m` : `${Math.round(m / 60)}h`;
+  async function handleSignOut() {
+    stopPolling();
+    orders = [];
+    loaded = false;
+    await signOut();
   }
-
-  // push: alert the bar when a new order lands (device-keyed, role=bartender).
-  // The store resolves this from the real subscription, so the chip can't claim
-  // "On" while nothing is registered — and holding the bartender role no longer
-  // cancels this device's guest notifications.
-  let notify = $derived(pushState('bartender'));
 
   onMount(() => {
-    if (token) {
-      // validate the stored session; a 401 drops us back to the sign-in form
-      void (async () => {
-        await fetchOrders();
-        if (unlocked) {
-          start();
-          void refreshPushState('bartender', token);
-        }
-      })();
-    }
-    return () => stop();
+    // A stored token might be expired; the first fetch decides, and a 401 drops
+    // us back to the gate via the session store.
+    if (session.signedIn) void begin();
+    return () => stopPolling();
   });
 </script>
 
@@ -207,10 +152,10 @@
   <header class="bt-top">
     <div class="bt-title">
       <h2>🍸 Bar</h2>
-      {#if unlocked}<span class="bt-count" class:zero={waiting === 0}>{waiting} WAITING</span>{/if}
+      {#if signedIn}<span class="bt-count" class:zero={waiting === 0}>{waiting} WAITING</span>{/if}
     </div>
     <div class="bt-tools">
-      {#if unlocked}
+      {#if signedIn}
         <button
           type="button"
           class="bt-chip"
@@ -226,7 +171,7 @@
             class="bt-chip"
             aria-pressed={notify === 'on'}
             disabled={notify === 'working' || notify === 'on'}
-            onclick={() => enablePush('bartender', token)}
+            onclick={() => enablePush('bartender')}
           >
             {notify === 'on'
               ? '🔔 On'
@@ -237,7 +182,7 @@
                   : '🔔 Alerts'}
           </button>
         {/if}
-        <button type="button" class="bt-chip" onclick={doLogout}>Log out</button>
+        <button type="button" class="bt-chip" onclick={handleSignOut}>Log out</button>
       {/if}
       <button type="button" class="bt-x" onclick={onclose} aria-label="Close bartender mode"
         >✕</button
@@ -247,75 +192,17 @@
 
   {#if connErr}<p class="bt-conn" role="status">{connErr}</p>{/if}
 
-  {#if !unlocked}
-    <div class="bt-gate">
-      <p class="bt-gate-msg">Staff sign-in</p>
-      <input
-        type="email"
-        autocomplete="username"
-        placeholder="email"
-        bind:value={email}
-        onkeydown={(e) => e.key === 'Enter' && document.getElementById('bt-pw')?.focus()}
-      />
-      <input
-        id="bt-pw"
-        type="password"
-        autocomplete="current-password"
-        placeholder="password"
-        bind:value={password}
-        onkeydown={(e) => e.key === 'Enter' && doLogin()}
-      />
-      <button type="button" class="bt-unlock" onclick={doLogin} disabled={loggingIn}>
-        {loggingIn ? 'Signing in…' : 'Sign in'}
-      </button>
-      {#if gateErr}<p class="bt-err" role="alert">{gateErr}</p>{/if}
-    </div>
+  {#if !signedIn}
+    <StaffGate onsignedin={begin} />
   {:else}
     <div class="bartender-list">
       {#each sorted as o (o.id)}
-        <div class="bt-order s-{o.status}">
-          <div class="bt-row">
-            <span class="bt-name">{o.name}</span>
-            <span class="bt-badge b-{o.status}">{STATUS_META[o.status].badge}</span>
-          </div>
-          <ul class="bt-items">
-            {#each o.items as it (it.name)}<li>{it.qty}× {it.name}</li>{/each}
-          </ul>
-          {#if o.note}<p class="bt-note">“{o.note}”</p>{/if}
-          <div class="bt-foot">
-            <span class="bt-ago">{ago(o.createdAt)} ago</span>
-            <div class="bt-acts">
-              {#if STATUS_META[o.status].next}
-                <button
-                  type="button"
-                  class="bt-act {STATUS_META[o.status].actionClass}"
-                  disabled={busy.has(o.id)}
-                  onclick={() => act(o, STATUS_META[o.status].next!)}
-                >
-                  {STATUS_META[o.status].nextLabel}
-                </button>
-              {:else}
-                <button
-                  type="button"
-                  class="bt-act"
-                  disabled={busy.has(o.id)}
-                  onclick={() => act(o, 'pending')}
-                >
-                  ↺ Reopen
-                </button>
-              {/if}
-              <button
-                type="button"
-                class="bt-act del"
-                disabled={busy.has(o.id)}
-                onclick={() => del(o)}
-                aria-label="Delete"
-              >
-                🗑
-              </button>
-            </div>
-          </div>
-        </div>
+        <OrderCard
+          order={o}
+          busy={busy.has(o.id)}
+          onact={(status) => act(o, status)}
+          ondelete={() => del(o)}
+        />
       {/each}
       {#if loaded && sorted.length === 0}<p class="bt-empty">No orders yet.</p>{/if}
       {#if !loaded}<p class="bt-empty">Loading…</p>{/if}
