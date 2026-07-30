@@ -15,16 +15,26 @@
   import { startBackgroundCannon, celebrate as fireConfetti } from './lib/confetti.ts';
   import { lockBackground } from './lib/dialog.ts';
   import { addLine } from './lib/basket.svelte';
+  import { applyDeepLink, view } from './lib/view.svelte';
+  import { resumeRequest, staffRequest } from './lib/staffRequest.svelte';
 
-  // dev-hub deep links: /?bartender opens the bar, /?order opens the order sheet
-  const params = new URLSearchParams(typeof location !== 'undefined' ? location.search : '');
+  // Deep links (/?bartender, /?order) win over the stored view, then are recorded —
+  // so following a notification and reloading keeps you where the link sent you.
+  applyDeepLink(typeof location !== 'undefined' ? location.search : '');
+
   let selected = $state<Drink | null>(null);
-  let showBartender = $state(params.has('bartender'));
-  let orderOpen = $state(params.has('order'));
   let celebrating = $state(false);
-  let favesOnly = $state(false);
+  // Which overlay is open is persisted, so a refresh — or a native cold start —
+  // returns to where you were rather than resetting to the menu.
+  let showBartender = $derived(view.bar);
+  let orderOpen = $derived(view.order);
+  let favesOnly = $derived(view.favesOnly);
 
   let count = $derived(basketCount());
+
+  // A request to help must outlive the page: pick up any decision made while the
+  // app was closed, and keep watching if it's still outstanding.
+  resumeRequest();
 
   // background party-popper cannon
   let cannon = $state<HTMLCanvasElement>();
@@ -60,11 +70,11 @@
 
   function toggleFav(name: string) {
     favourites.toggle(name);
-    if (favourites.size === 0) favesOnly = false;
+    if (favourites.size === 0) view.favesOnly = false;
   }
 
   function onSent() {
-    orderOpen = false;
+    view.order = false;
     celebrating = true;
     fireConfetti();
   }
@@ -76,7 +86,7 @@
   onkeydown={(e) => {
     if (e.key !== 'Escape') return;
     if (celebrating) celebrating = false;
-    else if (orderOpen) orderOpen = false;
+    else if (orderOpen) view.order = false;
   }}
 />
 
@@ -89,12 +99,28 @@
     <button
       type="button"
       class="appbar-bartender"
-      onclick={() => (showBartender = true)}
+      onclick={() => (view.bar = true)}
       aria-label="Bartender mode"
     >
       <span class="emoji">🍸</span>
     </button>
   </header>
+
+  {#if staffRequest.active && !showBartender}
+    <!-- The answer to "am I in yet?" must be reachable without opening the bar:
+         the panel is a modal, and someone who closed it shouldn't have to guess. -->
+    <button
+      type="button"
+      class="ask-banner ask-{staffRequest.kind}"
+      onclick={() => (view.bar = true)}
+    >
+      {#if staffRequest.kind === 'pending'}
+        ⏳ Waiting for the host to approve <strong>{staffRequest.name}</strong>…
+      {:else}
+        ✕ Bar request declined — tap for options
+      {/if}
+    </button>
+  {/if}
 
   <main class="stage">
     <section class="view view-menu" aria-label="Menu">
@@ -104,7 +130,7 @@
             type="button"
             class="chip chip-fav"
             aria-pressed={favesOnly}
-            onclick={() => (favesOnly = !favesOnly)}>⭐ Faves</button
+            onclick={() => (view.favesOnly = !favesOnly)}>⭐ Faves</button
           >
         {/if}
         <button type="button" class="chip chip-surprise" onclick={surprise}>🎲 Surprise</button>
@@ -135,7 +161,7 @@
 
   <nav class="tabbar" aria-label="Main navigation">
     <div class="tab" aria-current="true"><span class="emoji">🍸</span><span>Menu</span></div>
-    <button type="button" class="tab tab-order" onclick={() => (orderOpen = true)}>
+    <button type="button" class="tab tab-order" onclick={() => (view.order = true)}>
       <span class="emoji">🧺</span><span>Order</span>
       {#if count}<b class="tab-badge">{count}</b>{/if}
     </button>
@@ -144,7 +170,7 @@
 
 <OrderRail
   open={orderOpen}
-  onclose={() => (orderOpen = false)}
+  onclose={() => (view.order = false)}
   onsent={onSent}
   bind:rail={orderRail}
 />
@@ -152,8 +178,8 @@
   class="order-backdrop"
   class:open={orderOpen}
   bind:this={orderBackdrop}
-  onclick={() => (orderOpen = false)}
-  onkeydown={(e) => e.key === 'Escape' && (orderOpen = false)}
+  onclick={() => (view.order = false)}
+  onkeydown={(e) => e.key === 'Escape' && (view.order = false)}
   role="button"
   tabindex="-1"
   aria-label="Close order"
@@ -168,7 +194,7 @@
   {/key}
 {/if}
 {#if showBartender}
-  <Bartender onclose={() => (showBartender = false)} />
+  <Bartender onclose={() => (view.bar = false)} />
 {/if}
 {#if celebrating}
   <SentCelebration onclose={() => (celebrating = false)} />

@@ -12,7 +12,8 @@
 The cocktails party-ordering app is **live at https://cock.meridew.com**, served entirely from the
 NAS through a **Cloudflare Tunnel** (no open router ports), with **push-to-deploy CI/CD**. The
 original **neo-brutalist design is intact** (`neo.css` is a verbatim port — keep it that way).
-Guests order anonymously; staff sign in with email + password. **Web Push works**. The PWA is
+Guests order anonymously; the host unlocks the bar with a **6-digit PIN**, and helpers **ask to
+join** and are approved per-device. **Web Push works**. The PWA is
 installable from the site, and the **Android** Capacitor project exists (iOS needs a Mac).
 
 Recently completed a full **quality pass** (`QUALITY-PLAN.md`): a four-angle audit, then
@@ -21,8 +22,6 @@ now-public API, a shared validation module, ~10 correctness fixes, the push subs
 worker rewritten, and a store/component refactor. `npm run check` is at **0 errors, 0 warnings** and
 CI runs format → typecheck → tests → build as the gate.
 
-⚠️ **`STAFF_PASSWORD` is not set**, so the live staff account is locked behind a random password.
-Set the secret and redeploy to sign in to the live bar (see `CUTOVER.md`).
 ⚠️ **The runner drops out after a NAS reboot** — it authenticates with a short-lived _registration_
 token, so once that expires the container can't re-register and silently vanishes from GitHub
 (`total_count: 0`), leaving pushes CI-green but undeployed. §3 has the two-command fix. The durable
@@ -78,9 +77,15 @@ docs/      PLAN.md, OUTSTANDING.md, APP-READINESS.md, MOBILE.md, CUTOVER.md,
   Adding a drink/axis is a one-place edit. (This is the nicest piece of the codebase.)
 - **Identity:** anonymous device id in localStorage (`apps/web/src/lib/device.ts`) — no guest login,
   by design. Guests order instantly; notifications are keyed to the device, not an account.
-- **Staff auth:** email + password → **scrypt** hash + a revocable **bearer session** (only the
-  token's SHA-256 is stored). Seeded from `STAFF_EMAIL`/`STAFF_PASSWORD`; env is the source of truth,
-  so changing the secret and redeploying rotates the password. The old shared PIN is **gone**.
+- **Staff auth:** two doors onto one **revocable bearer session** (only the token's SHA-256 is
+  stored). Everyday: a **6-digit PIN** (`STAFF_PIN`), compared constant-time against env and throttled
+  both per-IP _and globally_ — a 10^6 keyspace is defended by rate limiting, not by length. Break
+  glass: **email + password** (`STAFF_EMAIL`/`STAFF_PASSWORD`, scrypt), which is deliberately kept so
+  that jamming the PIN door can never lock the bar out. Env is the source of truth for both, so
+  changing a secret and redeploying rotates it.
+- **Helpers:** ask to join → the host approves their **device**. The request lifecycle is persisted
+  client-side (`staffRequest.svelte.ts`) and the decision is **pushed**, because a backgrounded page
+  has its timers frozen and can't be relied on to poll for the answer.
 - **Public entry:** **cloudflared → Caddy** (internal port) → web/api. No inbound router ports. Caddy
   also sets the security headers. Swapping the ingress again would still be zero app changes.
 
@@ -97,11 +102,12 @@ docs/      PLAN.md, OUTSTANDING.md, APP-READINESS.md, MOBILE.md, CUTOVER.md,
 - **Docker:** ContainerManager (Docker 20.10.23). No `buildx`/BuildKit plugin, but the daemon's
   integrated BuildKit handles our Dockerfiles. No GHCR — we build images **locally on the NAS**.
 - **Deployed stack:** `/volume1/docker/cocktails/` (source extracted there + `infra/.env`, written by
-  CI from GitHub secrets: `PUBLIC_PORT`, `STAFF_EMAIL`/`STAFF_PASSWORD`, `VAPID_*`, `TUNNEL_TOKEN`).
+  CI from GitHub secrets: `PUBLIC_PORT`, `STAFF_EMAIL`/`STAFF_PASSWORD`/`STAFF_PIN`, `VAPID_*`,
+  `TUNNEL_TOKEN`).
   Containers: `cocktails-{web,api,caddy,cloudflared}-1` (`restart: unless-stopped`, api has a
   healthcheck, caddy waits for it). SQLite in volume `cocktails_cocktails-data`.
 - **Live at:** **https://cock.meridew.com** (public, via the tunnel) and **http://192.168.1.1:8088**
-  on the LAN. Bartender: 🍸 → staff email + password.
+  on the LAN. Bartender: 🍸 → tap the PIN.
   ⚠️ The LAN `:8088` port bypasses Cloudflare, so the API can't trust `x-forwarded-for` from it —
   that's why `clientIp()` prefers `cf-connecting-ip` and falls back to the socket address.
 - **Self-hosted runner:** `/volume1/docker/cocktails-runner/` — container `cocktails-runner-runner-1`
@@ -135,10 +141,11 @@ docs/      PLAN.md, OUTSTANDING.md, APP-READINESS.md, MOBILE.md, CUTOVER.md,
 ## 4. CI/CD — how deploys work
 
 - `gh` CLI is authed as **meridew** (scopes: repo, workflow) and can mint runner registration tokens.
-- **GitHub secrets** (CI writes these into `infra/.env` on the NAS): `STAFF_EMAIL`, `TUNNEL_TOKEN`,
-  `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`. ⚠️ **`STAFF_PASSWORD` is deliberately absent** — with it
-  unset the API generates a random one in production rather than falling back to anything guessable,
-  which is why nobody can currently sign in to the live bar. Set it to fix that.
+- **GitHub secrets** (CI writes these into `infra/.env` on the NAS): `STAFF_EMAIL`,
+  `STAFF_PASSWORD`, `STAFF_PIN`, `TUNNEL_TOKEN`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`. If a
+  credential secret is ever _unset_, production does not fall back to anything guessable: the password
+  becomes a random string and the PIN door switches off entirely. That's a lockout, not a weakness —
+  set the secret and redeploy.
 - Workflow **`.github/workflows/nas-deploy.yml`**: on push to `modernise`/`main` (paths-ignore docs/*.md):
   1. **`check`** job on `ubuntu-latest` (free cloud): `npm ci` → `format:check` → `npm run check`
      (api typecheck + svelte-check) → `npm test` → `npm -w @cocktails/web run build`. **Gates prod.**
@@ -188,29 +195,25 @@ npm run format       # Prettier (format:check is what CI runs)
 
 ## 7. What's next (pick up here)
 
-**Blocking (do these first):**
+**Nothing is blocking.** The runner is registered and deploying, and `STAFF_EMAIL`,
+`STAFF_PASSWORD` and `STAFF_PIN` are all set, so the live bar opens with the PIN.
 
-1. **Bring the NAS runner back online** so the CI-green commits actually deploy (§3 has the
-   token-refresh commands). Until then the live site serves an older build.
-2. **Set `STAFF_PASSWORD`** (`gh secret set STAFF_PASSWORD -R meridew/cocktails`) and redeploy — the
-   seed upserts it. Login stays `bar@meridew.com`.
+**In rough priority order:**
 
-**Then, in rough priority order:**
-
-3. **Android build** — install the Android SDK via Android Studio's SDK Manager (Studio itself is
+1. **Android build** — install the Android SDK via Android Studio's SDK Manager (Studio itself is
    installed but the SDK is missing, which is why `cap:android` hits a "Select SDKs" dialog), then
    `cd apps/web && npm run cap:android`. See `MOBILE.md`.
-4. **iOS** — needs macOS (or a cloud-Mac CI) plus the Apple Developer Program; `cap add ios` can't run
+2. **iOS** — needs macOS (or a cloud-Mac CI) plus the Apple Developer Program; `cap add ios` can't run
    on Windows. The iPhone **PWA** already works today.
-5. **Native push (APNs/FCM)** — the only notification path that works inside an iOS WebView. The
+3. **Native push (APNs/FCM)** — the only notification path that works inside an iOS WebView. The
    server's subscription model is already transport-aware (`transport`/`platform`), so this is a new
    branch in `push.ts` plus client registration.
-6. **Make-a-Drink + ingredient availability** — still needs a design discussion (see `OUTSTANDING.md`):
+4. **Make-a-Drink + ingredient availability** — still needs a design discussion (see `OUTSTANDING.md`):
    the bartender marks what's in stock, which filters both the discovery engine (`cocktails.json`) and
    the menu.
-7. **Retire the legacy flat app** at the repo root and optionally make the repo private — the tunnel
+5. **Retire the legacy flat app** at the repo root and optionally make the repo private — the tunnel
    owns the domain now, so GitHub Pages is redundant.
-8. **Minor:** bump `actions/checkout`→v5 (Node-20 deprecation warning). Optional: OTA live-updates
+6. **Minor:** bump `actions/checkout`→v5 (Node-20 deprecation warning). Optional: OTA live-updates
    (Capgo) so store apps get UI changes without a review.
 
 ## 8. Parked / not-in-scope

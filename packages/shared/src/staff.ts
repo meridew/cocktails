@@ -2,8 +2,8 @@
  * Staff: who can run the bar, and how they got there.
  *
  * Two kinds of principal, deliberately asymmetric:
- *   • admin     — signs in with email + password, so they can get in from ANY
- *                 device (including a fresh one). Seeded from env.
+ *   • admin     — signs in from ANY device (including a fresh one), normally with
+ *                 a short PIN. Seeded from env.
  *   • bartender — a helper whose access was approved for one device. No password
  *                 to invent or remember; if they switch phones, they ask again.
  *
@@ -11,6 +11,19 @@
  * every order payload and so isn't secret. The credential is always a
  * server-issued session token.
  */
+
+/**
+ * Digits in the admin PIN. Short on purpose — it's tapped on a phone behind the
+ * bar, repeatedly, by someone holding a cocktail shaker. A 6-digit space is only
+ * 10^6, so the security comes from throttling (per-IP *and* global) rather than
+ * from length; see the limiters in the API's auth module.
+ */
+export const PIN_LENGTH = 6;
+
+/** Digits only, exactly PIN_LENGTH of them. Shared so both sides agree. */
+export function isValidPin(v: unknown): v is string {
+  return typeof v === 'string' && new RegExp(`^\\d{${PIN_LENGTH}}$`).test(v);
+}
 
 export type StaffRole = 'admin' | 'bartender';
 

@@ -9,9 +9,10 @@ import { bodyLimit } from 'hono/body-limit';
 import { logger } from 'hono/logger';
 import { secureHeaders } from 'hono/secure-headers';
 import type { MiddlewareHandler } from 'hono';
-import { cleanItems, cleanStr, isOrderStatus } from '@cocktails/shared';
+import { cleanItems, cleanStr, isHandoff, isOrderStatus, isValidPin } from '@cocktails/shared';
 import type {
   ClearWhich,
+  Handoff,
   Order,
   PushSubscriptionJSON,
   SubscriberRole,
@@ -49,59 +50,26 @@ import {
   pushToDevice,
   pushToRole,
   vapidPublicKey,
-  type PushPayload,
 } from './push.ts';
+import { guestStatusPush, newOrderPush, staffDecisionPush } from './notify.ts';
 import {
   approveStaff,
   claimBlocked,
   claimStaffAccess,
   login,
+  loginWithPin,
   logout,
   loginBlocked,
   noteClaimAttempt,
   noteLoginAttempt,
+  notePinAttempt,
+  pinBlocked,
   requestStaffAccess,
   sessionStaff,
   toStaff,
 } from './auth.ts';
 import { bearerToken, clientIp } from './http.ts';
 import { createRateLimiter } from './ratelimit.ts';
-
-// ---- notification copy (the moments we push on) ----------------------------
-
-/** Guest "your drink" push for a status change — null for moments we skip. */
-function guestStatusPush(order: Order): PushPayload | null {
-  switch (order.status) {
-    case 'making':
-      return {
-        title: '👩‍🍳 On it!',
-        body: `${order.name}, your order is being made.`,
-        tag: order.id,
-        url: '/',
-      };
-    case 'serving':
-      return {
-        title: '🍹 INCOMING!',
-        body: `${order.name}, come grab your drink!`,
-        tag: order.id,
-        url: '/',
-      };
-    default:
-      return null; // pending/done: no push (done → "how was it?" comes later)
-  }
-}
-
-/** Bartender push when a new order lands. */
-function newOrderPush(order: Order): PushPayload {
-  const summary = order.items.map((i) => `${i.qty}× ${i.name}`).join(', ');
-  // Deep-link straight into bartender mode — that's where the bar acts on it.
-  return {
-    title: '🔔 New order',
-    body: `${order.name}: ${summary}`,
-    tag: order.id,
-    url: '/?bartender',
-  };
-}
 
 /**
  * Validate a client-supplied Web Push subscription, returning a typed value or
@@ -218,6 +186,28 @@ app.post('/api/auth/login', async (c) => {
   if (!result) return c.json({ ok: false, error: 'wrong email or password' }, 401);
   return c.json({ ok: true, token: result.token, staff: result.staff } satisfies LoginResponse);
 });
+/**
+ * PIN sign-in — the everyday door for the admin running the bar.
+ *
+ * Same session and same account as email + password; only the credential differs.
+ * The PIN is short, so `pinBlocked` (per-IP *and* global) is what actually protects
+ * it. A wrong PIN and an unconfigured PIN return the same 401 so the endpoint
+ * doesn't advertise whether a PIN exists to guess at.
+ */
+app.post('/api/auth/pin', async (c) => {
+  const ip = clientIp(c);
+  if (pinBlocked(ip)) {
+    return c.json({ ok: false, error: 'too many attempts — try again later' }, 429);
+  }
+  const body = await c.req.json().catch(() => ({}) as Record<string, unknown>);
+  const pin = typeof body?.pin === 'string' ? body.pin : '';
+  // Shape-check before doing any work, but still count it: a flood of malformed
+  // attempts is exactly what the throttle exists to stop.
+  const result = isValidPin(pin) ? loginWithPin(pin) : null;
+  notePinAttempt(ip, !!result);
+  if (!result) return c.json({ ok: false, error: 'wrong PIN' }, 401);
+  return c.json({ ok: true, token: result.token, staff: result.staff } satisfies LoginResponse);
+});
 app.post('/api/auth/logout', requireStaff, (c) => {
   logout(bearer(c));
   return c.json({ ok: true } satisfies OkResponse);
@@ -257,9 +247,13 @@ app.get('/api/staff', requireAdmin, (c) => {
 
 app.post('/api/staff/:id/approve', requireAdmin, (c) => {
   const admin = c.get('staff');
-  if (!approveStaff(c.req.param('id'), admin.id)) {
+  const target = staffById(c.req.param('id'));
+  if (!target || !approveStaff(target.id, admin.id)) {
     return c.json({ ok: false, error: 'no pending request' }, 404);
   }
+  // Reach the helper even if they've pocketed their phone: polling for a decision
+  // only works while the page is awake, and a browser freezes timers when it isn't.
+  if (target.device_id) void pushToDevice(target.device_id, staffDecisionPush(true));
   return c.json({ ok: true } satisfies OkResponse);
 });
 
@@ -272,6 +266,11 @@ app.delete('/api/staff/:id', requireAdmin, (c) => {
     return c.json({ ok: false, error: 'cannot remove an admin' }, 403);
   }
   deleteStaff(target.id);
+  // Only a *pending* row was waiting on an answer; removing an established helper
+  // isn't a decision they asked for, so it shouldn't ping them.
+  if (target.status === 'pending' && target.device_id) {
+    void pushToDevice(target.device_id, staffDecisionPush(false));
+  }
   return c.json({ ok: true } satisfies OkResponse);
 });
 
@@ -317,7 +316,11 @@ app.patch('/api/orders/:id', requireStaff, async (c) => {
   const body = await c.req.json().catch(() => ({}) as Record<string, unknown>);
   const status = body?.status;
   if (!isOrderStatus(status)) return c.json({ ok: false, error: 'bad status' }, 422);
-  const updated = setOrderStatus(c.req.param('id'), status);
+  // Optional: how the drink reaches the guest, which picks the wording they get.
+  // Anything unrecognised is dropped rather than rejected — an old client that
+  // knows nothing about handoffs must keep working.
+  const handoff: Handoff | undefined = isHandoff(body?.handoff) ? body.handoff : undefined;
+  const updated = setOrderStatus(c.req.param('id'), status, handoff);
   if (!updated) return c.json({ ok: false, error: 'not found' }, 404);
   // Notify the guest's device on the moments that matter (making → serving).
   const payload = guestStatusPush(updated);

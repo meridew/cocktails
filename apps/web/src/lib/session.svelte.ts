@@ -10,6 +10,7 @@ import type { Staff } from '@cocktails/shared';
 import {
   configureAuth,
   login as loginRequest,
+  loginWithPin as pinRequest,
   logout as logoutRequest,
   me as meRequest,
 } from './api.ts';
@@ -75,6 +76,12 @@ function adopt(newToken: string, who: Staff): void {
 /** Exchange credentials for a session. Throws on failure; the caller shows why. */
 export async function signIn(email: string, password: string): Promise<void> {
   const result = await loginRequest(email.trim(), password);
+  adopt(result.token, result.staff);
+}
+
+/** Exchange the admin PIN for a session. Throws on failure; the caller shows why. */
+export async function signInWithPin(pin: string): Promise<void> {
+  const result = await pinRequest(pin);
   adopt(result.token, result.staff);
 }
 

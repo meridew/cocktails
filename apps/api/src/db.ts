@@ -17,6 +17,7 @@ import { dirname, resolve } from 'node:path';
 import { randomBytes } from 'node:crypto';
 import type {
   ClearWhich,
+  Handoff,
   Order,
   OrderItem,
   OrderStatus,
@@ -26,7 +27,7 @@ import type {
   SubscriptionRecord,
   SubscriptionTransport,
 } from '@cocktails/shared';
-import { LIMITS } from '@cocktails/shared';
+import { LIMITS, isHandoff } from '@cocktails/shared';
 import { config } from './config.ts';
 
 export const now = (): number => Date.now();
@@ -40,6 +41,7 @@ interface OrderRow {
   status: string;
   device_id: string | null;
   bumped_at: number | null;
+  handoff: string | null;
   created_at: number;
   updated_at: number;
 }
@@ -93,6 +95,7 @@ function rowToOrder(r: OrderRow): Order {
     createdAt: r.created_at,
     updatedAt: r.updated_at,
     bumpedAt: r.bumped_at,
+    handoff: isHandoff(r.handoff) ? r.handoff : null,
   };
 }
 
@@ -121,6 +124,7 @@ export function createDb(dbPath: string) {
       device_id  TEXT,
       user_id    TEXT,
       bumped_at  INTEGER,
+      handoff    TEXT,
       created_at INTEGER NOT NULL,
       updated_at INTEGER NOT NULL
     );
@@ -175,6 +179,7 @@ export function createDb(dbPath: string) {
   };
   addColumn('orders', 'user_id', 'user_id TEXT'); // nullable → anonymous orders stay valid
   addColumn('orders', 'bumped_at', 'bumped_at INTEGER'); // null = never bumped
+  addColumn('orders', 'handoff', 'handoff TEXT'); // null = the bar didn't say
   addColumn('subscriptions', 'transport', "transport TEXT NOT NULL DEFAULT 'webpush'");
   addColumn('subscriptions', 'platform', "platform TEXT NOT NULL DEFAULT 'web'");
   addColumn('staff', 'display_name', "display_name TEXT NOT NULL DEFAULT ''");
@@ -291,7 +296,9 @@ export function createDb(dbPath: string) {
      ORDER BY (status = 'done') DESC, created_at ASC, rowid ASC
      LIMIT 1`,
   );
-  const stSetStatus = db.prepare(`UPDATE orders SET status = ?, updated_at = ? WHERE id = ?`);
+  const stSetStatus = db.prepare(
+    `UPDATE orders SET status = ?, handoff = ?, updated_at = ? WHERE id = ?`,
+  );
   const stBumpOrder = db.prepare(`UPDATE orders SET bumped_at = ?, updated_at = ? WHERE id = ?`);
   const stSetItems = db.prepare(`UPDATE orders SET items = ?, updated_at = ? WHERE id = ?`);
   const stDeleteOrder = db.prepare(`DELETE FROM orders WHERE id = ?`);
@@ -395,9 +402,19 @@ export function createDb(dbPath: string) {
       return (stListOrders.all() as unknown as OrderRow[]).map(rowToOrder);
     },
 
-    setOrderStatus(id: string, status: OrderStatus): Order | null {
-      const res = stSetStatus.run(status, now(), id);
-      if (res.changes === 0) return null;
+    /**
+     * Move an order along, optionally recording how it reaches the guest.
+     *
+     * The handoff describes the serve moment specifically, so stepping back to
+     * `pending`/`making` clears it — otherwise re-serving would silently reuse the
+     * previous choice and notify the guest with stale wording.
+     */
+    setOrderStatus(id: string, status: OrderStatus, handoff?: Handoff): Order | null {
+      const existing = stGetOrder.get(id) as unknown as OrderRow | undefined;
+      if (!existing) return null;
+      const nextHandoff =
+        handoff ?? (status === 'pending' || status === 'making' ? null : existing.handoff);
+      stSetStatus.run(status, nextHandoff, now(), id);
       return rowToOrder(stGetOrder.get(id) as unknown as OrderRow);
     },
 
@@ -606,7 +623,8 @@ const d = (): Db => (singleton ??= createDb(config.dbPath));
 
 export const createOrder: Db['createOrder'] = (input) => d().createOrder(input);
 export const listOrders: Db['listOrders'] = () => d().listOrders();
-export const setOrderStatus: Db['setOrderStatus'] = (id, status) => d().setOrderStatus(id, status);
+export const setOrderStatus: Db['setOrderStatus'] = (id, status, handoff) =>
+  d().setOrderStatus(id, status, handoff);
 export const bumpOrder: Db['bumpOrder'] = (id, bumped) => d().bumpOrder(id, bumped);
 export const setItemProgress: Db['setItemProgress'] = (id, index, made) =>
   d().setItemProgress(id, index, made);

@@ -29,7 +29,8 @@
   import OrderCard from './OrderCard.svelte';
   import { SvelteSet } from 'svelte/reactivity';
   import { canApproveStaff, ORDER_STATUSES, STATUS_META } from '@cocktails/shared';
-  import type { Order, OrderStatus, Staff } from '@cocktails/shared';
+  import type { Handoff, Order, OrderStatus, Staff } from '@cocktails/shared';
+  import { view } from './view.svelte';
 
   let { onclose }: { onclose: () => void } = $props();
 
@@ -37,13 +38,13 @@
   /** Scopes the in-flight guard for actions that aren't tied to one order. */
   const BULK = '__bulk';
 
-  type Filter = 'active' | OrderStatus;
-
   let loaded = $state(false); // first successful fetch completed
   let connErr = $state(''); // transient "reconnecting / action failed" banner
   let orders = $state<Order[]>([]);
-  let filter = $state<Filter>('active');
-  let sort = $state<'oldest' | 'newest'>('oldest');
+  // Filter and sort live in the view store: a bartender who reloads mid-service
+  // should come back to the queue they had set up, not a reset one.
+  let filter = $derived(view.barFilter);
+  let sort = $derived(view.barSort);
   let openId = $state<string | null>(null); // at most one card expanded
   let menuOpen = $state(false);
   let busy = new SvelteSet<string>(); // order ids with an in-flight mutation
@@ -138,6 +139,28 @@
     void refreshPushState('bartender');
   }
 
+  /**
+   * Start (and stop) working whenever the session comes or goes.
+   *
+   * This deliberately watches the session rather than being called by the gate:
+   * a helper's approval signs them in from the store, which unmounts StaffGate in
+   * the same update — so anything the gate scheduled on its way out never ran, and
+   * the queue sat on "Loading…" forever. Ownership belongs here, with the polling.
+   */
+  let running = false;
+  $effect(() => {
+    // The one tracked read. Everything below is guarded against re-entry, because
+    // begin() writes session state that would otherwise re-trigger this effect.
+    if (!session.signedIn) {
+      running = false;
+      stopPolling();
+      return;
+    }
+    if (running) return;
+    running = true;
+    void begin();
+  });
+
   /** One in-flight guard and one error path for every mutation. */
   async function mutate(id: string, fn: () => Promise<void>) {
     if (busy.has(id)) return;
@@ -161,8 +184,8 @@
     orders = orders.map((o) => (o.id === updated.id ? updated : o));
   };
 
-  const act = (o: Order, status: OrderStatus) =>
-    mutate(o.id, async () => merge((await setStatus(o.id, status)).order));
+  const act = (o: Order, status: OrderStatus, handoff?: Handoff) =>
+    mutate(o.id, async () => merge((await setStatus(o.id, status, handoff)).order));
 
   const bump = (o: Order, bumped: boolean) =>
     mutate(o.id, async () => merge((await bumpOrder(o.id, bumped)).order));
@@ -212,12 +235,10 @@
             : 'Off',
   );
 
-  onMount(() => {
-    // A stored token might be expired; the first fetch decides, and a 401 drops
-    // us back to the gate via the session store.
-    if (session.signedIn) void begin();
-    return () => stopPolling();
-  });
+  // A stored token might be expired; the first fetch decides, and a 401 drops us
+  // back to the gate via the session store. (The effect above does the starting;
+  // this only guarantees the timer dies with the panel.)
+  onMount(() => () => stopPolling());
 </script>
 
 <div
@@ -250,7 +271,7 @@
   {#if connErr}<p class="bt-conn" role="status">{connErr}</p>{/if}
 
   {#if !signedIn}
-    <StaffGate onsignedin={begin} />
+    <StaffGate />
   {:else if showStaff && isAdmin}
     <StaffAdmin
       {staff}
@@ -266,7 +287,7 @@
         type="button"
         class="bar-tab"
         aria-current={filter === 'active'}
-        onclick={() => (filter = 'active')}
+        onclick={() => (view.barFilter = 'active')}
       >
         Active <b>{activeCount}</b>
       </button>
@@ -275,7 +296,7 @@
           type="button"
           class="bar-tab"
           aria-current={filter === status}
-          onclick={() => (filter = status)}
+          onclick={() => (view.barFilter = status)}
         >
           {STATUS_META[status].label} <b>{counts[status]}</b>
         </button>
@@ -289,15 +310,18 @@
           busy={busy.has(order.id)}
           expanded={openId === order.id}
           ontoggle={() => (openId = openId === order.id ? null : order.id)}
-          onact={(status) => act(order, status)}
+          onact={(status, handoff) => act(order, status, handoff)}
           onbump={(bumped) => bump(order, bumped)}
           onprogress={(index, made) => progress(order, index, made)}
           ondelete={() => del(order)}
         />
       {/each}
       {#if loaded && visible.length === 0}
+        <!-- No celebration here: an empty queue is just the normal state of a bar
+             that's keeping up, and a party popper sitting mid-screen reads as a
+             stray graphic rather than as information. -->
         <p class="bt-empty">
-          {filter === 'active' ? 'Nothing waiting. 🎉' : `No ${filter} orders.`}
+          {filter === 'active' ? 'Nothing waiting.' : `No ${filter} orders.`}
         </p>
       {/if}
       {#if !loaded}<p class="bt-empty">Loading…</p>{/if}
@@ -312,7 +336,7 @@
     {sort}
     {pushLabel}
     onstaff={() => (showStaff = true)}
-    onsort={() => (sort = sort === 'oldest' ? 'newest' : 'oldest')}
+    onsort={() => (view.barSort = sort === 'oldest' ? 'newest' : 'oldest')}
     onpush={() => void enablePush('bartender')}
     onclearDone={clearDone}
     onsignout={handleSignOut}

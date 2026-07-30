@@ -13,6 +13,9 @@ services:
       # No default password: unset → the API generates a random one in prod, so a
       # missing STAFF_PASSWORD secret can never leave a known public login.
       STAFF_PASSWORD: ${STAFF_PASSWORD:-}
+      # Short PIN for the same admin account — the everyday door. Same rule: unset
+      # means PIN sign-in is simply off, never a guessable default.
+      STAFF_PIN: ${STAFF_PIN:-}
       DB_PATH: /data/cocktails.sqlite
       # Web Push (VAPID). Empty → push disabled. Generate with `gen-vapid`.
       VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}

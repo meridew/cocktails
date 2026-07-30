@@ -52,6 +52,7 @@ jobs:
           PUBLIC_PORT=8088
           STAFF_EMAIL=${STAFF_EMAIL}
           STAFF_PASSWORD=${STAFF_PASSWORD}
+          STAFF_PIN=${STAFF_PIN}
           TUNNEL_TOKEN=${TUNNEL_TOKEN}
           VAPID_PUBLIC_KEY=${VAPID_PUBLIC_KEY}
           VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY}
@@ -60,6 +61,7 @@ jobs:
         env:
           STAFF_EMAIL: ${{ secrets.STAFF_EMAIL }}
           STAFF_PASSWORD: ${{ secrets.STAFF_PASSWORD }}
+          STAFF_PIN: ${{ secrets.STAFF_PIN }}
           TUNNEL_TOKEN: ${{ secrets.TUNNEL_TOKEN }}
           VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY }}
           VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}

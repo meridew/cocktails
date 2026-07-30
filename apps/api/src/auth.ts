@@ -156,6 +156,29 @@ export async function login(
   return startSession(row);
 }
 
+/**
+ * Sign in as the admin with the short PIN.
+ *
+ * The PIN is compared against env directly rather than stored: env is already the
+ * source of truth for the admin's credentials, so hashing a copy into the database
+ * would just add a second place for it to go stale.
+ *
+ * A 6-digit PIN is only 10^6 possibilities, so throttling is the whole defence —
+ * see `pinBlocked`, which is both per-IP *and* global.
+ */
+export function loginWithPin(pin: string): { token: string; staff: Staff } | null {
+  const expected = config.staff.pin;
+  if (!expected || !config.staff.email) return null;
+  const supplied = Buffer.from(pin);
+  const target = Buffer.from(expected);
+  // Length is compared first because timingSafeEqual throws on a mismatch. It
+  // leaks only how many digits the PIN has, which the keypad already advertises.
+  if (supplied.length !== target.length || !timingSafeEqual(supplied, target)) return null;
+  const row = staffByEmail(config.staff.email);
+  if (!row || row.status !== 'active') return null;
+  return startSession(row);
+}
+
 // ---- request to help -------------------------------------------------------
 
 /**
@@ -234,6 +257,38 @@ export function loginBlocked(ip: string): boolean {
 export function noteLoginAttempt(ip: string, ok: boolean): void {
   if (ok) loginLimiter.clear(ip);
   else loginLimiter.record(ip);
+}
+
+/**
+ * PIN throttle, in two layers.
+ *
+ * Per-IP alone isn't enough here: a 6-digit PIN is a 10^6 space, and behind
+ * Cloudflare we see the real client IP, so an attacker with a few thousand
+ * addresses could spread the guessing thinly and stay under any per-IP cap. The
+ * global limiter closes that off — the whole PIN door shuts after GLOBAL_MAX bad
+ * attempts in the window, whoever made them.
+ *
+ * The trade-off is that an attacker can deliberately jam the PIN door. That's
+ * acceptable precisely because email + password remains available, so the bar can
+ * always still be opened. A correct PIN clears the counters.
+ */
+const PIN_WINDOW_MS = 15 * 60 * 1000;
+const pinLimiter = createRateLimiter({ max: 10, windowMs: PIN_WINDOW_MS });
+const pinGlobalLimiter = createRateLimiter({ max: 60, windowMs: PIN_WINDOW_MS });
+const GLOBAL_KEY = 'all';
+
+export function pinBlocked(ip: string): boolean {
+  return pinLimiter.isLimited(ip) || pinGlobalLimiter.isLimited(GLOBAL_KEY);
+}
+
+export function notePinAttempt(ip: string, ok: boolean): void {
+  if (ok) {
+    pinLimiter.clear(ip);
+    pinGlobalLimiter.clear(GLOBAL_KEY);
+    return;
+  }
+  pinLimiter.record(ip);
+  pinGlobalLimiter.record(GLOBAL_KEY);
 }
 
 /**

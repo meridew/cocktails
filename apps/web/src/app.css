@@ -639,3 +639,114 @@
   margin: 0 0 16px;
   line-height: 1.5;
 }
+
+/* ---------------- PIN gate ---------------- */
+/* The keypad is the primary input behind the bar: big targets, reachable with one
+   thumb. `.bt-gate input` (neo.css) already renders as a centred passcode field,
+   so it's reused rather than restyled. */
+.pin-pad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin: 0 0 14px;
+}
+.pin-key {
+  min-height: 56px;
+  font-family: var(--font-accent);
+  font-weight: var(--fw-accent);
+  font-size: 1.4rem;
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--panel-text);
+  border: 2px solid rgba(255, 255, 255, 0.18);
+  border-radius: 10px;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.pin-key:active {
+  transform: translateY(1px);
+  background: rgba(255, 255, 255, 0.2);
+}
+.pin-key.is-back {
+  font-size: 1.1rem;
+}
+.pin-key:disabled {
+  opacity: 0.5;
+}
+
+/* ---------------- request-to-help status ---------------- */
+/* Each outcome gets its own unmistakable badge. The whole point is that nobody is
+   ever returned to a bare sign-in form wondering what happened to their request. */
+.bt-status-badge {
+  display: inline-block;
+  margin: 0 auto 14px;
+  padding: 6px 14px;
+  font-family: var(--font-accent);
+  font-weight: var(--fw-accent);
+  letter-spacing: var(--ls-accent);
+  text-transform: uppercase;
+  font-size: 0.85rem;
+  border: 2px solid #0a0a12;
+  border-radius: 999px;
+}
+.bt-status-badge.is-sent {
+  background: #00e5ff;
+  color: #0a0a12;
+}
+.bt-status-badge.is-no {
+  background: #ff5c8a;
+  color: #0a0a12;
+}
+
+/* Visible on the menu too, so the answer doesn't hide behind a closed modal. */
+.ask-banner {
+  display: block;
+  width: calc(100% - 28px);
+  margin: 0 auto 10px;
+  padding: 10px 14px;
+  font: inherit;
+  font-size: 0.9rem;
+  text-align: left;
+  color: #0a0a12;
+  border: 2px solid #0a0a12;
+  border-radius: 10px;
+  box-shadow: var(--shadow-sm);
+  cursor: pointer;
+}
+.ask-banner.ask-pending {
+  background: #ffe600;
+}
+.ask-banner.ask-declined {
+  background: #ff5c8a;
+}
+
+/* ---------------- serve vs deliver ---------------- */
+/* Two explicit choices, because the guest's notification wording depends on it and
+   "come and get it" is wrong when someone is walking the drink over. */
+.ord-hand {
+  border-top: 2px solid rgba(255, 255, 255, 0.12);
+  padding-top: 8px;
+}
+.ord-hand h5 {
+  margin: 0 0 6px;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-soft);
+}
+.ord-hand-btns {
+  display: flex;
+  gap: 8px;
+}
+.ord-hand-btns .ord-go {
+  flex: 1;
+  align-self: auto;
+  min-width: 0;
+}
+.ord-go.deliver {
+  background: #b98cff;
+  color: #0a0a12;
+}
+/* Marks what the guest was actually told, so the bar can see it at a glance. */
+.ord-hand-flag {
+  margin-left: 5px;
+}

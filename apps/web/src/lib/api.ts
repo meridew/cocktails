@@ -1,4 +1,5 @@
 import type {
+  Handoff,
   NewOrderInput,
   Order,
   OrderStatus,
@@ -82,10 +83,14 @@ export const createOrder = (input: NewOrderInput) =>
 
 export const listOrders = () => req<OrderListResponse>('/orders');
 
-export const setStatus = (id: string, status: OrderStatus) =>
+/**
+ * Move an order along. `handoff` is only meaningful when serving, and saying
+ * nothing is a valid answer — it keeps the guest's notification neutral.
+ */
+export const setStatus = (id: string, status: OrderStatus, handoff?: Handoff) =>
   req<{ ok: true; order: Order }>(`/orders/${id}`, {
     method: 'PATCH',
-    body: JSON.stringify({ status }),
+    body: JSON.stringify(handoff ? { status, handoff } : { status }),
   });
 
 export const deleteOrder = (id: string) =>
@@ -115,6 +120,10 @@ export const setItemProgress = (id: string, index: number, made: number) =>
 
 export const login = (email: string, password: string) =>
   req<LoginResponse>('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) });
+
+/** The everyday admin door: same session as `login`, just a shorter credential. */
+export const loginWithPin = (pin: string) =>
+  req<LoginResponse>('/auth/pin', { method: 'POST', body: JSON.stringify({ pin }) });
 
 export const logout = () => req<OkResponse>('/auth/logout', { method: 'POST' });
 

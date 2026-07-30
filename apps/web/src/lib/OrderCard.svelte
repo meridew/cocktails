@@ -10,8 +10,8 @@
    *
    * All per-status presentation comes from STATUS_META — no parallel maps.
    */
-  import { STATUS_META, orderProgress } from '@cocktails/shared';
-  import type { Order, OrderStatus } from '@cocktails/shared';
+  import { HANDOFFS, HANDOFF_META, STATUS_META, orderProgress } from '@cocktails/shared';
+  import type { Handoff, Order, OrderStatus } from '@cocktails/shared';
 
   let {
     order,
@@ -27,7 +27,8 @@
     busy: boolean;
     expanded: boolean;
     ontoggle: () => void;
-    onact: (status: OrderStatus) => void;
+    /** `handoff` only applies when serving, and is optional — see HANDOFF_META. */
+    onact: (status: OrderStatus, handoff?: Handoff) => void;
     onbump: (bumped: boolean) => void;
     onprogress: (index: number, made: number) => void;
     ondelete: () => void;
@@ -38,6 +39,12 @@
   let bumped = $derived(order.bumpedAt != null);
   /** Only worth showing per-drink ticking when there's more than one drink. */
   let trackable = $derived(progress.total > 1);
+  /**
+   * The handoff choice only exists at the moment of serving. The collapsed row's
+   * one-tap "🍹 Ready" stays neutral; these say *how* it's reaching them, which
+   * changes the guest's notification wording.
+   */
+  let choosingHandoff = $derived(order.status === 'making');
 
   function ago(ts: number): string {
     const s = Math.max(0, Math.round((Date.now() - ts) / 1000));
@@ -61,7 +68,13 @@
       <span class="ord-head">
         {#if bumped}<span class="ord-flag" title="Bumped to the front">⤒</span>{/if}
         <span class="ord-who">{order.name}</span>
-        <span class="ord-meta">{meta.badge} · {ago(order.createdAt)}</span>
+        <span class="ord-meta">
+          {meta.badge} · {ago(order.createdAt)}{#if order.handoff}
+            <span class="ord-hand-flag" title="Guest was {HANDOFF_META[order.handoff].note}">
+              {HANDOFF_META[order.handoff].icon}
+            </span>
+          {/if}
+        </span>
       </span>
       <span class="ord-drinks">
         {#each order.items as item (item.name)}
@@ -123,6 +136,24 @@
               </span>
             </div>
           {/each}
+        </div>
+      {/if}
+
+      {#if choosingHandoff}
+        <div class="ord-hand">
+          <h5>Ready — and tell them how</h5>
+          <div class="ord-hand-btns">
+            {#each HANDOFFS as option (option)}
+              <button
+                type="button"
+                class="ord-go {HANDOFF_META[option].actionClass}"
+                disabled={busy}
+                onclick={() => onact('serving', option)}
+              >
+                {HANDOFF_META[option].label}
+              </button>
+            {/each}
+          </div>
         </div>
       {/if}
 

@@ -42,7 +42,10 @@ export const STATUS_META: Record<OrderStatus, StatusMeta> = {
     badge: 'MAKING',
     label: 'Making',
     next: 'serving',
-    nextLabel: '🍹 Serve',
+    // Deliberately neutral: this is the tap that notifies the guest, and not every
+    // drink is collected from the bar. Saying *how* it reaches them is the optional
+    // handoff choice on the expanded card — see HANDOFF_META.
+    nextLabel: '🍹 Ready',
     prev: 'pending',
     actionClass: 'serve',
   },
@@ -64,6 +67,33 @@ export const STATUS_META: Record<OrderStatus, StatusMeta> = {
     prev: 'serving',
     actionClass: '',
   },
+};
+
+/**
+ * How a served drink reaches the guest. Not every party works the same way: at
+ * some the bar calls you over, at others someone walks it to you — so the guest's
+ * "it's ready" notification must not assume collection.
+ *
+ * Null/absent means the bar didn't say, and the wording stays neutral.
+ */
+export type Handoff = 'collect' | 'deliver';
+
+export const HANDOFFS = ['collect', 'deliver'] as const;
+
+export function isHandoff(v: unknown): v is Handoff {
+  return typeof v === 'string' && (HANDOFFS as readonly string[]).includes(v);
+}
+
+/**
+ * Bar-facing presentation for each handoff. The guest-facing notification wording
+ * is the API's business (it owns all push copy) — this table is only the buttons.
+ */
+export const HANDOFF_META: Record<
+  Handoff,
+  { label: string; icon: string; note: string; actionClass: string }
+> = {
+  collect: { label: '🍹 At the bar', icon: '🍹', note: 'told to collect', actionClass: 'serve' },
+  deliver: { label: '🛎 Take it over', icon: '🛎', note: 'being delivered', actionClass: 'deliver' },
 };
 
 export interface OrderItem {
@@ -91,6 +121,11 @@ export interface Order {
    * sort ahead of everything else, most-recently-bumped first.
    */
   bumpedAt?: number | null;
+  /**
+   * How this drink is reaching the guest, once the bar has said. Null until then,
+   * and on every order placed before handoffs existed.
+   */
+  handoff?: Handoff | null;
 }
 
 /** Drinks poured vs ordered, for a progress readout on a multi-drink order. */

@@ -4,7 +4,8 @@
  */
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { resolveStaffPassword, resolveAllowedOrigin } from '../src/config.ts';
+import { PIN_LENGTH } from '@cocktails/shared';
+import { resolveStaffPassword, resolveStaffPin, resolveAllowedOrigin } from '../src/config.ts';
 
 describe('resolveStaffPassword', () => {
   test('production without STAFF_PASSWORD locks the account behind a random one', () => {
@@ -24,6 +25,23 @@ describe('resolveStaffPassword', () => {
 
   test('dev falls back to the convenience password', () => {
     assert.equal(resolveStaffPassword({}), 'cocktails');
+  });
+});
+
+describe('resolveStaffPin', () => {
+  test('uses STAFF_PIN when set, trimmed', () => {
+    assert.equal(resolveStaffPin({ NODE_ENV: 'production', STAFF_PIN: ' 424242 ' }), '424242');
+  });
+
+  test('production without a PIN disables the door rather than defaulting to one', () => {
+    // A default PIN in production would be a published credential. Empty means the
+    // endpoint refuses everything, and email + password remains the way in.
+    assert.equal(resolveStaffPin({ NODE_ENV: 'production' }), '');
+    assert.equal(resolveStaffPin({ NODE_ENV: 'production', STAFF_PIN: '   ' }), '');
+  });
+
+  test('dev falls back to a convenience PIN of the right length', () => {
+    assert.equal(resolveStaffPin({}).length, PIN_LENGTH);
   });
 });
 
