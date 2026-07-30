@@ -89,14 +89,21 @@ return 401 rather than 404 — not merely by a 200, because the _old_ build retu
 sign-in is off; email + password still works. Set it, then
 `launchctl kickstart -k gui/$(id -u)/com.meridew.cocktails`.
 
-### Litestream → R2 — the backup half of phase 4
+### 🧊 Litestream → R2 — parked, 30 Jul 2026
 
-**Blocks:** having backups at all. Litestream 0.5.15 is installed on the Mac and
-configured with nothing.
+**Dan's call: back burner.** Litestream 0.5.15 is installed on the Mac and configured
+with nothing, so **there are currently no backups of anything.**
 
-Needs an R2 bucket and an API token from the Cloudflare dashboard. The plan is
-explicit that an untested backup is not a backup, so this isn't done until a restore
-into a scratch path has been diffed against the live database.
+That is a fine trade _today_ — the database holds a seeded admin, one default event
+and no real data, so losing the disk would cost an afternoon of re-running
+migrations. It stops being fine at exactly the moment the wipe permission does:
+**the first real host account.** From then the data belongs to someone else, and a
+single SSD is the only copy of their evening.
+
+When it comes off the back burner: an R2 bucket and API token from the Cloudflare
+dashboard, then `litestream replicate` as a third LaunchAgent beside the app and the
+tunnel. Not done until a restore into a scratch path has been diffed against the
+live database — the plan is explicit that an untested backup is not a backup.
 
 ### Real email — Entra app registration
 
