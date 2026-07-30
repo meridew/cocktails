@@ -35,7 +35,14 @@ So:
 - Use PowerShell for genuinely Windows-specific work: cmdlets, the registry,
   `[Environment]`, services.
 - **Multi-line commit messages go through `git commit -F <file>`**, never `-m`.
-  This is the same bug wearing a different hat.
+  This was the same bug wearing a different hat; 7.6 passes multi-line arguments
+  correctly, but `-F` can't be broken by a shell at all, so keep using it.
+- **`bash` on PATH is not Git Bash.** It resolves to
+  `%LOCALAPPDATA%\Microsoft\WindowsApps\bash.exe`, the WSL launcher stub, which
+  silently drops the arguments you pass it — `bash -c '…' _ foo` reports `$# = 0`
+  and looks exactly like a quoting bug. Git Bash is
+  `C:\Program Files\Git\bin\bash.exe`. The Bash **tool** already uses the right
+  one; this only bites when invoking `bash` from PowerShell.
 
 ## The Mac mini host
 
