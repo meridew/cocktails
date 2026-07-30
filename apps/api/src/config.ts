@@ -5,10 +5,10 @@ import { randomBytes } from 'node:crypto';
  * a known/guessable value — so we lock the account behind a random password
  * until STAFF_PASSWORD is set. Dev uses a fixed convenience password (localhost).
  */
-function resolveStaffPassword(): string {
-  const p = process.env.STAFF_PASSWORD;
+export function resolveStaffPassword(env: NodeJS.ProcessEnv = process.env): string {
+  const p = env.STAFF_PASSWORD;
   if (p) return p;
-  if (process.env.NODE_ENV === 'production') return randomBytes(24).toString('hex');
+  if (env.NODE_ENV === 'production') return randomBytes(24).toString('hex');
   return 'cocktails';
 }
 
@@ -18,10 +18,15 @@ function resolveStaffPassword(): string {
  * the only cross-origin callers are the native app WebViews — we default to
  * those rather than a wide-open '*'.
  */
-function resolveAllowedOrigin(): string | string[] {
-  const raw = process.env.ALLOWED_ORIGIN;
-  if (raw) return raw.split(',').map((s) => s.trim()).filter(Boolean);
-  if (process.env.NODE_ENV === 'production') {
+export function resolveAllowedOrigin(env: NodeJS.ProcessEnv = process.env): string | string[] {
+  const raw = env.ALLOWED_ORIGIN;
+  if (raw) {
+    return raw
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+  }
+  if (env.NODE_ENV === 'production') {
     return ['capacitor://localhost', 'https://localhost'];
   }
   return '*'; // dev convenience (the Vite proxy is same-origin anyway)

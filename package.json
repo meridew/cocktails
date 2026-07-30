@@ -16,9 +16,14 @@
     "dev:web": "npm -w @cocktails/web run dev",
     "build:web": "npm -w @cocktails/web run build",
     "start:api": "npm -w @cocktails/api run start",
-    "check": "npm -w @cocktails/api run typecheck && npm -w @cocktails/web run check"
+    "check": "npm -w @cocktails/api run typecheck && npm -w @cocktails/web run check",
+    "test": "npm run test --workspaces --if-present",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "devDependencies": {
-    "concurrently": "^9.1.0"
+    "concurrently": "^9.1.0",
+    "prettier": "^3.9.6",
+    "prettier-plugin-svelte": "^4.1.1"
   }
 }

@@ -1,0 +1,216 @@
+/**
+ * The HTTP layer: routes, middleware, guards. Exported without a listener so
+ * tests can drive it in-process via `app.request(...)` — no port, no network.
+ * Process bootstrap (seeding + `serve`) lives in `server.ts`.
+ */
+import { Hono } from 'hono';
+import { cors } from 'hono/cors';
+import { bodyLimit } from 'hono/body-limit';
+import type { Context, MiddlewareHandler } from 'hono';
+import { isOrderStatus, LIMITS } from '@cocktails/shared';
+import type {
+  ClearWhich,
+  Order,
+  OrderItem,
+  SubscriberRole,
+  OrderCreatedResponse,
+  OrderListResponse,
+  OkResponse,
+  LoginResponse,
+  MeResponse,
+  Staff,
+} from '@cocktails/shared';
+import { config } from './config.ts';
+import {
+  clearOrders,
+  createOrder,
+  deleteOrder,
+  listOrders,
+  now,
+  orderDeviceId,
+  saveSubscription,
+  setOrderStatus,
+} from './db.ts';
+import { pushEnabled, pushToDevice, pushToRole, vapidPublicKey, type PushPayload } from './push.ts';
+import { login, logout, loginBlocked, noteLoginAttempt, sessionStaff } from './auth.ts';
+
+// ---- notification copy (the moments we push on) ----------------------------
+
+/** Guest "your drink" push for a status change — null for moments we skip. */
+function guestStatusPush(order: Order): PushPayload | null {
+  switch (order.status) {
+    case 'making':
+      return { title: '👩‍🍳 On it!', body: `${order.name}, your order is being made.`, tag: order.id };
+    case 'serving':
+      return { title: '🍹 INCOMING!', body: `${order.name}, come grab your drink!`, tag: order.id };
+    default:
+      return null; // pending/done: no push (done → "how was it?" comes later)
+  }
+}
+
+/** Bartender push when a new order lands. */
+function newOrderPush(order: Order): PushPayload {
+  const summary = order.items.map((i) => `${i.qty}× ${i.name}`).join(', ');
+  return { title: '🔔 New order', body: `${order.name}: ${summary}`, tag: order.id };
+}
+
+// ---- validation helpers (mirror the old PHP sanitising) --------------------
+
+/** Drop ASCII control chars, trim, and cap length. */
+function cleanStr(v: unknown, max: number = LIMITS.maxFieldLen): string {
+  if (typeof v !== 'string') return '';
+  let s = '';
+  for (const ch of v) {
+    const code = ch.codePointAt(0) ?? 0;
+    if (code < 0x20 || code === 0x7f) continue;
+    s += ch;
+  }
+  s = s.trim();
+  return s.length > max ? s.slice(0, max) : s;
+}
+
+function cleanItems(raw: unknown): OrderItem[] {
+  if (!Array.isArray(raw)) return [];
+  const out: OrderItem[] = [];
+  for (const it of raw) {
+    if (typeof it !== 'object' || it === null) continue;
+    const name = cleanStr((it as Record<string, unknown>).name);
+    if (!name) continue;
+    let qty = Number((it as Record<string, unknown>).qty ?? 1);
+    if (!Number.isFinite(qty) || qty < 1) qty = 1;
+    if (qty > LIMITS.maxQty) qty = LIMITS.maxQty;
+    out.push({ name, qty: Math.floor(qty) });
+    if (out.length >= LIMITS.maxItemsPerOrder) break;
+  }
+  return out;
+}
+
+// ---- app -------------------------------------------------------------------
+
+type AppEnv = { Variables: { staff: Staff } };
+export const app = new Hono<AppEnv>();
+
+app.use(
+  '/api/*',
+  cors({
+    origin: config.allowedOrigin,
+    allowMethods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowHeaders: ['Content-Type', 'Authorization'],
+    maxAge: 86400,
+  }),
+);
+
+// Cap request bodies on the public API (DoS guard) — every endpoint is small JSON.
+app.use(
+  '/api/*',
+  bodyLimit({
+    maxSize: 256 * 1024,
+    onError: (c) => c.json({ ok: false, error: 'payload too large' }, 413),
+  }),
+);
+
+/** Pull the bearer token from the Authorization header. */
+function bearer(c: Context<AppEnv>): string | undefined {
+  const h = c.req.header('authorization');
+  return h && /^bearer /i.test(h) ? h.slice(7) : undefined;
+}
+
+/** Staff-only guard (replaces the old shared PIN). */
+const requireStaff: MiddlewareHandler<AppEnv> = async (c, next) => {
+  const staff = sessionStaff(bearer(c));
+  if (!staff) return c.json({ ok: false, error: 'unauthorized' }, 401);
+  c.set('staff', staff);
+  await next();
+};
+
+app.get('/api/health', (c) => c.json({ ok: true, now: now() }));
+
+// ---- public: VAPID key so a client can subscribe to Web Push ----
+app.get('/api/push/key', (c) => c.json({ ok: true, enabled: pushEnabled(), key: vapidPublicKey() }));
+
+// ---- staff auth ----
+app.post('/api/auth/login', async (c) => {
+  const ip = c.req.header('cf-connecting-ip') ?? c.req.header('x-forwarded-for') ?? 'local';
+  if (loginBlocked(ip)) {
+    return c.json({ ok: false, error: 'too many attempts — try again later' }, 429);
+  }
+  const body = await c.req.json().catch(() => ({}) as Record<string, unknown>);
+  const email = cleanStr(body?.email, 120);
+  const password = typeof body?.password === 'string' ? body.password : '';
+  const result = login(email, password);
+  noteLoginAttempt(ip, !!result);
+  if (!result) return c.json({ ok: false, error: 'wrong email or password' }, 401);
+  return c.json({ ok: true, token: result.token, staff: result.staff } satisfies LoginResponse);
+});
+app.post('/api/auth/logout', requireStaff, (c) => {
+  logout(bearer(c));
+  return c.json({ ok: true } satisfies OkResponse);
+});
+app.get('/api/auth/me', requireStaff, (c) => {
+  return c.json({ ok: true, staff: c.get('staff') } satisfies MeResponse);
+});
+
+// ---- public: place an order ----
+app.post('/api/orders', async (c) => {
+  const body = await c.req.json().catch(() => ({}) as Record<string, unknown>);
+  const name = cleanStr(body?.name);
+  const note = cleanStr(body?.note);
+  const items = cleanItems(body?.items);
+  const deviceId = cleanStr(body?.deviceId, 80) || undefined;
+  if (!name || items.length === 0) {
+    return c.json({ ok: false, error: 'name and at least one item required' }, 422);
+  }
+  const order = createOrder({ name, items, note, deviceId });
+  void pushToRole('bartender', newOrderPush(order)); // fire-and-forget
+  return c.json({ ok: true, id: order.id, order } satisfies OrderCreatedResponse);
+});
+
+// ---- bartender: read the queue ----
+app.get('/api/orders', requireStaff, (c) => {
+  return c.json({ ok: true, orders: listOrders(), now: now() } satisfies OrderListResponse);
+});
+
+// ---- bartender: change status ----
+app.patch('/api/orders/:id', requireStaff, async (c) => {
+  const body = await c.req.json().catch(() => ({}) as Record<string, unknown>);
+  const status = body?.status;
+  if (!isOrderStatus(status)) return c.json({ ok: false, error: 'bad status' }, 422);
+  const updated = setOrderStatus(c.req.param('id'), status);
+  if (!updated) return c.json({ ok: false, error: 'not found' }, 404);
+  // Notify the guest's device on the moments that matter (making → serving).
+  const payload = guestStatusPush(updated);
+  if (payload) {
+    const dev = orderDeviceId(updated.id);
+    if (dev) void pushToDevice(dev, payload); // fire-and-forget
+  }
+  return c.json({ ok: true, order: updated });
+});
+
+// ---- bartender: delete one ----
+app.delete('/api/orders/:id', requireStaff, (c) => {
+  return c.json({ ok: deleteOrder(c.req.param('id')) });
+});
+
+// ---- bartender: bulk clear ----
+app.post('/api/orders/clear', requireStaff, async (c) => {
+  const body = await c.req.json().catch(() => ({}) as Record<string, unknown>);
+  const which: ClearWhich = body?.which === 'all' ? 'all' : 'done';
+  clearOrders(which);
+  return c.json({ ok: true } satisfies OkResponse);
+});
+
+// ---- public: register a push subscription ----
+app.post('/api/subscriptions', async (c) => {
+  const body = await c.req.json().catch(() => ({}) as Record<string, unknown>);
+  const deviceId = cleanStr(body?.deviceId, 80);
+  // Only authenticated staff may register a 'bartender' subscription — otherwise
+  // anyone could enroll and receive guests' order details via push. Else: guest.
+  const role: SubscriberRole =
+    body?.role === 'bartender' && sessionStaff(bearer(c)) ? 'bartender' : 'guest';
+  const sub = body?.subscription as { endpoint?: unknown; keys?: { auth?: unknown } } | undefined;
+  if (!deviceId || typeof sub?.endpoint !== 'string' || typeof sub?.keys?.auth !== 'string') {
+    return c.json({ ok: false, error: 'invalid subscription' }, 422);
+  }
+  saveSubscription(deviceId, role, sub as never);
+  return c.json({ ok: true });
+});

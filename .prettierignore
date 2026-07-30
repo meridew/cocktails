@@ -1,0 +1,20 @@
+node_modules
+dist
+dev-dist
+build
+package-lock.json
+# Generated native projects
+apps/web/android
+apps/web/ios
+# Generated icon assets
+apps/web/assets
+# neo.css is a VERBATIM copy of the root styles.css (the original hand-made design).
+# Reformatting would break the ability to diff the two, so leave it byte-identical.
+apps/web/src/neo.css
+# The legacy flat app at the repo root — a verbatim historical artifact, left as-is
+/index.html
+/app.js
+/styles.css
+/cocktails.json
+/config.js
+/favicon.svg
