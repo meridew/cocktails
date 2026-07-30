@@ -2,7 +2,11 @@
 
 > Context snapshot so a fresh session (started in **this** folder,
 > `C:\Users\danie\vscode-workspace\cocktails`) can continue seamlessly.
-> This and `OUTSTANDING.md` (parked decisions) are the only docs. The old planning documents —
+> **Active work:** [`PLATFORM-PLAN.md`](PLATFORM-PLAN.md) — hosts as accounts,
+> multi-tenancy, and restoring the cocktail generator. Point a goal at it. It also
+> records decisions this doc's §7 no longer reflects.
+>
+> This, that, and `OUTSTANDING.md` (parked decisions) are the only docs. The old planning documents —
 > the modernisation roadmap, the quality programme, the Cloudflare cutover, the app-readiness
 > design and the SvelteKit migration plan — all shipped and were deleted rather than left to rot;
 > they're in git history if the reasoning is ever wanted (`git log -- docs/`).
@@ -92,8 +96,8 @@ src/
   first line of the handler they protect, so the guard is visible in the file it
   guards.
 - **No SQLite migrations.** The schema is declared; a change means editing it and
-  running `npm run db:reset`. Put a forward-only runner back **before the first
-  party with real orders in it**.
+  running `npm run db:reset`. ⚠️ **That ends with PLATFORM-PLAN.md phase 0** — once
+  hosts have accounts the data is theirs, not ours. Don't wipe production.
 - **`neo.css` is still a verbatim port.** Keep it that way.
 
 Commands: `npm run dev` · `npm test` · `npm run check` · `npm run build` ·
@@ -238,8 +242,9 @@ in git history; the decisions that still bind are in §7 and `OUTSTANDING.md`.
 4. **Make-a-Drink + ingredient availability** — still needs a design discussion (see `OUTSTANDING.md`):
    the bartender marks what's in stock, which filters both the discovery engine and the menu. Its
    dataset is out of the tree now — `OUTSTANDING.md` has the one-line retrieval command.
-5. **Database migrations** — there are none, by design. Put a forward-only runner back **before the
-   first party with real orders in it**, or a schema change means wiping.
+5. **Everything above is superseded by [`PLATFORM-PLAN.md`](PLATFORM-PLAN.md)** —
+   hosts sign up, events become tenants, and the generator comes back. Phase 0
+   (migrations + a capability model) is self-contained and is the place to start.
 6. **Minor:** bump `actions/checkout`→v5 (Node-20 deprecation warning). Optional: OTA live-updates
    (Capgo) so store apps get UI changes without a review.
 
