@@ -38,6 +38,7 @@ import * as staffRevoke from '../src/routes/api/staff/[id]/revoke/+server';
 import * as subscriptions from '../src/routes/api/subscriptions/+server';
 import * as account from '../src/routes/api/account/[...all]/+server';
 import * as events from '../src/routes/api/events/+server';
+import * as inventory from '../src/routes/api/inventory/+server';
 import * as eventBar from '../src/routes/api/events/[id]/bar/+server';
 
 type Handlers = Record<string, unknown>;
@@ -66,6 +67,7 @@ export const ROUTES: Record<string, Handlers> = {
   '/api/staff/[id]/revoke': staffRevoke,
   '/api/subscriptions': subscriptions,
   '/api/events': events,
+  '/api/inventory': inventory,
   '/api/events/[id]/bar': eventBar,
   // Better Auth's catch-all. Listed last for readability; matching order is the
   // pass order in resolve(), not this one.

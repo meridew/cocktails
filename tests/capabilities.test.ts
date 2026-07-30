@@ -69,6 +69,9 @@ const GOVERNED: Record<string, Requirement> = {
   // Owned by a host *account*, not a bar session — `requireAccount`, not a
   // capability. The staff capability table has nothing to say about someone who
   // isn't behind a bar yet.
+  'GET /api/inventory': 'inventory:read',
+  'PUT /api/inventory': 'inventory:edit',
+
   'GET /api/events': 'account',
   'POST /api/events': 'account',
   'POST /api/events/[id]/bar': 'account',

@@ -16,4 +16,5 @@ export * from './staff';
 export * from './permissions';
 export * from './push';
 export * from './api';
+export * from './recipes';
 export * from './sanitise';
