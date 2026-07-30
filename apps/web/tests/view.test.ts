@@ -3,24 +3,24 @@
  *
  * The store reads storage once at import, so each case that needs a different
  * starting point seeds localStorage and then imports a fresh copy of the module.
- * (`$state` and `localStorage` come from tests/setup.ts.)
+ * (jsdom provides localStorage; runes are compiled for real.)
  */
-import { test, describe, beforeEach } from 'node:test';
+import { test, describe, beforeEach, vi } from 'vitest';
 import assert from 'node:assert/strict';
 import { ORDER_STATUSES } from '@cocktails/shared';
 import type { BarFilter } from '../src/lib/view.svelte.ts';
 
 const KEY = 'cocktail_view';
 
-/** Import a fresh instance of the store, so module-level `load()` re-runs. */
-let instance = 0;
+/**
+ * Import a fresh instance of the store, so module-level `load()` re-runs against
+ * whatever was just put in storage — that's the "next visit" this file is about.
+ */
 async function freshStore(stored?: unknown) {
   if (stored === undefined) localStorage.removeItem(KEY);
   else localStorage.setItem(KEY, typeof stored === 'string' ? stored : JSON.stringify(stored));
-  // A query string defeats the module cache without needing a loader hook.
-  return (await import(
-    `../src/lib/view.svelte.ts?v=${++instance}`
-  )) as typeof import('../src/lib/view.svelte.ts');
+  vi.resetModules();
+  return import('../src/lib/view.svelte.ts');
 }
 
 const readBack = () => JSON.parse(localStorage.getItem(KEY) ?? '{}') as Record<string, unknown>;

@@ -1,8 +1,8 @@
 /**
  * The basket rune store. Module-level singleton state, so every test clears it first.
- * (`$state` is provided by the shim in tests/setup.ts — see the note there.)
+ * (Runes are compiled for real here — see vitest.config.ts.)
  */
-import { test, describe, beforeEach } from 'node:test';
+import { test, describe, beforeEach } from 'vitest';
 import assert from 'node:assert/strict';
 import { LIMITS } from '@cocktails/shared';
 import { basket, addLine, setQty, clearBasket, basketCount } from '../src/lib/basket.svelte.ts';

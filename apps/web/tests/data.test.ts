@@ -2,7 +2,7 @@
  * The menu axes engine — the logic that decides what the bartender actually makes.
  * Pure functions, so these are the cheapest high-value tests in the repo.
  */
-import { test, describe } from 'node:test';
+import { test, describe } from 'vitest';
 import assert from 'node:assert/strict';
 import {
   DRINKS,
