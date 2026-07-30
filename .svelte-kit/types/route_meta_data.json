@@ -1,4 +1,6 @@
 {
-  "/": [],
-  "/api/health": ["src/routes/api/health/+server.ts"]
+	"/": [],
+	"/api/health": [
+		"src/routes/api/health/+server.ts"
+	]
 }

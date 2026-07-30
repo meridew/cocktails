@@ -9,7 +9,7 @@
  * Every function here is pure — deciding to send is the caller's job.
  */
 import type { Order } from '$lib/shared';
-import type { PushPayload } from '$lib/stores/push.svelte';
+import type { PushPayload } from './push';
 
 /**
  * The "it's ready" wording, which must not assume the guest is coming to fetch it.

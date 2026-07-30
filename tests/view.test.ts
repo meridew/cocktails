@@ -8,7 +8,7 @@
 import { test, describe, beforeEach, vi } from 'vitest';
 import assert from 'node:assert/strict';
 import { ORDER_STATUSES } from '$lib/shared';
-import type { BarFilter } from '$lib/view.svelte';
+import type { BarFilter } from '$lib/stores/view.svelte';
 
 const KEY = 'cocktail_view';
 
