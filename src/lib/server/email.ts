@@ -16,6 +16,7 @@
  * the end of December 2026, with removal announced for H2 2027 — building on it
  * would have had a five-month shelf life.
  */
+import { readFileSync } from 'node:fs';
 import { config } from './config';
 import { graphConfigured, graphSender } from './email.graph';
 
@@ -78,12 +79,28 @@ export function memorySender(): EmailSender & { sent: Email[] } {
  * rather than a sign-up that fails with nothing to show for it.
  */
 function pick(): EmailSender {
-  if (!graphConfigured(config.graph)) {
-    console.info('📧 email: no Graph credentials — messages go to the log (see OUTSTANDING.md)');
+  const { tenantId, clientId, keyFile, sender } = config.graph;
+
+  // Read here rather than in config.ts so importing config never touches the
+  // filesystem, and so a missing or unreadable key degrades to the log rather
+  // than throwing at import time — where it would take the whole server down
+  // for a feature nothing had used yet.
+  let keyPem = '';
+  if (keyFile) {
+    try {
+      keyPem = readFileSync(keyFile, 'utf8');
+    } catch {
+      console.warn(`📧 email: cannot read GRAPH_KEY_FILE (${keyFile}) — falling back to the log`);
+    }
+  }
+
+  const graph = { tenantId, clientId, keyPem, sender };
+  if (!graphConfigured(graph)) {
+    console.info('📧 email: Graph not configured — messages go to the log (see OUTSTANDING.md)');
     return loggingSender;
   }
-  console.info(`📧 email: sending via Microsoft Graph as ${config.graph.sender}`);
-  return graphSender(config.graph);
+  console.info(`📧 email: sending via Microsoft Graph as ${sender}`);
+  return graphSender(graph);
 }
 
 let sender: EmailSender | null = null;

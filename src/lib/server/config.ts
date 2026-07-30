@@ -113,7 +113,13 @@ export const config = {
   graph: {
     tenantId: (ENV.GRAPH_TENANT_ID ?? '').trim(),
     clientId: (ENV.GRAPH_CLIENT_ID ?? '').trim(),
-    clientSecret: (ENV.GRAPH_CLIENT_SECRET ?? '').trim(),
+    /**
+     * Path to a PEM holding the private key and its certificate. A path rather
+     * than the value itself because a PEM is multi-line, and because the key
+     * should live in a 600 file that nothing ever prints — only its public half
+     * is uploaded to Entra.
+     */
+    keyFile: (ENV.GRAPH_KEY_FILE ?? '').trim(),
     sender: (ENV.GRAPH_SENDER || 'bar@meridew.com').trim(),
   },
   /** SQLite file path. Relative to the app's working directory. */

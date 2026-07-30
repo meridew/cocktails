@@ -14,19 +14,69 @@
  * anybody in the tenant. The Application Access Policy scoping it to one mailbox is
  * not optional; §8.2, and don't skip it.
  */
+import { X509Certificate, createPrivateKey, createSign, randomUUID } from 'node:crypto';
 import type { Email, EmailSender } from './email';
 
 export interface GraphConfig {
   tenantId: string;
   clientId: string;
-  clientSecret: string;
+  /**
+   * PEM holding **both** the private key and its certificate.
+   *
+   * A certificate rather than a client secret, for three reasons. Only the
+   * *public* half is ever uploaded to Entra, so no secret passes through a
+   * clipboard or a chat window. Client secrets are hard-capped at 24 months and
+   * `PLATFORM-PLAN.md` §7 lists that expiry as an accepted risk with nothing to
+   * remind us — a certificate's lifetime is ours to choose. And Microsoft
+   * recommends certificates over secrets for app-only auth.
+   */
+  keyPem: string;
   /** The mailbox we send as — the one the access policy pins us to. */
   sender: string;
 }
 
 /** True when every piece is present. Missing any means fall back to logging. */
 export const graphConfigured = (c: GraphConfig): boolean =>
-  Boolean(c.tenantId && c.clientId && c.clientSecret && c.sender);
+  Boolean(c.tenantId && c.clientId && c.keyPem && c.sender);
+
+const b64url = (b: Buffer | string): string =>
+  Buffer.from(b).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+
+/**
+ * A JWT proving we hold the private key behind the certificate Entra knows.
+ *
+ * This replaces `client_secret` in the token request. `x5t` is the base64url of
+ * the certificate's **SHA-1 fingerprint bytes** — not the hex string — and getting
+ * that wrong produces AADSTS700027 ("the key was not found"), which reads like the
+ * upload failed rather than like an encoding mistake.
+ *
+ * Entra requires RS256.
+ */
+export function clientAssertion(config: GraphConfig, now = Date.now()): string {
+  const cert = new X509Certificate(config.keyPem);
+  const thumbprint = Buffer.from(cert.fingerprint.replace(/:/g, ''), 'hex');
+
+  const header = { alg: 'RS256', typ: 'JWT', x5t: b64url(thumbprint) };
+  const seconds = Math.floor(now / 1000);
+  const payload = {
+    aud: `https://login.microsoftonline.com/${config.tenantId}/oauth2/v2.0/token`,
+    iss: config.clientId,
+    sub: config.clientId,
+    // Unique per assertion: Entra rejects a replayed jti, which is the point.
+    jti: randomUUID(),
+    // A minute of leeway backwards for clock skew; five minutes forward is ample
+    // for one token request and keeps a stolen assertion nearly worthless.
+    nbf: seconds - 60,
+    exp: seconds + 300,
+  };
+
+  const signingInput = `${b64url(JSON.stringify(header))}.${b64url(JSON.stringify(payload))}`;
+  const signature = createSign('RSA-SHA256')
+    .update(signingInput)
+    .sign(createPrivateKey(config.keyPem));
+
+  return `${signingInput}.${b64url(signature)}`;
+}
 
 interface CachedToken {
   value: string;
@@ -56,17 +106,18 @@ export function graphSender(config: GraphConfig, fetchImpl: typeof fetch = fetch
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: new URLSearchParams({
           client_id: config.clientId,
-          client_secret: config.clientSecret,
           scope: 'https://graph.microsoft.com/.default',
           grant_type: 'client_credentials',
+          client_assertion_type: 'urn:ietf:params:oauth:client-assertion-type:jwt-bearer',
+          client_assertion: clientAssertion(config),
         }),
       },
     );
 
     if (!res.ok) {
       // Deliberately not including the body: it can echo the client_id, and this
-      // string ends up in logs. The status is enough to tell 401 (wrong secret,
-      // or expired — they last 24 months) from 400 (wrong tenant).
+      // string ends up in logs. The status is enough to tell 401 (the certificate
+      // isn't the one registered) from 400 (wrong tenant).
       throw new Error(`Graph token request failed (HTTP ${res.status})`);
     }
 

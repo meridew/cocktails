@@ -10,14 +10,27 @@
  */
 import { test, describe, beforeEach } from 'vitest';
 import assert from 'node:assert/strict';
-import { graphConfigured, graphSender, type GraphConfig } from '$lib/server/email.graph';
+import { readFileSync } from 'node:fs';
+import { X509Certificate, createVerify } from 'node:crypto';
+import {
+  clientAssertion,
+  graphConfigured,
+  graphSender,
+  type GraphConfig,
+} from '$lib/server/email.graph';
+
+/** A throwaway keypair that authenticates nothing — see tests/fixtures/README.md. */
+const KEY_PEM = readFileSync('tests/fixtures/graph-test-key.pem', 'utf8');
 
 const CONFIG: GraphConfig = {
   tenantId: 'tenant-uuid',
   clientId: 'client-uuid',
-  clientSecret: 'not-a-real-secret',
+  keyPem: KEY_PEM,
   sender: 'bar@meridew.com',
 };
+
+const decode = (part: string) =>
+  JSON.parse(Buffer.from(part.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString());
 
 const MESSAGE = { to: 'priya@example.com', subject: 'Confirm your email', text: 'Follow this.' };
 
@@ -49,7 +62,7 @@ const acceptedNoBody = () => new Response(null, { status: 202 });
 describe('configuration', () => {
   test('every field is required', () => {
     assert.equal(graphConfigured(CONFIG), true);
-    for (const key of ['tenantId', 'clientId', 'clientSecret', 'sender'] as const) {
+    for (const key of ['tenantId', 'clientId', 'keyPem', 'sender'] as const) {
       assert.equal(graphConfigured({ ...CONFIG, [key]: '' }), false, `${key} should be required`);
     }
   });
@@ -73,6 +86,14 @@ describe('sending', () => {
     assert.equal(form.get('grant_type'), 'client_credentials');
     assert.equal(form.get('scope'), 'https://graph.microsoft.com/.default');
     assert.equal(form.get('client_id'), CONFIG.clientId);
+
+    // A certificate, not a secret: nothing password-shaped is ever sent.
+    assert.equal(form.get('client_secret'), null, 'there should be no secret to leak');
+    assert.equal(
+      form.get('client_assertion_type'),
+      'urn:ietf:params:oauth:client-assertion-type:jwt-bearer',
+    );
+    assert.ok(form.get('client_assertion'), 'the assertion is the credential');
   });
 
   test('posts the message as the configured mailbox', async () => {
@@ -118,6 +139,55 @@ describe('sending', () => {
   });
 });
 
+describe('the client assertion', () => {
+  test('is genuinely signed by the private key', () => {
+    // The assertion is the whole credential. Asserting it merely *exists* would
+    // pass just as happily on an unsigned string, and the first sign it was wrong
+    // would be AADSTS on a live tenant.
+    const [h, p, sig] = clientAssertion(CONFIG).split('.');
+    const ok = createVerify('RSA-SHA256')
+      .update(`${h}.${p}`)
+      .verify(new X509Certificate(KEY_PEM).publicKey, Buffer.from(sig!, 'base64url'));
+    assert.equal(ok, true, 'the signature does not verify against the certificate');
+  });
+
+  test('names RS256 and the certificate Entra will look up', () => {
+    const header = decode(clientAssertion(CONFIG).split('.')[0]!);
+    assert.equal(header.alg, 'RS256', 'Entra requires RS256');
+    assert.equal(header.typ, 'JWT');
+    // x5t is base64url of the SHA-1 fingerprint BYTES, not the hex string. Getting
+    // that wrong yields AADSTS700027 — "the key was not found" — which reads like
+    // the upload failed rather than like an encoding mistake.
+    const expected = Buffer.from(
+      new X509Certificate(KEY_PEM).fingerprint.replace(/:/g, ''),
+      'hex',
+    ).toString('base64url');
+    assert.equal(header.x5t, expected);
+  });
+
+  test('is addressed to the tenant’s token endpoint, from the app', () => {
+    const body = decode(clientAssertion(CONFIG).split('.')[1]!);
+    assert.equal(body.aud, 'https://login.microsoftonline.com/tenant-uuid/oauth2/v2.0/token');
+    assert.equal(body.iss, CONFIG.clientId);
+    assert.equal(body.sub, CONFIG.clientId);
+  });
+
+  test('is short-lived, with leeway backwards for clock skew', () => {
+    const now = 1_700_000_000_000;
+    const body = decode(clientAssertion(CONFIG, now).split('.')[1]!);
+    const seconds = Math.floor(now / 1000);
+    assert.equal(body.nbf, seconds - 60);
+    assert.equal(body.exp, seconds + 300);
+    assert.ok(body.exp - body.nbf <= 360, 'a stolen assertion should be nearly worthless');
+  });
+
+  test('never repeats its jti, so it cannot be replayed', () => {
+    const a = decode(clientAssertion(CONFIG).split('.')[1]!);
+    const b = decode(clientAssertion(CONFIG).split('.')[1]!);
+    assert.notEqual(a.jti, b.jti);
+  });
+});
+
 describe('the token is cached', () => {
   test('two messages cost one token request', async () => {
     const f = fakeFetch([tokenOk(), acceptedNoBody(), acceptedNoBody()]);
@@ -152,17 +222,18 @@ describe('failures say something useful', () => {
   });
 
   test('and does not echo the credentials into the log', async () => {
-    // This message ends up in the server log, where the client id and secret must
-    // not. Client secrets last 24 months and nothing reminds us to rotate them, so
-    // a leaked one is a long-lived problem.
+    // This message ends up in the server log, where the client id must not. The
+    // private key never leaves this process at all — only the certificate's public
+    // half was ever uploaded — but the error path should still say nothing useful
+    // to anyone reading logs.
     const f = fakeFetch([new Response(`{"client_id":"${CONFIG.clientId}"}`, { status: 400 })]);
     await graphSender(CONFIG, f.fetch)
       .send(MESSAGE)
       .then(
         () => assert.fail('should have rejected'),
         (err: Error) => {
-          assert.ok(!err.message.includes(CONFIG.clientSecret));
           assert.ok(!err.message.includes(CONFIG.clientId));
+          assert.ok(!err.message.includes('PRIVATE KEY'));
         },
       );
   });
