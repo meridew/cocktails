@@ -1,7 +1,7 @@
 /**
  * Staff auth: password hashing, bearer sessions, and the login throttle.
  *
- * node:test runs each file in its own process, and tests/setup.ts points DB_PATH
+ * Vitest isolates each file's module registry, and vite.config.ts points DB_PATH
  * at ':memory:', so this file gets a private database. State persists between
  * tests within the file, so each test uses its own email / IP.
  */

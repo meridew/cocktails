@@ -7,14 +7,25 @@ Things deliberately deferred — revisit before they block a phase.
 The legacy voice/natural-language "Ask the bar" finder relied on a now-dead
 MCP / external service. **Not being ported** to the rebuild.
 
-- The legacy flat app (`app.js`, still live until Phase 1 cutover) still contains
-  it. It can be stripped from the live app on request; otherwise it disappears
-  naturally when we cut over to the Svelte app.
+It lived only in the legacy flat app, which has been deleted along with GitHub
+Pages. Nothing to strip.
 
 ## Make-a-Drink + live ingredient availability — 🤔 NEEDS DESIGN
 
-The "Make a Drink" discovery engine (`cocktails.json`, ~4.5k lines) is **not yet
-ported** because it should be driven by **what's actually in stock**.
+The "Make a Drink" discovery engine is **not yet ported**, because it should be
+driven by **what's actually in stock** rather than by a static tree.
+
+> ⚠️ **Its dataset is no longer in the working tree.** `cocktails.json` (~4.5k
+> lines: every cocktail as a base spirit plus an unordered ingredient set, with the
+> category order the decision tree walks) went with the legacy app. It is not lost —
+> retrieve it with:
+>
+> ```bash
+> git show 5a41824:cocktails.json > cocktails.json
+> ```
+>
+> Deliberately not carried in the tree: nothing reads it today, and a 100 KB file
+> that only a future feature wants is exactly the weight this repo just shed.
 
 Desired behaviour:
 

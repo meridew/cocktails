@@ -120,10 +120,11 @@ export const setItemProgress = (id: string, index: number, made: number) =>
 
 // ---- staff auth ----
 
-export const login = (email: string, password: string) =>
-  req<LoginResponse>('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) });
-
-/** The everyday admin door: same session as `login`, just a shorter credential. */
+/**
+ * The admin door. There is deliberately no email/password client: the gate is
+ * PIN-only, and `POST /api/auth/login` exists purely as break-glass if the PIN
+ * throttle is ever jammed — reachable with curl, and covered by the route tests.
+ */
 export const loginWithPin = (pin: string) =>
   req<LoginResponse>('/auth/pin', { method: 'POST', body: JSON.stringify({ pin }) });
 

@@ -2,10 +2,9 @@
 
 > Context snapshot so a fresh session (started in **this** folder,
 > `C:\Users\danie\vscode-workspace\cocktails`) can continue seamlessly.
-> Companion docs: **`PLAN.md`** (roadmap/phases), **`OUTSTANDING.md`** (parked decisions),
-> **`APP-READINESS.md`** (design + roadmap for iOS/Android), **`MOBILE.md`** / **`CUTOVER.md`**
-> (build + public-HTTPS runbooks), and **`QUALITY-PLAN.md`** (the tests/hardening/refactor plan —
-> **all phases complete**; its standards and guardrails still apply to new work).
+> This is the only doc that describes the **current** stack. `OUTSTANDING.md` holds parked
+> decisions. Everything in **`docs/archive/`** is finished work kept for its reasoning — several
+> were written against the old two-app monorepo, so following their steps would be wrong.
 
 ## TL;DR
 
@@ -14,14 +13,15 @@ NAS through a **Cloudflare Tunnel** (no open router ports), with **push-to-deplo
 original **neo-brutalist design is intact** (`neo.css` is a verbatim port — keep it that way).
 Guests order anonymously; the host unlocks the bar with a **6-digit PIN**, and helpers get in with
 a short-lived **join code** the host reads out (asking for approval remains as the fallback).
-**Web Push works**, opted into once up front. The PWA is
-installable from the site, and the **Android** Capacitor project exists (iOS needs a Mac).
+**Web Push works**, opted into once up front, and the PWA is installable from the site.
 
-Recently completed a full **quality pass** (`QUALITY-PLAN.md`): a four-angle audit, then
-**129 tests** (`node:test`, zero new deps) where there were none, security hardening of the
-now-public API, a shared validation module, ~10 correctness fixes, the push subsystem and service
-worker rewritten, and a store/component refactor. `npm run check` is at **0 errors, 0 warnings** and
-CI runs format → typecheck → tests → build as the gate.
+It is **one SvelteKit app** — `adapter-node` serves the pages and `/api` from a single Node
+process, in a single container. **237 tests** (Vitest), `npm run check` at **0 errors**, and CI
+runs format → typecheck → tests → build as the gate.
+
+The **native app has not been started**: the Capacitor project and packages were removed during the
+migration because nothing imported them and there was no project left to build. See
+`docs/archive/MOBILE.md` for what restarting involves.
 
 ⚠️ **The runner drops out after a NAS reboot** — it authenticates with a short-lived _registration_
 token, so once that expires the container can't re-register and silently vanishes from GitHub
@@ -33,38 +33,40 @@ registration tokens and survive reboots.
 
 ## 1. Where things live
 
-- **Repo:** `github.com/meridew/cocktails`. Working branch **`modernise`** (pushed; well ahead of
-  `main`, which is untouched).
-- **Legacy flat app** (still at repo ROOT: `index.html`, `app.js`, `styles.css`, `cocktails.json`,
-  `config.js`, `nas/`, `favicon.svg`, `CNAME`) — **no longer the live site**; the tunnel serves the
-  Svelte app now, so this is redundant and can be retired whenever you like.
-  `apps/web/src/neo.css` is a **verbatim copy** of root `styles.css` — keep it byte-identical so the
-  two stay diffable (it's excluded from Prettier for exactly this reason).
-- **New monorepo** (the rebuild) under `apps/`, `packages/`, `infra/`, `.github/`, `docs/`.
+- **Repo:** `github.com/meridew/cocktails`. Working branch **`modernise`** (well ahead of `main`).
+- **One SvelteKit app**, no workspaces. Everything is under `src/`, `tests/`, `infra/`,
+  `.github/`, `docs/`, `scripts/`, `static/`.
 
 ```
-apps/web   Svelte 5 (runes) + Vite + vite-plugin-pwa, bespoke neo-brutalist CSS (neo.css),
-           canvas-confetti, self-hosted @fontsource fonts. Talks to /api (Vite proxy / Caddy).
-           Also the Capacitor host: capacitor.config.ts + android/ (see MOBILE.md).
-           src/lib/*.svelte.ts = rune stores (basket, favourites, session, push) — all
-           persisted state goes through lib/storage.ts; only lib/api.ts calls fetch.
-           src/lib/*.svelte  = components (they render state, they don't own it).
-           tests/            = node:test suites (data engine, basket).
-apps/api   Hono on Node 24 + built-in node:sqlite. Import direction is one-way:
-           config → db → {auth, push} → app (routes) → server (bootstrap only).
-           app.ts is exported without a listener so tests drive it via app.request().
-           db.ts exposes createDb(path) + delegates, so ':memory:' works in tests.
-           tests/ = auth, db (incl. migrations), routes, sanitise, ratelimit, push, config.
-apps/caddy Dockerfile that bakes infra/Caddyfile into a caddy image (no host bind-mount under DooD).
-packages/shared  One module per concern behind a barrel index: limits, orders
-           (Order/OrderStatus/STATUS_META), push, api envelopes, and sanitise
-           (cleanStr/cleanQty/cleanItems — used by BOTH sides, never duplicated).
-infra/     docker-compose.yml, docker-compose.build.yml (build-locally override), Caddyfile
-           (+ security headers), .env.example, runner/ (self-hosted Actions runner compose).
-.github/workflows/  deploy.yml = legacy GitHub Pages (live).  nas-deploy.yml = the new CI/CD.
-docs/      PLAN.md, OUTSTANDING.md, APP-READINESS.md, MOBILE.md, CUTOVER.md,
-           QUALITY-PLAN.md (the tests/hardening/refactor plan — all phases done), handoff.md (this).
+src/routes/         / (menu) · /bar · api/**/+server.ts — 25 endpoints, params as [id] dirs
+src/hooks.server.ts CORS, body cap, security headers, request logging, and the boot-time
+                    admin seed (init). Auth is NOT here — see $lib/server/guards.
+src/lib/server/     db · auth · notify · push · ratelimit · guards · http · config.
+                    Import direction is one-way: config → db → {auth, push} → routes.
+                    db.ts exposes createDb(path) + delegates, so ':memory:' works in tests.
+                    Compiler-enforced: importing this from client code fails the build.
+src/lib/components/ they render state, they don't own it
+src/lib/stores/     rune stores (basket, favourites, session, push, view, staffRequest).
+                    All persisted state goes through lib/storage.ts; only lib/api.ts fetches.
+src/lib/shared/     one module per concern behind a barrel: limits, orders
+                    (Order/OrderStatus/STATUS_META), push, api envelopes, staff, and
+                    sanitise (cleanStr/cleanQty/cleanItems — used by BOTH sides).
+src/lib/neo.css     VERBATIM copy of the original hand-made design. Keep it byte-identical;
+                    it's in .prettierignore for exactly that reason. Additions go in app.css.
+tests/              Vitest. tests/app.ts is a test-only dispatcher (path+method → handler)
+                    that runs requests through hooks.server.ts; routes.test.ts asserts every
+                    +server.ts appears in its table, so a new endpoint can't go untested.
+infra/              docker-compose.yml (app + cloudflared), docker-compose.build.yml,
+                    runner/ (self-hosted Actions runner compose).
+Dockerfile          copies a prebuilt build/ in — it deliberately compiles nothing.
+scripts/db.js       db:reset and db:seed busy|helper
+docs/archive/       completed plans. None of them describe the current stack.
 ```
+
+There is no legacy app any more: the flat GitHub Pages app at the repo root, the
+`nas/` PHP backend, the Pages workflow and Pages itself are all gone. The
+`cocktails.json` dataset the parked Make-a-Drink feature wants went with it — it's
+in git history, see `OUTSTANDING.md` for the retrieval command.
 
 ## 2. The stack
 
@@ -91,7 +93,7 @@ src/
   guards.
 - **No SQLite migrations.** The schema is declared; a change means editing it and
   running `npm run db:reset`. Put a forward-only runner back **before the first
-  party with real orders in it** — see `SVELTEKIT-PLAN.md` §5.
+  party with real orders in it** — see `docs/archive/SVELTEKIT-PLAN.md` §5.
 - **`neo.css` is still a verbatim port.** Keep it that way.
 
 Commands: `npm run dev` · `npm test` · `npm run check` · `npm run build` ·
@@ -112,8 +114,11 @@ Commands: `npm run dev` · `npm test` · `npm run check` · `npm run build` ·
 - **Deployed stack:** `/volume1/docker/cocktails/` (source extracted there + `infra/.env`, written by
   CI from GitHub secrets: `PUBLIC_PORT`, `STAFF_EMAIL`/`STAFF_PASSWORD`/`STAFF_PIN`, `VAPID_*`,
   `TUNNEL_TOKEN`).
-  Containers: `cocktails-{app,cloudflared}-1` (`restart: unless-stopped`, api has a
-  healthcheck, caddy waits for it). SQLite in volume `cocktails_cocktails-data`.
+  Containers: `cocktails-{app,cloudflared}-1` (`restart: unless-stopped`; the app has a
+  healthcheck and cloudflared waits for it). SQLite in volume `cocktails_cocktails-data`.
+  ⚠️ The app listens on **:80** and carries a `caddy` network alias — purely so the tunnel's
+  ingress rule (`http://caddy:80`, held in the Cloudflare dashboard, not this repo) keeps working.
+  Repoint the dashboard at `http://app:3000` and both can go.
 - **Live at:** **https://cock.meridew.com** (public, via the tunnel) and **http://192.168.1.1:8088**
   on the LAN. Bartender: 🍸 → tap the PIN.
   ⚠️ The LAN `:8088` port bypasses Cloudflare, so the API can't trust `x-forwarded-for` from it —
@@ -156,10 +161,13 @@ Commands: `npm run dev` · `npm test` · `npm run check` · `npm run build` ·
   set the secret and redeploy.
 - Workflow **`.github/workflows/nas-deploy.yml`**: on push to `modernise`/`main` (paths-ignore docs/*.md):
   1. **`check`** job on `ubuntu-latest` (free cloud): `npm ci` → `format:check` → `npm run check`
-     (api typecheck + svelte-check) → `npm test` → `npm -w @cocktails/web run build`. **Gates prod.**
-  2. **`deploy`** job on `[self-hosted, nas]`: checkout → write `infra/.env` from the secret →
+     → `npm test` → `npm run build`, then uploads `build/` as an artifact. **Gates prod.**
+  2. **`deploy`** job on `[self-hosted, nas]`: checkout → download the `build/` artifact → write
+     `infra/.env` from the secrets →
      `docker-compose -f docker-compose.yml -f docker-compose.build.yml up -d --build` → scoped image prune.
-  - Reproducible `npm ci` + dep-layer-cached Dockerfiles → deploys are ~**37s**.
+  - The NAS **compiles nothing** — the Dockerfile copies the prebuilt `build/` in. It shares a
+    4-core box with two VMs, SQL Server and Plex, and BuildKit was being OOM-killed mid-compile;
+    that is also why `DOCKER_BUILDKIT=0` is set. Deploys land in ~**110s**.
 - **Watch a run:** `gh run list -R meridew/cocktails -b modernise -L1 --json databaseId --jq '.[0].databaseId'`
   then `gh run watch <id> -R meridew/cocktails --exit-status --interval 6`.
 - Deploys are **non-destructive on failure** (compose only recreates on a successful build).
@@ -168,38 +176,32 @@ Commands: `npm run dev` · `npm test` · `npm run check` · `npm run build` ·
 
 ```
 npm install
-npm run dev          # concurrently runs api (:8787) + web (:5180, proxies /api → api)
-# or separately: npm run dev:api  /  npm run dev:web
-npm run check        # api typecheck + web svelte-check
-npm test             # node:test suites in both workspaces (zero extra deps)
-npm run format       # Prettier (format:check is what CI runs)
-
+npm run dev            # one server: the app AND /api, on :5173 (honours PORT)
+npm run check          # svelte-check + typecheck
+npm test               # Vitest — 237 tests
+npm run preview        # build, then run the real production artifact
+npm run db:reset       # empty the database
+npm run db:seed busy   # a queue mid-service ('helper' = a pending request)
+npm run format         # Prettier (format:check is what CI runs)
 ```
 
-> **🎛️ Dev hub — the central place to test:** open **http://localhost:5180/dev.html**. Live API/push
-> status badges + links to the app, bartender (`/?bartender`), order sheet (`/?order`), the local API
-> endpoints, and the live NAS. Start the Claude preview with the **`cocktails`** launch config (runs the
-> full stack on :5180). Web uses a **dedicated :5180** (not Vite's default :5173) so it never clashes
-> with other projects (e.g. the old `dead-vector` session that squatted :5173). The API dev runner
-> (`apps/api/dev.mjs`) pins :8787 even when the preview injects its own `PORT`.
+There is no dev hub page and no proxy any more — one origin serves everything, so
+`http://localhost:5173/bar` is the bar and `/api/health` is the API. `npm run preview` runs the
+exact artifact the container runs, which is where to catch anything that only breaks in the build.
 
-## 6. Status by phase (see PLAN.md)
+`.env` (gitignored) holds `STAFF_PIN`, the `VAPID_*` pair and optionally
+`STAFF_EMAIL`/`STAFF_PASSWORD`. Note `config.ts` reads `.env` via `$env/dynamic/private` **merged
+under** `process.env` — plain `process.env` is not populated for server modules under `vite dev`.
 
-- ✅ **Phase 0** — full rebuild, feature-parity core (menu/configurator/basket/order/bartender, favourites, surprise, celebrate). Verified.
-- ✅ **Phase 1** — live on the NAS behind Caddy (LAN). SQLite persisted, auto-restart.
-- ✅ **Phase 2** — self-hosted-runner CI/CD; `git push` → ~37s auto-deploy.
-- ✅ **Visual restoration** — original neo-brutalist design ported verbatim (`neo.css`) + components re-marked to original classes.
-- ✅ **Code review** — multi-agent review (33 confirmed findings). **Batch 1** (DX/DRY/robustness) and
-  **Batch 2** (a11y: focus-trap `dialog` action, alerts, touch targets, dead-nav fix) both shipped.
-- ✅ **Phase 3 (auth + push)** — staff email/password sign-in (scrypt + revocable bearer sessions)
-  replaced the shared PIN; Web Push live end-to-end (server sender + client subscribe + service worker).
-- ✅ **Cutover** — `https://cock.meridew.com` public via Cloudflare Tunnel, no inbound ports.
-- ✅ **Phase 5 groundwork** — Capacitor scaffolded, Android project generated, icon set from one SVG,
-  PWA installable from the site. iOS pending a Mac.
-- ✅ **Quality pass** (`QUALITY-PLAN.md`, all 9 phases) — 129 tests where there were none; security
-  hardening (rate limits, SSRF allow-list, trusted client IP, an auth-bypass fix, security headers);
-  observability (request logging + error handler, which did not exist); shared validation; ~10
-  correctness fixes; push subsystem and service worker rewritten; store/component refactor.
+## 6. How it got here
+
+Every phase of `docs/archive/PLAN.md` and `docs/archive/QUALITY-PLAN.md` shipped: the rebuild, the NAS
+deployment, self-hosted CI/CD, the verbatim design restoration, staff auth and Web Push, the public
+cutover, and a nine-phase quality pass (tests where there were none, security hardening, a shared
+validation module, ~10 correctness fixes, push and service worker rewritten).
+
+Then the whole thing collapsed into one SvelteKit app — see `docs/archive/SVELTEKIT-PLAN.md`, whose
+§12 records what the "no users" assumption bought and when each part needs undoing.
 
 ## 7. What's next (pick up here)
 
@@ -208,19 +210,20 @@ npm run format       # Prettier (format:check is what CI runs)
 
 **In rough priority order:**
 
-1. **Android build** — install the Android SDK via Android Studio's SDK Manager (Studio itself is
-   installed but the SDK is missing, which is why `cap:android` hits a "Select SDKs" dialog), then
-   `cd apps/web && npm run cap:android`. See `MOBILE.md`.
+1. **Native app** — not started, and the Capacitor scaffolding was removed. Restarting means
+   reinstalling `@capacitor/{core,cli,android}`, adding `@sveltejs/adapter-static` behind an env
+   switch in `svelte.config.js`, and pointing `VITE_API_BASE` at the public origin. Also needs the
+   Android SDK (Studio is installed, the SDK isn't). See `docs/archive/MOBILE.md`.
 2. **iOS** — needs macOS (or a cloud-Mac CI) plus the Apple Developer Program; `cap add ios` can't run
    on Windows. The iPhone **PWA** already works today.
 3. **Native push (APNs/FCM)** — the only notification path that works inside an iOS WebView. The
    server's subscription model is already transport-aware (`transport`/`platform`), so this is a new
    branch in `push.ts` plus client registration.
 4. **Make-a-Drink + ingredient availability** — still needs a design discussion (see `OUTSTANDING.md`):
-   the bartender marks what's in stock, which filters both the discovery engine (`cocktails.json`) and
-   the menu.
-5. **Retire the legacy flat app** at the repo root and optionally make the repo private — the tunnel
-   owns the domain now, so GitHub Pages is redundant.
+   the bartender marks what's in stock, which filters both the discovery engine and the menu. Its
+   dataset is out of the tree now — `OUTSTANDING.md` has the one-line retrieval command.
+5. **Database migrations** — there are none, by design. Put a forward-only runner back **before the
+   first party with real orders in it**, or a schema change means wiping.
 6. **Minor:** bump `actions/checkout`→v5 (Node-20 deprecation warning). Optional: OTA live-updates
    (Capgo) so store apps get UI changes without a review.
 
@@ -230,10 +233,3 @@ npm run format       # Prettier (format:check is what CI runs)
 - A LAN networking incident earlier in the session (devices couldn't get DHCP/DNS after a router reboot) was
   diagnosed as **name-resolution failing on the AD domain controller** (the router/DHCP-off-by-design were
   fine). Unrelated to the app; the user parked it.
-
-## 9. Recent commit trail on `modernise` (newest first, approx)
-
-review batch 2 (a11y) · review batch 1 (DX/DRY/robustness) · faithful neo-brutalist design ·
-visual restoration (fonts+confetti) · device-id non-secure-context fix · CI self-hosted runner +
-workflow · Caddyfile baked into image · first NAS bring-up · Phase 0 web app · Phase 0-2 backbone ·
-docs (PLAN/OUTSTANDING).

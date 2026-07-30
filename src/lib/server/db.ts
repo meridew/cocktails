@@ -267,7 +267,6 @@ export function createDb(dbPath: string) {
     `SELECT * FROM staff
       ORDER BY (status = 'pending') DESC, created_at DESC, rowid DESC`,
   );
-  const stCountPending = db.prepare(`SELECT COUNT(*) AS n FROM staff WHERE status = 'pending'`);
   const stUpdateStaffPw = db.prepare(`UPDATE staff SET password_hash = ? WHERE id = ?`);
   const stSetStaffStatus = db.prepare(
     `UPDATE staff SET status = ?, approved_by = COALESCE(?, approved_by) WHERE id = ?`,
@@ -479,10 +478,6 @@ export function createDb(dbPath: string) {
       return stListStaff.all() as unknown as StaffRow[];
     },
 
-    countPendingStaff(): number {
-      return (stCountPending.get() as { n: number }).n;
-    },
-
     createStaff(s: {
       id: string;
       displayName: string;
@@ -632,7 +627,6 @@ export const pendingStaffForDevice: Db['pendingStaffForDevice'] = (deviceId) =>
 export const staffForDevice: Db['staffForDevice'] = (deviceId) => d().staffForDevice(deviceId);
 export const renameStaff: Db['renameStaff'] = (id, name) => d().renameStaff(id, name);
 export const listStaff: Db['listStaff'] = () => d().listStaff();
-export const countPendingStaff: Db['countPendingStaff'] = () => d().countPendingStaff();
 export const createStaff: Db['createStaff'] = (s) => d().createStaff(s);
 export const setJoinedVia: Db['setJoinedVia'] = (id, via) => d().setJoinedVia(id, via);
 export const updateStaffPassword: Db['updateStaffPassword'] = (id, hash) =>

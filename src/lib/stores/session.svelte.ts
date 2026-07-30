@@ -9,7 +9,6 @@
 import type { Staff } from '$lib/shared';
 import {
   configureAuth,
-  login as loginRequest,
   loginWithPin as pinRequest,
   logout as logoutRequest,
   me as meRequest,
@@ -47,8 +46,8 @@ export const session = {
   },
 };
 
-/** Drop the session locally. Safe to call from anywhere, including an API 401. */
-export function invalidateSession(message = ''): void {
+/** Drop the session locally. Internal: the only ways out are a 401 or signOut. */
+function invalidateSession(message = ''): void {
   generation += 1;
   token = '';
   staff = null;
@@ -71,12 +70,6 @@ function adopt(newToken: string, who: Staff): void {
   staff = who;
   expiredMessage = '';
   storage.write(TOKEN_KEY, token);
-}
-
-/** Exchange credentials for a session. Throws on failure; the caller shows why. */
-export async function signIn(email: string, password: string): Promise<void> {
-  const result = await loginRequest(email.trim(), password);
-  adopt(result.token, result.staff);
 }
 
 /** Exchange the admin PIN for a session. Throws on failure; the caller shows why. */

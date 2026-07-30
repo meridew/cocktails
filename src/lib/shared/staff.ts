@@ -39,12 +39,6 @@ export const JOIN_CODE_TTL_MS = 15 * 60 * 1000;
 
 export type StaffRole = 'admin' | 'bartender';
 
-export const STAFF_ROLES = ['admin', 'bartender'] as const;
-
-export function isStaffRole(v: unknown): v is StaffRole {
-  return typeof v === 'string' && (STAFF_ROLES as readonly string[]).includes(v);
-}
-
 /**
  * `pending` — asked to help, waiting on an admin.
  * `active`  — can use the bar.
@@ -70,15 +64,6 @@ export const canApproveStaff = (staff: Staff | null): boolean =>
   staff?.role === 'admin' && staff.status === 'active';
 
 // ---- request-to-help flow --------------------------------------------------
-
-export interface StaffRequestInput {
-  /** Display name — the whole point is that the admin recognises it. */
-  name: string;
-  /** Anonymous device id, so the approval can be bound to this device. */
-  deviceId: string;
-  /** Optional; unverified, so it's a label for recognition, not proof of identity. */
-  email?: string;
-}
 
 /**
  * Returned once when a request is created. `claim` is a one-time secret the
@@ -112,12 +97,6 @@ export interface JoinCodeResponse {
 }
 
 /** What a helper sends to redeem a code, and what they get back. */
-export interface JoinInput {
-  code: string;
-  name: string;
-  deviceId: string;
-}
-
 export interface JoinResponse {
   ok: true;
   token: string;

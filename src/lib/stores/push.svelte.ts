@@ -50,7 +50,7 @@ export function pushSupported(): boolean {
 }
 
 /** Running as an installed app rather than in a browser tab. */
-export function isInstalled(): boolean {
+function isInstalled(): boolean {
   if (typeof window === 'undefined') return false;
   return (
     window.matchMedia?.('(display-mode: standalone)').matches === true ||
