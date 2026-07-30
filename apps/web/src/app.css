@@ -756,20 +756,45 @@
   margin-left: 5px;
 }
 
+/* ---------------- app bar ---------------- */
+/* `.appbar-bartender` sets margin-left:auto, so two of them loose in the flex row
+   each claim the free space and the first ends up mid-bar. Group them, and let the
+   group take the space instead. */
+.appbar-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+}
+.appbar-actions .appbar-bartender {
+  margin-left: 0;
+}
+
 /* ---------------- notification opt-in ---------------- */
-/* Our own ask, shown before the browser's. The browser prompt is one-shot and a
-   dismissal is permanent, so it only ever fires from a tap on "Yes" here. */
+/* Our own ask, shown once before the browser's. The browser prompt is one-shot and
+   a dismissal is permanent, so it only ever fires from a tap on "Yes" here. */
+.optin-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 1400;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.6);
+}
 .optin {
   width: 100%;
-  margin: 0 0 14px;
-  padding: 14px 16px;
+  max-width: 360px;
+  padding: 20px;
   background: var(--surface, #16161f);
-  border: 2px solid #0a0a12;
-  border-radius: 12px;
-  box-shadow: var(--shadow-sm);
+  color: var(--text, #fff);
+  border: var(--border, 3px) solid #0a0a12;
+  border-radius: 14px;
+  box-shadow: var(--shadow, 0 10px 0 #0a0a12);
 }
 .optin h3 {
-  margin: 0 0 6px;
+  margin: 0 0 8px;
   font-family: 'Bungee', system-ui, sans-serif;
   font-size: 0.95rem;
   line-height: 1.25;

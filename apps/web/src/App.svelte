@@ -99,31 +99,34 @@
     <nav class="topnav" aria-label="Sections">
       <span class="nav-btn" aria-current="true">Menu</span>
     </nav>
-    <button
-      type="button"
-      class="appbar-bartender"
-      onclick={() => (settingsOpen = true)}
-      aria-label="Settings"
-    >
-      <span class="emoji">⚙</span>
-    </button>
-    <button
-      type="button"
-      class="appbar-bartender"
-      onclick={() => (view.bar = true)}
-      aria-label="Bartender mode"
-    >
-      <span class="emoji">🍸</span>
-    </button>
+    <!-- Grouped, because `.appbar-bartender` carries `margin-left:auto` — with two
+         of them loose in the flex row each claimed the free space, stranding the
+         first one in the middle of the bar. -->
+    <div class="appbar-actions">
+      <button
+        type="button"
+        class="appbar-bartender"
+        onclick={() => (settingsOpen = true)}
+        aria-label="Settings"
+      >
+        <span class="emoji">⚙️</span>
+      </button>
+      <button
+        type="button"
+        class="appbar-bartender"
+        onclick={() => (view.bar = true)}
+        aria-label="Bartender mode"
+      >
+        <span class="emoji">🍸</span>
+      </button>
+    </div>
   </header>
 
   <main class="stage">
     <section class="view view-menu" aria-label="Menu">
-      <!-- These live inside the scrolling view, not as children of `.app`: the
-           shell is a three-row grid (appbar / stage / tabbar) and a fourth child
-           steals the flexible row, which collapsed the menu to nothing. -->
-      <NotifyOptIn />
-
+      <!-- Inside the scrolling view, not a child of `.app`: the shell is a
+           three-row grid (appbar / stage / tabbar) and a fourth child steals the
+           flexible row, which collapsed the menu to nothing. -->
       {#if staffRequest.active && !showBartender}
         <!-- The answer to "am I in yet?" must be reachable without opening the bar:
              the panel is a modal, and someone who closed it shouldn't have to guess. -->
@@ -218,3 +221,6 @@
 {#if settingsOpen}
   <SettingsSheet onclose={() => (settingsOpen = false)} />
 {/if}
+<!-- A dialog, so it sits beside `.app` rather than inside it: lockBackground
+     inerts the mount target's *siblings*, and it must not join the shell grid. -->
+<NotifyOptIn />
