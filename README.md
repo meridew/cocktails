@@ -66,10 +66,11 @@ Two things to know before changing anything:
 - **`src/lib/neo.css` is a verbatim copy of the original hand-made design.** It's in
   `.prettierignore` and must stay byte-identical — additions belong in `app.css`.
 - **There are no database migrations _yet_.** The schema is declared in `db.ts`, so
-  today a change means editing it and running `npm run db:reset` — which wipes.
-  That ends with phase 0 of [`docs/PLATFORM-PLAN.md`](docs/PLATFORM-PLAN.md): once
-  hosts have accounts, the data stops being ours to destroy. **Don't wipe the
-  production database.**
+  today a change means editing it and running `npm run db:reset` — which wipes. That
+  is still fine: nothing is live and no account exists.
+  [Phase 0](docs/PLATFORM-PLAN.md) replaces this with Drizzle and `drizzle-kit`
+  migrations. **The freedom to wipe ends the moment phase 1 creates the first real
+  account** — from then the data belongs to a host, not to us.
 
 ## Testing platform states you don't have
 

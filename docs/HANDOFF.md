@@ -96,8 +96,9 @@ src/
   first line of the handler they protect, so the guard is visible in the file it
   guards.
 - **No SQLite migrations.** The schema is declared; a change means editing it and
-  running `npm run db:reset`. ⚠️ **That ends with PLATFORM-PLAN.md phase 0** — once
-  hosts have accounts the data is theirs, not ours. Don't wipe production.
+  running `npm run db:reset`. Still fine — nothing is live. **PLATFORM-PLAN.md phase
+  0** replaces this with Drizzle + `drizzle-kit`, and ⚠️ **the freedom to wipe ends
+  when phase 1 creates the first real account** — from then the data is a host's.
 - **`neo.css` is still a verbatim port.** Keep it that way.
 
 Commands: `npm run dev` · `npm test` · `npm run check` · `npm run build` ·

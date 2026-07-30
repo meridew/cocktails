@@ -3,12 +3,53 @@
 **Status:** approved, not started. Point a goal at this and work top-to-bottom.
 **Prerequisite:** none — phase 0 is self-contained.
 
-> **Read this first if you're a fresh session.** `handoff.md` describes the stack as
-> it is. This describes where it's going and why. The decisions in §2 were made
-> deliberately after research; don't relitigate them without a reason, and if you
-> do, record the reason here.
+> **Read this first if you're a fresh session.** `HANDOFF.md` describes the stack as
+> it is; this describes where it's going and why. `CLAUDE.md` has the shell rules —
+> read those before running anything, they are not optional on Windows. The decisions
+> in §2 were made deliberately after research; don't relitigate them without a reason,
+> and if you do, record the reason here.
 
 ---
+
+## 0. How to work this plan
+
+This is written to be executed by an agent working alone, iterating until genuinely
+blocked. The operating contract:
+
+**This is a green field.** The app is not live, has no users, and no data worth
+keeping. Nobody else works in this repo. So:
+
+- **Make large changes in one go.** Don't stage a refactor across three commits to
+  "keep things working" between them — nothing depends on the intermediate states.
+- **No backwards compatibility. No deprecation cycles. No compatibility shims.**
+- **Delete freely.** If code is replaced, remove it; don't leave the old path beside
+  the new one.
+- **The database may be dropped and recreated at will** — see the caveat in §3, which
+  turns this off permanently the moment a real account exists.
+
+**Decide, don't ask,** about: naming, file layout, test structure, minor library
+choices, error copy, and anything else where two reasonable answers produce the same
+product. Ambiguity is only worth a question when different readings produce a
+_materially different app_.
+
+**When you hit something that needs a human** (§8 lists them — all are browser logins
+for external services), do not stop the whole plan. In order:
+
+1. Put the dependency behind an interface with a working development implementation
+   (e.g. an email sender that writes to the log instead of calling Graph).
+2. Carry on to the end of the phase and every later phase that doesn't need it.
+3. Record the outstanding step in `docs/OUTSTANDING.md` with exactly what's needed.
+4. Report it at the end. **Only stop entirely when nothing else can proceed.**
+
+**Every phase ends green and committed:**
+
+```bash
+npm run format && npm run check && npm test
+```
+
+Never mark a phase done on a green typecheck alone — the tests are the definition of
+done. **Do not deploy between phases.** Pushes gate; deploying is manual and on Dan's
+say-so.
 
 ## 1. What we're building
 
@@ -32,18 +73,20 @@ and say so in a comment.
 
 Researched July 2026. Sources at the bottom.
 
-| Area            | Decision                                                                        | Why                                                                                                                                                                                                                                                                                                                   |
-| --------------- | ------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Auth library    | **Better Auth**                                                                 | Lucia was deprecated (Mar 2025, now a learning resource) and the Auth.js team joined Better Auth (Sep 2025). It's the SvelteKit-native choice, keeps every row in our own database, and makes Google/Apple sign-in configuration rather than a project.                                                               |
-| DB driver       | **stay on `node:sqlite`**                                                       | Better Auth supports it (RC status; needs Node ≥22.5, we run 24). Their default `better-sqlite3` is a native module needing build tooling in an Alpine image, for no gain.                                                                                                                                            |
-| Auth schema     | **Better Auth CLI**                                                             | `generate` emits SQL; `migrate` applies it and works specifically with the built-in Kysely adapter that SQLite uses.                                                                                                                                                                                                  |
-| Our schema      | **hand-rolled forward-only runner**                                             | ~50 lines. `db.ts` is 640 lines of tested prepared statements; moving it to an ORM is a big change with no functional gain. Drizzle stays an option if the SQL gets painful — revisit, don't assume.                                                                                                                  |
-| Hosting         | **self-hosted SQLite, moving NAS → the spare Mac mini M4 (macOS, _not_ Asahi)** | Free, zero code change, and it removes the contention that made a CI gate take 472s at load average 74. See §2a for the platform survey and why Asahi is not an option.                                                                                                                                               |
-| Backups         | **Litestream → Cloudflare R2**                                                  | Streams the WAL continuously, so the recovery point is seconds. Separate process, no code changes. R2's free tier covers this and the Cloudflare account already exists.                                                                                                                                              |
-| Email           | **Microsoft Graph `sendMail`, app-only**                                        | The M365 tenant is already on `meridew.com` with SPF/DKIM/DMARC configured and warm. Zero new vendors, zero new DNS, **zero new npm packages** (it's a `fetch` POST). At a few dozen emails a year, the "don't use Exchange for transactional mail" guidance doesn't apply — that's a volume and reputation argument. |
-| Email transport | **Graph, NOT SMTP AUTH**                                                        | SMTP AUTH basic auth is disabled by default from end of December 2026, unavailable for new tenants after, removal announced H2 2027. Building on it would have a five-month shelf life.                                                                                                                               |
+| Area            | Decision                                       | Why                                                                                                                                                                                                                                                                                                                  |
+| --------------- | ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Database        | **SQLite — confirmed, not defaulted into**     | Asked and answered twice; see §2b. The triggers to leave it are writes above ~5k/sec, a second app server, or a dataset past ~10 GB. None will ever apply here.                                                                                                                                                      |
+| Query layer     | **Drizzle ORM**                                | Reverses the earlier "no ORM" call — see §2c. `drizzle-kit` _is_ the migration runner phase 0 was going to hand-write, and phase 2's tenancy scope becomes a compile-time guarantee instead of a discipline.                                                                                                         |
+| DB driver       | **`better-sqlite3`** (was `node:sqlite`)       | `drizzle-kit` does not support `node:sqlite` (drizzle-orm#5471). We rejected `better-sqlite3` because native modules need build tooling in an Alpine image — running natively on macOS there is no Alpine and no image, so the objection is gone.                                                                    |
+| Runtime         | **Native Node under launchd. No Docker.**      | Docker on macOS means a Linux VM under everything. Native is faster, simpler to debug, and makes native modules a non-event. Costs reproducible builds; accepted.                                                                                                                                                    |
+| Auth library    | **Better Auth**                                | Lucia was deprecated (Mar 2025) and the Auth.js team joined Better Auth (Sep 2025). SvelteKit-native, keeps every row in our own database, has a first-class Drizzle adapter, and makes Google/Apple sign-in configuration rather than a project.                                                                    |
+| Hosting         | **The spare Mac mini M4, macOS (_not_ Asahi)** | Free, and it removes the contention that made a CI gate take 472s at load average 74 on the NAS. §2a covers the platform survey; §8 covers the box.                                                                                                                                                                  |
+| Backups         | **Litestream → Cloudflare R2**                 | Streams the WAL continuously, so the recovery point is seconds rather than hours. Separate process, no code changes. R2's free tier covers it and the Cloudflare account already exists.                                                                                                                             |
+| Email           | **Microsoft Graph `sendMail`, app-only**       | The M365 tenant is already on `meridew.com` with SPF/DKIM/DMARC configured and warm. Zero new vendors, zero new DNS, **zero new npm packages** (it's a `fetch` POST). At a few dozen emails a year the "don't use Exchange for transactional mail" guidance doesn't apply — that's a volume and reputation argument. |
+| Email transport | **Graph, NOT SMTP AUTH**                       | SMTP AUTH basic auth is disabled by default from end of December 2026, unavailable for new tenants after, removal announced H2 2027. Building on it would have a five-month shelf life.                                                                                                                              |
+| E2E tests       | **Playwright, after phase 3**                  | Writing them against today's single-tenant flows would mean rewriting them once accounts and events exist. The M4's 10 cores make parallel shards cheap when we get there.                                                                                                                                           |
 
-## 2a. The "one stop shop" question — settled July 2026
+### 2a. The "one stop shop" question — settled July 2026
 
 Asked whether one platform could cover compute + database + email and stay free at
 this scale, rather than hanging off a box at home. **Only Cloudflare comes close, and
@@ -61,13 +104,11 @@ which this app hits specifically:
   ~100 ms _on purpose_. Password hashing simply cannot run there.
 - Time Travel keeps 7 days on free vs 30 on paid.
 
-**Cost in code, if it's ever done:** all **96 synchronous prepared-statement call
-sites** in `db.ts` become async, plus every caller; the in-memory rate limiter in
-`ratelimit.ts` stops meaning anything across ephemeral isolates; the `init` boot seed
-has no equivalent (Workers don't boot); and `web-push` needs a Web Crypto path.
-**If it happens, it must happen _before_ phase 2** — that phase already rewrites every
-query to add the tenancy scope, so the sync→async conversion rides along for almost
-nothing. Afterwards means touching all 96 sites twice.
+**Cost in code, if it's ever done:** every synchronous query becomes async, plus every
+caller; the in-memory rate limiter in `ratelimit.ts` stops meaning anything across
+ephemeral isolates; the `init` boot seed has no equivalent (Workers don't boot); and
+`web-push` needs a Web Crypto path. Adopting Drizzle (§2c) shrinks this considerably —
+D1 is a Drizzle dialect — but the async conversion remains.
 
 Rejected, with reasons:
 
@@ -75,35 +116,126 @@ Rejected, with reasons:
 | ---------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
 | **Supabase**           | Pauses free projects after 7 days idle — monthly parties means paused _every time_ — and free tier retains no backups at all |
 | **Render**             | Free Postgres is **deleted** 30 days after creation; services cold-start ~1 min after 15 min idle                            |
-| **Fly.io**             | Free tier gone (7-day trial), ~$2/mo — but **zero code change**. The fallback if self-hosting stops being fun                |
+| **Fly.io**             | Free tier gone (7-day trial), ~$2/mo — but near-zero code change. The fallback if self-hosting stops being fun               |
 | **Oracle Always Free** | Genuinely free, but halved to 2 OCPU/12 GB on 15 June 2026 unannounced, reclaims idle instances, and is still a VM to manage |
 | **Azure**              | Container Apps and SQL "free" are 12-month promos that roll silently to pay-as-you-go; the M365 tenant shares only billing   |
 
 **Asahi Linux on the Mac mini M4: no.** Apple's SPTM must be addressed from EL2 with
 the MMU already enabled, which breaks both Linux and the hypervisor Asahi uses to
 reverse-engineer the hardware. No timetable. M3 only began booting in Jan 2026 and
-still runs software rendering. **Run macOS instead** — Node 24 runs `node:sqlite`
-natively on arm64, and `cloudflared`, Litestream and the GitHub Actions runner all
-ship first-class macOS arm64 builds. Docker becomes optional rather than required.
+still runs software rendering. **Run macOS instead** — everything we need ships
+first-class arm64 macOS builds.
 
-Email and offsite backup stay separate wherever this runs (Graph `sendMail`,
-Litestream → R2). Both are free at this volume, so "one bill" was never worth buying.
+Email and offsite backup stay separate wherever this runs. Both are free at this
+volume, so "one bill" was never worth buying.
+
+### 2b. Why SQLite, having asked twice
+
+The instinct that SQLite is "noddy" is about its _management surface_, not its
+capability. It has no server, no port and no SSMS, which after years of SQL Server
+reads as "not a real database". It is in fact the most-deployed database engine in
+existence and does 10,000–50,000 writes/sec on hardware like this. A party peaks
+around **one write per second**.
+
+What Postgres would genuinely add: concurrent writers from multiple processes, richer
+types and extensions (JSONB, full-text, `pgvector`), and a network endpoint for
+external tools. None of those are needed by a single-process app serving one party at
+a time.
+
+What it would cost, concretely:
+
+- A service to install, secure, tune, patch and keep running — one more thing that can
+  be down at 9pm on party night.
+- **Litestream stops working.** It is SQLite-only. A seconds-level recovery point
+  becomes `pg_dump` on a timer or pgBackRest. Phase 4 gets worse.
+- **The test suite gets slower and flakier.** 251 tests run in ~6 s because
+  `DB_PATH=':memory:'` gives each test file a private database costing nothing to
+  create or tear down. Postgres means testcontainers or per-test transaction rollback,
+  and Docker has just been dropped from the host.
+- The escape hatch in §2a is Cloudflare D1, which _is_ SQLite.
+
+**Drizzle makes this reversible**, which is what settled it. Queries stop being
+SQLite-flavoured strings and become dialect-agnostic Drizzle calls, so a later switch
+is "change the schema definitions, swap the driver, fix the dialect-specific bits"
+rather than a rewrite. Take the simple option now; the expensive option stays cheap.
+
+**If it still feels wrong after living in it:** the answer is probably
+`drizzle-kit studio`, a browser GUI over the database, not a different engine.
+
+### 2c. Why an ORM now, having rejected one before
+
+The earlier call — "`db.ts` is 640 lines of tested prepared statements; moving it to
+an ORM is a big change with no functional gain" — was right at the time. Two things
+changed:
+
+1. **Phase 0 was going to hand-write a migration runner.** `drizzle-kit` is one,
+   maintained, with schema diffing.
+2. **Phase 2 rewrites every query anyway** to add the tenancy scope. §6 says the
+   defence against cross-tenant leaks must be the type system rather than care — an
+   ORM is how you actually get that. Doing both rewrites at once is one pass instead
+   of two.
+
+Drizzle is deliberately thin — closer to Dapper than to EF Core. No change tracking,
+no lazy loading, no identity map. Typed query builder over SQL you can still read.
+
+**It has no equivalent of EF's global query filters**, so the tenancy scope is
+enforced by making the event a **required parameter** of every query function.
+Forgetting it is a compile error. That is the whole point of the exercise.
 
 ## 3. What this overturns
 
 Recorded because these were deliberate, documented choices and reversing them
 quietly would be worse than reversing them loudly.
 
-| Was                                                                        | Now                                                                             | Trigger                                                                                                                                               |
-| -------------------------------------------------------------------------- | ------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **No migrations; the database is disposable and may be wiped at any time** | Migrations are mandatory from phase 0. **Do not wipe the production database.** | The old doc said "revisit before the first party with real orders in it". A host signing up _is_ that moment — the data stops being Dan's to destroy. |
-| Identity is an anonymous device id + one seeded admin                      | Real accounts with verified email                                               | Hosts must be able to sign in from any device and own their data                                                                                      |
-| One flat `orders` table                                                    | Everything is scoped to an event                                                | Two hosts must never see each other's party                                                                                                           |
+| Was                                                   | Now                                              | Trigger                                                                                   |
+| ----------------------------------------------------- | ------------------------------------------------ | ----------------------------------------------------------------------------------------- |
+| No migrations; the database is disposable             | Migrations exist from phase 0, via `drizzle-kit` | Schema change is about to become constant, and hand-rolling a runner is wasted work       |
+| Identity is an anonymous device id + one seeded admin | Real accounts with verified email                | Hosts must be able to sign in from any device and own their data                          |
+| One flat `orders` table                               | Everything is scoped to an event                 | Two hosts must never see each other's party                                               |
+| No ORM                                                | Drizzle — §2c                                    | Phase 0 and phase 2 were both about to hand-build what it provides                        |
+| Docker containers on the NAS                          | Native Node under launchd on the Mac             | Docker on macOS is a Linux VM; the reason for containers (Alpine reproducibility) is gone |
 
-## 4. Domain model
+> **The wipe permission, precisely.** The database may be deleted and recreated at
+> will **right now** — nothing is live and no account exists. That ends the moment the
+> first real account is created in phase 1: from then on the data belongs to someone
+> else and migrations are forward-only. Build the migration machinery in phase 0
+> regardless; the freedom is about _data_, not about skipping the tooling.
+
+## 4. Target architecture
+
+Where this lands, so the shape is clear before the work starts:
 
 ```
-account       id · email · password_hash · name · verified_at · created_at
+guest phone ──https──> Cloudflare edge
+                            │  tunnel dials OUT — no inbound ports, no port-forward
+                            ▼
+                   Mac mini M4  ·  macOS  ·  launchd
+                   ├── node            SvelteKit app + /api      (native, no Docker)
+                   ├── cloudflared     the public route          (brew)
+                   ├── litestream      continuous backup ──> Cloudflare R2
+                   └── actions-runner  the CI gate
+                            │
+                        SQLite on local NVMe
+
+app ──https──> Microsoft Graph sendMail   (M365 tenant, meridew.com)
+```
+
+Four small processes, one file, no VM, nothing to orchestrate.
+
+The code keeps its current shape; the platform work adds nouns, not layers:
+
+| Folder                | What lives there                                                    |
+| --------------------- | ------------------------------------------------------------------- |
+| `src/routes/`         | pages, and `/api` endpoints as `+server.ts`                         |
+| `src/lib/components/` | UI pieces                                                           |
+| `src/lib/stores/`     | client state (Svelte 5 runes)                                       |
+| `src/lib/shared/`     | types, validation and **permissions** — used by _both_ sides        |
+| `src/lib/server/`     | db, auth, push, email — the build blocks these reaching the browser |
+
+## 5. Domain model
+
+```
+account       id · email · name · verified_at · created_at        (Better Auth owns credentials)
 event         id · host_account_id · name · starts_at · status
 event_member  event_id · account_id · role      (owner | bartender | helper)
 inventory     event_id · ingredient · in_stock
@@ -120,7 +252,7 @@ an operator can act on any event they're a member of; a helper is scoped to one 
 and evaporates afterwards. "Select a host and do the chore for them" falls out of
 this: Dan is an operator with membership of their event.
 
-## 5. Permission model
+## 6. Permission model
 
 Today there are two roles and two guards (`requireStaff`, `requireAdmin`), and the
 rule is encoded **twice** — server-side as `staff.role !== 'admin'`, client-side as
@@ -143,46 +275,46 @@ export const can = (member: Membership | null, cap: Capability): boolean => …
 - Client: `can(...)` decides whether the control is rendered at all
 - **One table, both sides.** The drift becomes impossible rather than unlikely.
 
-## 6. Phases
+## 7. Phases
 
-Each ends green (`npm run check` + `npm test`) and committed. **Do not deploy
-between phases** — pushes gate only; deploy is manual and on Dan's say-so.
+### Phase 0 — Drizzle, migrations, capabilities _(no user-visible change)_
 
-### Phase 0 — foundations _(no user-visible change)_
-
-1. **Forward-only migration runner.** Numbered SQL files, a `schema_migrations`
-   table, applied in order at boot, each in a transaction. Baseline migration =
-   today's schema exactly as `db.ts` declares it, so an existing database adopts
-   cleanly rather than being recreated.
-2. **Capability model** per §5, replacing `requireAdmin`/`canApproveStaff`.
-3. **An enumeration test** that walks every `+server.ts` and fails if it declares no
+1. **Adopt Drizzle.** Add `drizzle-orm`, `drizzle-kit`, `better-sqlite3`; drop
+   `node:sqlite`. Declare the current schema in `src/lib/server/schema.ts`.
+2. **Rewrite `db.ts` against Drizzle.** All ~96 prepared statements. Delete the raw
+   SQL as you go — don't leave both. Keep the exported function names so callers and
+   their tests move unchanged where possible.
+3. **Generate the baseline migration** with `drizzle-kit generate`, applied at boot.
+4. **Capability model** per §6, replacing `requireAdmin` / `canApproveStaff`.
+5. **An enumeration test** walking every `+server.ts`, failing if it declares no
    capability — the same trick that already guards the test dispatcher, so a new
    endpoint can't ship ungoverned.
 
-_Gate: 251 tests still green, plus new tests for the runner and the capability table.
-Prove the baseline migration is a no-op against a database created by the current
-`db.ts`._
+_Gate: 251 tests green, plus new tests for the capability table. Prove the baseline
+migration produces a schema identical to today's._
 
 ### Phase 1 — accounts
 
-Better Auth on the existing SQLite handle; email + password with verification;
-Graph `sendMail` for the emails; Google/Apple OAuth as configuration.
+Better Auth on the Drizzle handle; email + password with verification; Google/Apple
+OAuth as configuration.
+
+**Email is an interface.** Define `EmailSender` with a development implementation that
+logs to the console, so this phase completes without the Entra registration (§8.1).
+Wiring Graph `sendMail` behind it is then a small, separate task.
 
 **The PIN survives.** Typing an email and password behind a bar mid-party is exactly
 the misery the keypad removed. Accounts are for hosts and for signing in from a new
 device; the PIN and join codes stay as the fast door into an event.
 
-_Needs a human at a browser (§8). Gate: sign up → verify → sign in → reset, all
-end-to-end against a real inbox._
+_Gate: sign up → verify → sign in → reset, end to end, against the logging sender._
 
 ### Phase 2 — tenancy
 
 `account`, `event`, `event_member`, `inventory`. Every existing query gains a scope.
 
 **The scope must be a required parameter of every query function**, so omitting it is
-a _type error_ rather than a silent cross-tenant leak. Add a test asserting no
-order/inventory query is callable without one. This is the phase where a mistake is
-invisible and expensive; the type system is the defence, not care.
+a _type error_ rather than a silent cross-tenant leak. This is the phase where a
+mistake is invisible and expensive; the type system is the defence, not care.
 
 _Gate: a test proving host A cannot read, mutate or even count host B's orders,
 through every endpoint that touches them._
@@ -204,89 +336,105 @@ which is why the interactive flow should come _after_ the inventory proves the p
 _Gate: the ported engine agrees with the old one on a fixture set of ingredient
 combinations._
 
-### Phase 4 — ops
+### Phase 4 — move to the Mac, natively
 
-Litestream sidecar streaming to R2, **and a restore drill**. An untested backup is
-not a backup: restore into a scratch container and diff it against the live database
-before calling this done.
+No code change; this is the host move, and it can be done any time after phase 0.
 
-_Needs a human for the R2 bucket and credentials (§8)._
+1. Homebrew, Node 24, `cloudflared`, `litestream`, `tmux`.
+2. The app as a **launchd** job with `RunAtLoad` + `KeepAlive`. Auto-login is on, so a
+   LaunchAgent survives reboot; a LaunchDaemon wouldn't need the login session at all.
+3. `cloudflared` likewise. Repoint the tunnel's Public Hostname at the app's port —
+   the ingress rule lives in the Cloudflare dashboard, not this repo (§8.5).
+4. Move the GitHub Actions runner off the NAS. **Record the gate time** — the NAS
+   managed 472 s; this is the number the move was made for.
+5. **Delete `infra/` and the Docker build** from the workflow. Don't leave both paths.
+6. Litestream → R2, **and a restore drill**. An untested backup is not a backup:
+   restore to a scratch path and diff it against the live database.
 
-## 7. Accepted risks
+_Needs a human for the R2 bucket and the tunnel ingress rule (§8)._
 
-- **Availability.** Once a host has signed up and their event is tonight, Dan's home
-  internet is in someone else's critical path. Moving to a dedicated Mac mini removes
-  the _contention_ half of this risk — no more sharing four cores with two VMs, SQL
-  Server and Plex — but not the connectivity half. Litestream protects the _data_, not
-  the _uptime_. Dan chose this knowingly. The app is a standard Node server, so moving
-  to Fly or Cloudflare later is a deploy-target change, not a rewrite (§2a).
-- **`Mail.Send` is tenant-wide by default.** A leaked client secret could send as any
-  mailbox. Mitigated with an Application Access Policy scoping it to one mailbox —
-  see §8, and don't skip it.
-- **Client secrets expire** (24 months maximum). It will need renewing, and nothing
-  will remind us.
+### Phase 5 — end-to-end tests
+
+Playwright over the real flows now that they're stable: guest orders → bar sees it →
+advances it → guest is notified; host defines stock → menu reflects it; a helper joins
+and is scoped to one event. Shard across cores.
+
+_Gate: the suite runs in CI on the Mac runner._
 
 ## 8. Steps that need a human at a browser
 
-Flag these and stop; don't guess around them.
+Work around these per §0 — interface + dev implementation + a note in
+`docs/OUTSTANDING.md` — rather than stopping the plan.
 
 1. **Entra app registration** — new registration, client secret, `Mail.Send`
-   _application_ permission with admin consent.
+   _application_ permission with admin consent. _Blocks: real email in phase 1._
 2. **Application Access Policy** restricting that app to a single mailbox
    (`bar@meridew.com`). Exchange Online PowerShell, `New-ApplicationAccessPolicy`.
-3. **Cloudflare R2 bucket** + an API token for Litestream.
+   **Don't skip it** — see §9.
+3. **Cloudflare R2 bucket** + an API token for Litestream. _Blocks: phase 4.6._
 4. **OAuth client IDs** for Google and Apple, if that sign-in path is wanted.
-5. ~~**Mac mini access**~~ — **done, 30 Jul 2026.** Recorded here because it is not
+5. **The tunnel's Public Hostname**, which lives in the Cloudflare dashboard rather
+   than in this repo. It must point at the app's new address on the Mac.
+6. ~~**Mac mini access**~~ — **done, 30 Jul 2026.** Recorded because it isn't
    discoverable from the repo:
    - `~/.ssh/mac_cocktails` (ed25519, no passphrase) → `dan@mac.home.meridew.com`
      (192.168.1.9), via the `Host mac` entry in `~/.ssh/config`.
-   - Passwordless sudo through `/etc/sudoers.d/dan-claude`, so non-interactive
-     sessions — which have no stdin and can never answer a prompt — can administer it.
-   - Use **`scripts/mac.ps1`** to run anything there. Read its header before
-     hand-rolling an `ssh mac …`; it exists because PowerShell corrupts piped scripts
-     in two separate ways.
+   - Passwordless sudo via `/etc/sudoers.d/dan-claude`, so non-interactive sessions —
+     which have no stdin and can never answer a prompt — can administer it.
+   - Run scripts there with **`scripts/mac.ps1`**; read its header first.
+   - Already server-ready: FileVault off, auto-login as `dan`, `autorestart 1`, sleep
+     disabled, and sshd holds **Full Disk Access** — without which even root hits
+     "Operation not permitted" on protected paths over SSH.
+   - **Spec:** Apple M4, 10 cores, 16 GB, macOS 26.1, 55 GB free. Nothing installed
+     but Apple's git.
 
-   The box turned out to be **already server-ready**: FileVault off, auto-login as
-   `dan`, `autorestart 1`, and — the trap worth knowing about — sshd already holds
-   **Full Disk Access**, without which even root hits "Operation not permitted" on
-   protected paths over SSH. `sleep 0 / disablesleep 1 / womp 1` were set at the same
-   time; sleep had only been suppressed incidentally by a VS Code tunnel.
+Secrets go to `gh secret set` piped, **never echoed**, and reach the app through the
+launchd job's environment.
 
-   **Spec:** Apple M4, 10 cores, 16 GB, macOS 26.1, 55 GB free. Nothing installed but
-   Apple's git — no brew, node, docker, cloudflared or litestream yet.
+## 9. Accepted risks
 
-6. **Mac mini as the host** — install Node 24, `cloudflared` and the GitHub Actions
-   runner, each as a launchd job with `RunAtLoad` + `KeepAlive`. Auto-login is on, so a
-   LaunchAgent survives reboot; a LaunchDaemon would not need the login session at all.
-   The runner belongs here rather than on the NAS — that is the whole point of the move.
+- **Availability.** Once a host has signed up and their event is tonight, Dan's home
+  internet is in someone else's critical path. The dedicated Mac removes the
+  _contention_ half of this — no more sharing four cores with two VMs, SQL Server and
+  Plex — but not the connectivity half. Litestream protects the _data_, not the
+  _uptime_. Dan chose this knowingly, and moving to Fly or Cloudflare later is a
+  deploy-target change rather than a rewrite (§2a).
+- **`Mail.Send` is tenant-wide by default.** A leaked client secret could send as any
+  mailbox in the tenant. Mitigated by the Application Access Policy in §8.2.
+- **Client secrets expire** (24 months maximum). It will need renewing, and nothing
+  will remind us.
+- **No reproducible builds** once Docker is gone. The Mac's toolchain versions become
+  part of the deployment. Accepted for a single-host hobby project.
 
-Secrets go to `gh secret set` piped, never echoed, and reach the container through
-`infra/.env` like `STAFF_PIN` and the VAPID keys.
-
-## 9. Guardrails
+## 10. Guardrails
 
 - `src/lib/neo.css` is a **verbatim** copy of the original design. It's in
   `.prettierignore`; keep it byte-identical. Additions go in `app.css`.
 - `$lib/server/*` must never be imported from client code — the build enforces it.
-- Tests own the definition of done. Don't mark a phase complete on a green typecheck.
+- Tests own the definition of done. Don't call a phase complete on a green typecheck.
 - Never echo a secret into the transcript.
 - Deploy only when asked.
+- Read `CLAUDE.md` before running shell commands. The Windows shell rules there exist
+  because ignoring them cost three failed commands in one session.
 
-## 10. Out of scope
+## 11. Out of scope
 
-| Not doing              | Why                                                                                             |
-| ---------------------- | ----------------------------------------------------------------------------------------------- |
-| Payments / billing     | It's a hobby project for friends                                                                |
-| Moving off the NAS     | Decided in §2; revisit only if it becomes real                                                  |
-| An ORM                 | `db.ts` works and is tested; §2                                                                 |
-| A separate API service | SvelteKit's server routes _are_ the backend; splitting them would undo the collapse we just did |
-| Native app             | Capacitor was removed; see `handoff.md` §7                                                      |
+| Not doing                 | Why                                                                                             |
+| ------------------------- | ----------------------------------------------------------------------------------------------- |
+| Payments / billing        | It's a hobby project for friends                                                                |
+| Postgres or any server DB | Asked and answered twice — §2b                                                                  |
+| A separate API service    | SvelteKit's server routes _are_ the backend; splitting them would undo the collapse we just did |
+| Native app                | Capacitor was removed; see `HANDOFF.md`                                                         |
+| Moving off self-hosting   | §2a. Fly is the documented fallback if it stops being fun                                       |
 
 ---
 
 **Sources:** [SvelteKit issue: remove deprecated Lucia](https://github.com/sveltejs/kit/issues/12990) ·
-[Better Auth SQLite adapter](https://better-auth.com/docs/adapters/sqlite) ·
-[Better Auth CLI](https://better-auth.com/docs/concepts/cli) ·
+[Better Auth](https://better-auth.com/docs/adapters/sqlite) ·
+[drizzle-kit lacks node:sqlite support](https://github.com/drizzle-team/drizzle-orm/issues/5471) ·
+[Drizzle SQLite drivers](https://orm.drizzle.team/docs/sqlite/get-started-sqlite) ·
 [Litestream](https://litestream.io/) ·
-[Exchange Online to retire Basic auth for SMTP AUTH](https://techcommunity.microsoft.com/blog/exchange/exchange-online-to-retire-basic-auth-for-client-submission-smtp-auth/4114750) ·
-[Updated SMTP AUTH deprecation timeline](https://techcommunity.microsoft.com/blog/exchange/updated-exchange-online-smtp-auth-basic-authentication-deprecation-timeline/4489835)
+[Cloudflare Workers pricing](https://developers.cloudflare.com/workers/platform/pricing/) ·
+[Cloudflare Email Service](https://developers.cloudflare.com/email-service/) ·
+[Asahi M4 support](https://asahilinux.org/docs/platform/feature-support/m4/) ·
+[SMTP AUTH deprecation timeline](https://techcommunity.microsoft.com/blog/exchange/updated-exchange-online-smtp-auth-basic-authentication-deprecation-timeline/4489835)

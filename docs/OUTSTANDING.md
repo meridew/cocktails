@@ -2,6 +2,14 @@
 
 Things deliberately deferred — revisit before they block a phase.
 
+## ⛔ Waiting on a human
+
+Per [`PLATFORM-PLAN.md`](PLATFORM-PLAN.md) §0, work that needs a browser login is
+stubbed behind an interface and logged here rather than stopping the plan. Each entry
+says what is needed, who can do it, and what it unblocks.
+
+_Nothing yet — the plan hasn't started._
+
 ## Voice / NL "Ask" finder — ❌ DROPPED
 
 The legacy voice/natural-language "Ask the bar" finder relied on a now-dead
