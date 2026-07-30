@@ -69,6 +69,21 @@ export function staffDecisionPush(approved: boolean): PushPayload {
       };
 }
 
+/**
+ * Tell the bar that somebody wants to help.
+ *
+ * The host is usually mid-conversation with a drink in hand, not watching a menu
+ * for a small dot — so a request that isn't pushed is a request that waits.
+ */
+export function staffRequestPush(name: string): PushPayload {
+  return {
+    title: '🙋 Someone wants to help',
+    body: `${name} is asking to work the bar. Approve them in Bar → ⋯ → Bar staff.`,
+    tag: 'staff-request',
+    url: '/?bartender',
+  };
+}
+
 /** Bartender push when a new order lands. */
 export function newOrderPush(order: Order): PushPayload {
   const summary = order.items.map((i) => `${i.qty}× ${i.name}`).join(', ');

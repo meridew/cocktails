@@ -25,6 +25,18 @@ export function isValidPin(v: unknown): v is string {
   return typeof v === 'string' && new RegExp(`^\\d{${PIN_LENGTH}}$`).test(v);
 }
 
+/**
+ * A join code is the same shape as the PIN — same keypad, same muscle memory —
+ * but a different credential: short-lived, revocable, and it only ever grants
+ * `bartender`. The host reads it out; the helper is in immediately.
+ */
+export const JOIN_CODE_LENGTH = PIN_LENGTH;
+
+export const isValidJoinCode = isValidPin;
+
+/** How long a join code stays usable. One code comfortably onboards a shift. */
+export const JOIN_CODE_TTL_MS = 15 * 60 * 1000;
+
 export type StaffRole = 'admin' | 'bartender';
 
 export const STAFF_ROLES = ['admin', 'bartender'] as const;
@@ -87,4 +99,27 @@ export type StaffClaimResponse =
 export interface StaffListResponse {
   ok: true;
   staff: Staff[];
+}
+
+// ---- join codes ------------------------------------------------------------
+
+/** Returned to the host when they mint a code. The plaintext is shown once. */
+export interface JoinCodeResponse {
+  ok: true;
+  code: string;
+  /** epoch ms */
+  expiresAt: number;
+}
+
+/** What a helper sends to redeem a code, and what they get back. */
+export interface JoinInput {
+  code: string;
+  name: string;
+  deviceId: string;
+}
+
+export interface JoinResponse {
+  ok: true;
+  token: string;
+  staff: Staff;
 }

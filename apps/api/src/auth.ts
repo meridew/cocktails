@@ -11,26 +11,31 @@
  * every order payload, so it isn't secret. The credential is always a
  * server-issued bearer session, of which only the SHA-256 is stored.
  */
-import { createHash, randomBytes, scrypt, timingSafeEqual } from 'node:crypto';
+import { createHash, randomBytes, randomInt, scrypt, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
 import type { Staff, StaffStatus } from '@cocktails/shared';
+import { JOIN_CODE_LENGTH, JOIN_CODE_TTL_MS, isValidJoinCode } from '@cocktails/shared';
 import { config } from './config.ts';
 import {
   clearStaffClaim,
+  createJoinCode as dbCreateJoinCode,
   createStaff,
   createStaffSession,
   deleteStaffSession,
   ensureAdmin,
   genId,
+  liveJoinCode,
   now,
   pendingStaffForDevice,
   purgeExpiredSessions,
   purgeStalePendingStaff,
+  renameStaff,
   setStaffClaim,
   setStaffStatus,
   staffByClaim,
   staffByEmail,
   staffById,
+  staffForDevice,
   staffSession,
   updateStaffPassword,
   type StaffRow,
@@ -179,6 +184,69 @@ export function loginWithPin(pin: string): { token: string; staff: Staff } | nul
   return startSession(row);
 }
 
+// ---- join codes ------------------------------------------------------------
+
+/** Marker in `approved_by` for access granted by a code rather than by a person. */
+const createdByJoinCode = 'join-code';
+
+/**
+ * Mint a code the host reads out to someone standing next to them.
+ *
+ * This is the primary way helpers get in. Request-and-approve solves *remote*
+ * onboarding, which a house party doesn't have — the host is right there, so a
+ * code collapses ask→wait→approve→collect into one step that can't stall.
+ *
+ * Short-lived and revocable, and it only ever grants `bartender`, so the worst a
+ * leaked code buys is bar access for fifteen minutes, revocable at any time.
+ */
+export function createJoinCode(createdBy: string): { code: string; expiresAt: number } {
+  // 6 digits from rejection-free arithmetic on a uniform 32-bit draw would still
+  // bias slightly; randomInt is uniform by construction.
+  const code = String(randomInt(0, 10 ** JOIN_CODE_LENGTH)).padStart(JOIN_CODE_LENGTH, '0');
+  const expiresAt = now() + JOIN_CODE_TTL_MS;
+  dbCreateJoinCode(sha256(code), expiresAt, createdBy);
+  return { code, expiresAt };
+}
+
+/**
+ * Redeem a code: create (or revive) an active helper bound to this device and
+ * issue them a session. Returns null for an unknown, expired or malformed code.
+ *
+ * A device that already has a pending request is upgraded rather than duplicated —
+ * someone who asked, got impatient, and then went and got the code shouldn't end
+ * up as two rows in the host's list.
+ */
+export function redeemJoinCode(
+  code: string,
+  name: string,
+  deviceId: string,
+): { token: string; staff: Staff } | null {
+  if (!isValidJoinCode(code) || !deviceId) return null;
+  if (!liveJoinCode(sha256(code))) return null;
+
+  const existing = staffForDevice(deviceId);
+  if (existing && existing.role !== 'admin') {
+    setStaffStatus(existing.id, 'active', createdByJoinCode);
+    clearStaffClaim(existing.id);
+    if (name) renameStaff(existing.id, name);
+    const row = staffById(existing.id);
+    return row ? startSession(row) : null;
+  }
+  if (existing?.role === 'admin') return startSession(existing); // the host's own device
+
+  const id = genId();
+  createStaff({
+    id,
+    displayName: name,
+    email: null,
+    deviceId,
+    role: 'bartender',
+    status: 'active',
+  });
+  const row = staffById(id);
+  return row ? startSession(row) : null;
+}
+
 // ---- request to help -------------------------------------------------------
 
 /**
@@ -289,6 +357,29 @@ export function notePinAttempt(ip: string, ok: boolean): void {
   }
   pinLimiter.record(ip);
   pinGlobalLimiter.record(GLOBAL_KEY);
+}
+
+/**
+ * Join-code throttle. Identical reasoning to the PIN: a 6-digit code is a 10^6
+ * space, so per-IP alone would let a pool of addresses grind it down. The global
+ * limiter is what actually bounds it. Codes also expire, which shrinks the window
+ * an attacker has to work in.
+ */
+const joinLimiter = createRateLimiter({ max: 10, windowMs: 15 * 60 * 1000 });
+const joinGlobalLimiter = createRateLimiter({ max: 60, windowMs: 15 * 60 * 1000 });
+
+export function joinBlocked(ip: string): boolean {
+  return joinLimiter.isLimited(ip) || joinGlobalLimiter.isLimited(GLOBAL_KEY);
+}
+
+export function noteJoinAttempt(ip: string, ok: boolean): void {
+  if (ok) {
+    joinLimiter.clear(ip);
+    joinGlobalLimiter.clear(GLOBAL_KEY);
+    return;
+  }
+  joinLimiter.record(ip);
+  joinGlobalLimiter.record(GLOBAL_KEY);
 }
 
 /**

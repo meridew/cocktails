@@ -17,6 +17,8 @@
   import { addLine } from './lib/basket.svelte';
   import { applyDeepLink, view } from './lib/view.svelte';
   import { resumeRequest, staffRequest } from './lib/staffRequest.svelte';
+  import NotifyOptIn from './lib/NotifyOptIn.svelte';
+  import SettingsSheet from './lib/SettingsSheet.svelte';
 
   // Deep links (/?bartender, /?order) win over the stored view, then are recorded —
   // so following a notification and reloading keeps you where the link sent you.
@@ -24,6 +26,7 @@
 
   let selected = $state<Drink | null>(null);
   let celebrating = $state(false);
+  let settingsOpen = $state(false);
   // Which overlay is open is persisted, so a refresh — or a native cold start —
   // returns to where you were rather than resetting to the menu.
   let showBartender = $derived(view.bar);
@@ -99,6 +102,14 @@
     <button
       type="button"
       class="appbar-bartender"
+      onclick={() => (settingsOpen = true)}
+      aria-label="Settings"
+    >
+      <span class="emoji">⚙</span>
+    </button>
+    <button
+      type="button"
+      class="appbar-bartender"
       onclick={() => (view.bar = true)}
       aria-label="Bartender mode"
     >
@@ -106,24 +117,29 @@
     </button>
   </header>
 
-  {#if staffRequest.active && !showBartender}
-    <!-- The answer to "am I in yet?" must be reachable without opening the bar:
-         the panel is a modal, and someone who closed it shouldn't have to guess. -->
-    <button
-      type="button"
-      class="ask-banner ask-{staffRequest.kind}"
-      onclick={() => (view.bar = true)}
-    >
-      {#if staffRequest.kind === 'pending'}
-        ⏳ Waiting for the host to approve <strong>{staffRequest.name}</strong>…
-      {:else}
-        ✕ Bar request declined — tap for options
-      {/if}
-    </button>
-  {/if}
-
   <main class="stage">
     <section class="view view-menu" aria-label="Menu">
+      <!-- These live inside the scrolling view, not as children of `.app`: the
+           shell is a three-row grid (appbar / stage / tabbar) and a fourth child
+           steals the flexible row, which collapsed the menu to nothing. -->
+      <NotifyOptIn />
+
+      {#if staffRequest.active && !showBartender}
+        <!-- The answer to "am I in yet?" must be reachable without opening the bar:
+             the panel is a modal, and someone who closed it shouldn't have to guess. -->
+        <button
+          type="button"
+          class="ask-banner ask-{staffRequest.kind}"
+          onclick={() => (view.bar = true)}
+        >
+          {#if staffRequest.kind === 'pending'}
+            ⏳ Waiting for the host to approve <strong>{staffRequest.name}</strong>…
+          {:else}
+            ✕ Bar request declined — tap for options
+          {/if}
+        </button>
+      {/if}
+
       <div class="menubar">
         {#if favourites.size}
           <button
@@ -198,4 +214,7 @@
 {/if}
 {#if celebrating}
   <SentCelebration onclose={() => (celebrating = false)} />
+{/if}
+{#if settingsOpen}
+  <SettingsSheet onclose={() => (settingsOpen = false)} />
 {/if}

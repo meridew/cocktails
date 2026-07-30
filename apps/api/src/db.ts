@@ -164,6 +164,15 @@ export function createDb(dbPath: string) {
       expires_at INTEGER NOT NULL,
       created_at INTEGER NOT NULL
     );
+    -- Short-lived codes the host reads out to onboard a helper on the spot. Only
+    -- the SHA-256 is stored: a stolen database shouldn't hand anyone the bar.
+    -- Reusable until they expire, because one code often onboards several people.
+    CREATE TABLE IF NOT EXISTS join_codes (
+      code_hash  TEXT PRIMARY KEY,
+      expires_at INTEGER NOT NULL,
+      created_by TEXT,
+      created_at INTEGER NOT NULL
+    );
   `);
 
   // ---- idempotent migrations (bring an already-deployed NAS db up to date) ----
@@ -318,6 +327,15 @@ export function createDb(dbPath: string) {
   const stSubsByDevice = db.prepare(`SELECT * FROM subscriptions WHERE device_id = ?`);
   const stSubsByRole = db.prepare(`SELECT * FROM subscriptions WHERE role = ?`);
   const stDeleteSub = db.prepare(`DELETE FROM subscriptions WHERE device_id = ? AND endpoint = ?`);
+  const stDeleteSubsForDevice = db.prepare(`DELETE FROM subscriptions WHERE device_id = ?`);
+
+  // ---- join codes ----
+  const stInsertJoinCode = db.prepare(
+    `INSERT INTO join_codes (code_hash, expires_at, created_by, created_at) VALUES (?, ?, ?, ?)`,
+  );
+  const stJoinCode = db.prepare(`SELECT * FROM join_codes WHERE code_hash = ?`);
+  const stPurgeJoinCodes = db.prepare(`DELETE FROM join_codes WHERE expires_at < ?`);
+  const stClearJoinCodes = db.prepare(`DELETE FROM join_codes`);
 
   // ---- staff ----
   const stInsertStaff = db.prepare(
@@ -332,6 +350,13 @@ export function createDb(dbPath: string) {
   const stStaffPendingDevice = db.prepare(
     `SELECT * FROM staff WHERE device_id = ? AND status = 'pending'`,
   );
+  // Any row for this device, whatever its status — an admin first, so the host's
+  // own phone is never mistaken for a helper it also happens to have a row for.
+  const stStaffAnyDevice = db.prepare(
+    `SELECT * FROM staff WHERE device_id = ?
+      ORDER BY (role = 'admin') DESC, (status = 'active') DESC, rowid DESC`,
+  );
+  const stRenameStaff = db.prepare(`UPDATE staff SET display_name = ? WHERE id = ?`);
   const stListStaff = db.prepare(
     // Pending first (that's what needs action), then newest.
     `SELECT * FROM staff
@@ -489,6 +514,35 @@ export function createDb(dbPath: string) {
       stDeleteSub.run(deviceId, endpoint);
     },
 
+    /**
+     * Forget a device entirely — every role. This is what "notifications off"
+     * means: not a stored preference we later consult, but nothing left to send
+     * to. (Web Push subscriptions are `userVisibleOnly`, so a push that arrives
+     * must display something; suppressing it client-side would just swap our
+     * notification for the browser's own "site updated in the background".)
+     */
+    deleteSubscriptionsForDevice(deviceId: string): void {
+      stDeleteSubsForDevice.run(deviceId);
+    },
+
+    /** Record a join code (hashed) that the host can read out to a helper. */
+    createJoinCode(codeHash: string, expiresAt: number, createdBy: string): void {
+      stPurgeJoinCodes.run(now()); // opportunistic sweep, so the table stays tiny
+      stInsertJoinCode.run(codeHash, expiresAt, createdBy, now());
+    },
+
+    /** A join code, only if it exists and hasn't expired. */
+    liveJoinCode(codeHash: string): { expiresAt: number } | null {
+      const row = stJoinCode.get(codeHash) as { code_hash: string; expires_at: number } | undefined;
+      if (!row || row.expires_at < now()) return null;
+      return { expiresAt: row.expires_at };
+    },
+
+    /** Invalidate every outstanding code — the host's "stop letting people in". */
+    clearJoinCodes(): void {
+      stClearJoinCodes.run();
+    },
+
     staffByEmail(email: string): StaffRow | null {
       return (stStaffByEmail.get(email) as StaffRow | undefined) ?? null;
     },
@@ -500,6 +554,16 @@ export function createDb(dbPath: string) {
     /** Look up the pending request a device already has, so it can't queue several. */
     pendingStaffForDevice(deviceId: string): StaffRow | null {
       return (stStaffPendingDevice.get(deviceId) as StaffRow | undefined) ?? null;
+    },
+
+    /** Whatever staff row this device already has, in any status. */
+    staffForDevice(deviceId: string): StaffRow | null {
+      return (stStaffAnyDevice.get(deviceId) as StaffRow | undefined) ?? null;
+    },
+
+    /** Update the display name — the only thing a helper can change about themselves. */
+    renameStaff(id: string, displayName: string): void {
+      stRenameStaff.run(displayName, id);
     },
 
     staffByClaim(claimHash: string): StaffRow | null {
@@ -640,12 +704,20 @@ export const subscriptionsForRole: Db['subscriptionsForRole'] = (role) =>
   d().subscriptionsForRole(role);
 export const deleteSubscription: Db['deleteSubscription'] = (dev, endpoint) =>
   d().deleteSubscription(dev, endpoint);
+export const deleteSubscriptionsForDevice: Db['deleteSubscriptionsForDevice'] = (dev) =>
+  d().deleteSubscriptionsForDevice(dev);
+export const createJoinCode: Db['createJoinCode'] = (hash, expiresAt, by) =>
+  d().createJoinCode(hash, expiresAt, by);
+export const liveJoinCode: Db['liveJoinCode'] = (hash) => d().liveJoinCode(hash);
+export const clearJoinCodes: Db['clearJoinCodes'] = () => d().clearJoinCodes();
 
 export const staffByEmail: Db['staffByEmail'] = (email) => d().staffByEmail(email);
 export const staffById: Db['staffById'] = (id) => d().staffById(id);
 export const staffByClaim: Db['staffByClaim'] = (hash) => d().staffByClaim(hash);
 export const pendingStaffForDevice: Db['pendingStaffForDevice'] = (deviceId) =>
   d().pendingStaffForDevice(deviceId);
+export const staffForDevice: Db['staffForDevice'] = (deviceId) => d().staffForDevice(deviceId);
+export const renameStaff: Db['renameStaff'] = (id, name) => d().renameStaff(id, name);
 export const listStaff: Db['listStaff'] = () => d().listStaff();
 export const countPendingStaff: Db['countPendingStaff'] = () => d().countPendingStaff();
 export const createStaff: Db['createStaff'] = (s) => d().createStaff(s);

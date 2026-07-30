@@ -12,8 +12,9 @@
 The cocktails party-ordering app is **live at https://cock.meridew.com**, served entirely from the
 NAS through a **Cloudflare Tunnel** (no open router ports), with **push-to-deploy CI/CD**. The
 original **neo-brutalist design is intact** (`neo.css` is a verbatim port — keep it that way).
-Guests order anonymously; the host unlocks the bar with a **6-digit PIN**, and helpers **ask to
-join** and are approved per-device. **Web Push works**. The PWA is
+Guests order anonymously; the host unlocks the bar with a **6-digit PIN**, and helpers get in with
+a short-lived **join code** the host reads out (asking for approval remains as the fallback).
+**Web Push works**, opted into once up front. The PWA is
 installable from the site, and the **Android** Capacitor project exists (iOS needs a Mac).
 
 Recently completed a full **quality pass** (`QUALITY-PLAN.md`): a four-angle audit, then
@@ -83,9 +84,15 @@ docs/      PLAN.md, OUTSTANDING.md, APP-READINESS.md, MOBILE.md, CUTOVER.md,
   glass: **email + password** (`STAFF_EMAIL`/`STAFF_PASSWORD`, scrypt), which is deliberately kept so
   that jamming the PIN door can never lock the bar out. Env is the source of truth for both, so
   changing a secret and redeploying rotates it.
-- **Helpers:** ask to join → the host approves their **device**. The request lifecycle is persisted
-  client-side (`staffRequest.svelte.ts`) and the decision is **pushed**, because a backgrounded page
-  has its timers frozen and can't be relied on to poll for the answer.
+- **Helpers:** the host shows a **join code** (6 digits, 15-minute TTL, hashed at rest, revocable,
+  reusable) and they're in instantly — `staff/join-code` + `staff/join`, throttled per-IP _and_
+  globally like the PIN. Asking for approval is the fallback for when the host isn't nearby; that
+  request lifecycle is persisted client-side (`staffRequest.svelte.ts`), both sides get **pushed**,
+  and submitting it closes the bar panel so it never blocks ordering.
+- **Notifications:** opted into once, up front, via our own card (`NotifyOptIn`) — the browser prompt
+  is one-shot and a dismissal is permanent, so it only ever fires from that tap. One grant covers
+  every role. Settings has a single on/off switch; **off means the subscription is deleted**, not a
+  stored preference, because Web Push is `userVisibleOnly` and anything delivered must be displayed.
 - **Public entry:** **cloudflared → Caddy** (internal port) → web/api. No inbound router ports. Caddy
   also sets the security headers. Swapping the ingress again would still be zero app changes.
 

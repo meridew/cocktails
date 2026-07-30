@@ -14,7 +14,7 @@
 import type { SubscriberRole } from '@cocktails/shared';
 import { getDeviceId } from './device.ts';
 import { storage } from './storage.ts';
-import { pushKey, subscribePush } from './api.ts';
+import { pushKey, subscribePush, unsubscribePush } from './api.ts';
 
 export type PushState =
   /** not registered yet, but could be */
@@ -47,6 +47,44 @@ export function pushSupported(): boolean {
     'PushManager' in window &&
     'Notification' in window
   );
+}
+
+/** Running as an installed app rather than in a browser tab. */
+export function isInstalled(): boolean {
+  if (typeof window === 'undefined') return false;
+  return (
+    window.matchMedia?.('(display-mode: standalone)').matches === true ||
+    // iOS predates the standard and still reports it here only.
+    (navigator as unknown as { standalone?: boolean }).standalone === true
+  );
+}
+
+/**
+ * iOS supports Web Push *only* for apps added to the Home Screen — a normal Safari
+ * tab has no PushManager at all. So on iPhone the honest answer to "can we notify
+ * you" is "install it first", and offering a prompt that cannot appear would just
+ * look broken.
+ */
+export function needsInstallFirst(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  const ua = navigator.userAgent;
+  const isIOS =
+    /iPad|iPhone|iPod/.test(ua) ||
+    // iPadOS reports itself as a Mac; the touch points give it away.
+    (/Macintosh/.test(ua) && (navigator.maxTouchPoints ?? 0) > 1);
+  return isIOS && !isInstalled() && !pushSupported();
+}
+
+/**
+ * Whether the browser will actually show a prompt if we ask.
+ *
+ * `denied` is terminal — the permission cannot be requested again from script, and
+ * the only way back is the browser's own site settings. That's why we never ask
+ * speculatively; see the opt-in card.
+ */
+export function permissionState(): NotificationPermission | 'unavailable' {
+  if (typeof Notification === 'undefined') return 'unavailable';
+  return Notification.permission;
 }
 
 function rememberedRoles(): SubscriberRole[] {
@@ -149,4 +187,45 @@ export async function enablePush(role: SubscriberRole): Promise<PushState> {
   } catch {
     return (states[role] = 'error');
   }
+}
+
+/**
+ * Turn notifications off for this device, everywhere.
+ *
+ * Drops the browser subscription *and* the server's rows. It deliberately does not
+ * try to revoke the permission — browsers don't allow that — so turning it back on
+ * later is one tap with no second prompt.
+ */
+export async function disablePush(): Promise<void> {
+  const deviceId = getDeviceId();
+  try {
+    if (pushSupported()) {
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.getSubscription();
+      await sub?.unsubscribe().catch(() => {});
+    }
+  } catch {
+    /* the local subscription is best-effort; the server rows are what matter */
+  }
+  try {
+    await unsubscribePush(deviceId);
+  } catch {
+    /* offline → the rows outlive us, but nothing is sent while unsubscribed */
+  }
+  storage.remove(ROLES_KEY);
+  states.guest = 'idle';
+  states.bartender = 'idle';
+}
+
+/**
+ * Subscribe a role *without* prompting, for when permission is already granted.
+ *
+ * This is what makes one opt-in apply everywhere: a guest who said yes at the start
+ * and later signs in to the bar should just start receiving order alerts, not meet a
+ * second consent step for a permission they already gave.
+ */
+export async function enableIfPermitted(role: SubscriberRole): Promise<PushState> {
+  if (!pushSupported()) return (states[role] = 'unsupported');
+  if (permissionState() !== 'granted') return states[role];
+  return enablePush(role);
 }

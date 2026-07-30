@@ -25,13 +25,17 @@ import type {
   StaffClaimResponse,
   StaffListResponse,
   StaffRequestCreated,
+  JoinCodeResponse,
+  JoinResponse,
 } from '@cocktails/shared';
 import { config } from './config.ts';
 import {
   bumpOrder,
+  clearJoinCodes,
   clearOrders,
   createOrder,
   deleteOrder,
+  deleteSubscriptionsForDevice,
   setItemProgress,
   deleteStaff,
   listOrders,
@@ -51,19 +55,23 @@ import {
   pushToRole,
   vapidPublicKey,
 } from './push.ts';
-import { guestStatusPush, newOrderPush, staffDecisionPush } from './notify.ts';
+import { guestStatusPush, newOrderPush, staffDecisionPush, staffRequestPush } from './notify.ts';
 import {
   approveStaff,
   claimBlocked,
   claimStaffAccess,
+  createJoinCode,
+  joinBlocked,
   login,
   loginWithPin,
   logout,
   loginBlocked,
   noteClaimAttempt,
+  noteJoinAttempt,
   noteLoginAttempt,
   notePinAttempt,
   pinBlocked,
+  redeemJoinCode,
   requestStaffAccess,
   sessionStaff,
   toStaff,
@@ -216,6 +224,44 @@ app.get('/api/auth/me', requireStaff, (c) => {
   return c.json({ ok: true, staff: c.get('staff') } satisfies MeResponse);
 });
 
+// ---- staff: join with a code (the primary way helpers get in) ----
+// The host mints a code and reads it out to whoever is standing next to them.
+app.post('/api/staff/join-code', requireAdmin, (c) => {
+  const admin = c.get('staff');
+  const { code, expiresAt } = createJoinCode(admin.id);
+  return c.json({ ok: true, code, expiresAt } satisfies JoinCodeResponse);
+});
+
+// Revoking outstanding codes is the host's "stop letting people in" — separate
+// from revoking helpers, who keep working.
+app.delete('/api/staff/join-code', requireAdmin, (c) => {
+  clearJoinCodes();
+  return c.json({ ok: true } satisfies OkResponse);
+});
+
+// Public: someone redeeming a code has no credential yet. Throttled hard, because
+// a 6-digit code is a small keyspace — see joinBlocked.
+app.post('/api/staff/join', async (c) => {
+  const ip = clientIp(c);
+  if (joinBlocked(ip)) {
+    return c.json({ ok: false, error: 'too many attempts — try again later' }, 429);
+  }
+  const body = await c.req.json().catch(() => ({}) as Record<string, unknown>);
+  const code = typeof body?.code === 'string' ? body.code : '';
+  const name = cleanStr(body?.name, 60);
+  const deviceId = cleanStr(body?.deviceId, 80);
+  if (!name || !deviceId) {
+    // Shape problems still count towards the throttle: a flood of them is exactly
+    // what it's for. They just don't get a different error to probe with.
+    noteJoinAttempt(ip, false);
+    return c.json({ ok: false, error: 'name and deviceId required' }, 422);
+  }
+  const result = redeemJoinCode(code, name, deviceId);
+  noteJoinAttempt(ip, !!result);
+  if (!result) return c.json({ ok: false, error: 'that code is wrong or has expired' }, 401);
+  return c.json({ ok: true, token: result.token, staff: result.staff } satisfies JoinResponse);
+});
+
 // ---- staff: ask to help, and collect the decision ----
 // Public, because someone asking to help has no credential yet. The claim secret
 // returned here is what proves, later, that this device made the request.
@@ -227,6 +273,10 @@ app.post('/api/staff/requests', rateLimitWrites, async (c) => {
     return c.json({ ok: false, error: 'name and deviceId required' }, 422);
   }
   const claim = requestStaffAccess({ name, deviceId });
+  // Tell the host somebody is waiting. Without this the request only surfaced as a
+  // small dot on a menu button, so it could sit unanswered indefinitely — which is
+  // most of why waiting for approval felt like shouting into a void.
+  void pushToRole('bartender', staffRequestPush(name));
   return c.json({ ok: true, claim } satisfies StaffRequestCreated);
 });
 
@@ -387,4 +437,25 @@ app.post('/api/subscriptions', rateLimitWrites, async (c) => {
   }
   saveSubscription(deviceId, role, subscription);
   return c.json({ ok: true });
+});
+
+/**
+ * Turn notifications off for a device — every role at once.
+ *
+ * "Off" is the absence of a subscription rather than a stored preference we
+ * consult before sending. Web Push subscriptions are `userVisibleOnly`, so any
+ * push that arrives *must* display something; filtering later would only replace
+ * our notification with the browser's "site updated in the background". The only
+ * honest way to send nothing is to have nowhere to send it.
+ *
+ * Public and keyed on the device id, which matches how subscriptions are created:
+ * the id isn't a secret, and the worst it allows is unsubscribing a device that
+ * someone already knows the id of — the safe direction for a mistake to go.
+ */
+app.delete('/api/subscriptions', rateLimitWrites, async (c) => {
+  const body = await c.req.json().catch(() => ({}) as Record<string, unknown>);
+  const deviceId = cleanStr(body?.deviceId, 80);
+  if (!deviceId) return c.json({ ok: false, error: 'deviceId required' }, 422);
+  deleteSubscriptionsForDevice(deviceId);
+  return c.json({ ok: true } satisfies OkResponse);
 });

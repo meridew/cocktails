@@ -700,8 +700,13 @@
 /* Visible on the menu too, so the answer doesn't hide behind a closed modal. */
 .ask-banner {
   display: block;
-  width: calc(100% - 28px);
-  margin: 0 auto 10px;
+  width: 100%;
+  margin: 0 0 12px;
+  /* Sticks to the top of the menu as it scrolls: "am I in yet?" should stay
+     answerable without hunting for it. */
+  position: sticky;
+  top: 0;
+  z-index: 2;
   padding: 10px 14px;
   font: inherit;
   font-size: 0.9rem;
@@ -749,4 +754,82 @@
 /* Marks what the guest was actually told, so the bar can see it at a glance. */
 .ord-hand-flag {
   margin-left: 5px;
+}
+
+/* ---------------- notification opt-in ---------------- */
+/* Our own ask, shown before the browser's. The browser prompt is one-shot and a
+   dismissal is permanent, so it only ever fires from a tap on "Yes" here. */
+.optin {
+  width: 100%;
+  margin: 0 0 14px;
+  padding: 14px 16px;
+  background: var(--surface, #16161f);
+  border: 2px solid #0a0a12;
+  border-radius: 12px;
+  box-shadow: var(--shadow-sm);
+}
+.optin h3 {
+  margin: 0 0 6px;
+  font-family: 'Bungee', system-ui, sans-serif;
+  font-size: 0.95rem;
+  line-height: 1.25;
+}
+.optin p {
+  margin: 0 0 12px;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  opacity: 0.8;
+}
+.optin-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.optin-yes,
+.optin-no {
+  min-height: 44px;
+  padding: 8px 16px;
+  border: 2px solid #0a0a12;
+  border-radius: 10px;
+  font-family: 'Bungee', system-ui, sans-serif;
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.optin-yes {
+  background: #acff00;
+  color: #0a0a12;
+}
+.optin-no {
+  background: transparent;
+  color: inherit;
+  border-color: rgba(255, 255, 255, 0.25);
+}
+.optin-yes:disabled,
+.optin-no:disabled {
+  opacity: 0.5;
+}
+
+/* ---------------- settings ---------------- */
+.settings-note {
+  margin: 0 0 8px;
+  padding: 0 4px;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  opacity: 0.7;
+}
+
+/* ---------------- join code ---------------- */
+/* Meant to be read aloud across a noisy room, so it's as large as it can be. */
+.joincode {
+  margin: 4px 0 6px;
+  font-family: 'Bungee', system-ui, sans-serif;
+  font-size: clamp(2.2rem, 13vw, 3.2rem);
+  line-height: 1.1;
+  letter-spacing: 0.14em;
+  text-align: center;
+  color: #ffe600;
 }

@@ -410,3 +410,64 @@ describe('POST /api/subscriptions', () => {
     assert.equal(subscriptionsForDevice('dev-staff')[0]?.role, 'bartender');
   });
 });
+
+describe('DELETE /api/subscriptions', () => {
+  const sub = {
+    endpoint: 'https://fcm.googleapis.com/fcm/send/off',
+    keys: { p256dh: 'p', auth: 'a' },
+  };
+
+  // Its own IPs: the write throttle is per-IP, and sharing one with the rest of the
+  // file would make these pass or fail depending on how much came before them.
+  let ipCounter = 0;
+  const ip = () => ({ 'cf-connecting-ip': `198.51.100.${++ipCounter % 250}` });
+
+  const subscribe = (body: Record<string, unknown>, headers: Record<string, string> = {}) =>
+    app.request('/api/subscriptions', json(body, { ...ip(), ...headers }));
+
+  const unsubscribe = (deviceId: unknown) =>
+    app.request('/api/subscriptions', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json', ...ip() },
+      body: JSON.stringify(deviceId === undefined ? {} : { deviceId }),
+    });
+
+  test('turning notifications off leaves nothing to send to', async () => {
+    // "Off" is the absence of a subscription, not a preference consulted before
+    // sending: Web Push is userVisibleOnly, so anything delivered *must* be shown.
+    const { subscriptionsForDevice } = await import('../src/db.ts');
+    await subscribe({ deviceId: 'dev-off', subscription: sub });
+    assert.equal(subscriptionsForDevice('dev-off').length, 1);
+
+    assert.equal((await unsubscribe('dev-off')).status, 200);
+    assert.equal(subscriptionsForDevice('dev-off').length, 0);
+  });
+
+  test('clears every role at once — one switch means one switch', async () => {
+    const { subscriptionsForDevice } = await import('../src/db.ts');
+    await subscribe({ deviceId: 'dev-both', subscription: sub });
+    await subscribe(
+      {
+        deviceId: 'dev-both',
+        role: 'bartender',
+        subscription: { ...sub, endpoint: `${sub.endpoint}2` },
+      },
+      auth(),
+    );
+    assert.equal(subscriptionsForDevice('dev-both').length, 2);
+
+    await unsubscribe('dev-both');
+    assert.equal(subscriptionsForDevice('dev-both').length, 0);
+  });
+
+  test('touches only the device asked for', async () => {
+    const { subscriptionsForDevice } = await import('../src/db.ts');
+    await subscribe({ deviceId: 'dev-keep', subscription: sub });
+    await unsubscribe('dev-someone-else');
+    assert.equal(subscriptionsForDevice('dev-keep').length, 1);
+  });
+
+  test('requires a deviceId', async () => {
+    assert.equal((await unsubscribe(undefined)).status, 422);
+  });
+});

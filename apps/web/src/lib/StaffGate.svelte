@@ -1,8 +1,15 @@
 <script lang="ts">
   /**
-   * The door to the bar. Two ways in:
-   *   • the host taps a PIN (works on any device)
-   *   • a helper asks, and the host approves their device
+   * The door to the bar. Three ways through, in order of how often they're used:
+   *   • the host taps their PIN
+   *   • a helper types a join code the host just read out — instant
+   *   • a helper asks, and waits for the host to approve their device
+   *
+   * The join code is the primary helper path on purpose. Request-and-approve solves
+   * *remote* onboarding, and at a party the host is standing right there — so the
+   * asynchronous version turned a five-second conversation into a multi-minute wait
+   * that could stall indefinitely. It's kept as the fallback for when the host isn't
+   * nearby, and it now pushes them, so it can't sit unnoticed.
    *
    * Every state a request can be in is shown explicitly — sent, waiting, declined —
    * because the previous version deleted the outcome as soon as it read it and left
@@ -11,69 +18,79 @@
    * (Approval needs no panel: the queue simply appears.)
    */
   import { onMount } from 'svelte';
-  import { LIMITS, PIN_LENGTH, isValidPin } from '@cocktails/shared';
+  import { JOIN_CODE_LENGTH, LIMITS, PIN_LENGTH, isValidPin } from '@cocktails/shared';
   import { Unauthorized } from './api.ts';
   import { session, signInWithPin } from './session.svelte';
-  import { askToHelp, checkDecision, clearRequest, staffRequest } from './staffRequest.svelte';
-  import { getSavedName } from './device.ts';
+  import {
+    askToHelp,
+    checkDecision,
+    clearRequest,
+    joinWithJoinCode,
+    staffRequest,
+  } from './staffRequest.svelte';
+  import { getSavedName, saveName } from './device.ts';
+  import Keypad from './Keypad.svelte';
 
-  // No `onsignedin` callback: signing in is a change to the session store, and the
-  // bar watches that directly. Notifying a parent from here was unreliable anyway —
-  // an approval unmounts this component in the same update that grants the session,
-  // so anything scheduled on the way out never ran.
+  /** Fired once a request is lodged, so the bar can get out of the way. */
+  let { onasked }: { onasked: () => void } = $props();
 
-  let pin = $state('');
   let askName = $state(getSavedName());
   let busy = $state(false);
   let error = $state('');
-  /** Set when someone chooses to ask rather than enter a PIN. */
-  let asking = $state(false);
+  /** Which door the person is currently at. */
+  let door = $state<'pin' | 'join' | 'ask'>('pin');
 
-  // Show why a previous session ended until the next attempt.
   let message = $derived(error || session.expiredMessage);
-  let ready = $derived(isValidPin(pin));
 
   /**
-   * Which panel to show. An outstanding or unacknowledged request always wins:
-   * that's the news, and burying it behind a sign-in form was the original defect.
+   * An outstanding or unacknowledged request always wins over the doors: that's the
+   * news, and burying it behind a sign-in form was the original defect.
    */
   let mode = $derived(
     staffRequest.kind === 'pending'
       ? 'waiting'
       : staffRequest.kind === 'declined'
         ? 'declined'
-        : asking
-          ? 'ask'
-          : 'pin',
+        : door,
   );
 
-  const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', '⌫'];
-
-  function tap(key: string) {
-    if (key === '') return;
+  /** Move to another door with a clean slate. */
+  const goto = (next: 'pin' | 'join' | 'ask') => () => {
+    door = next;
     error = '';
-    if (key === '⌫') {
-      pin = pin.slice(0, -1);
-      return;
-    }
-    if (pin.length >= PIN_LENGTH) return;
-    pin += key;
-    // Submitting on the last digit is what makes this a single gesture rather than
-    // "type, then hunt for the button".
-    if (pin.length === PIN_LENGTH) void submitPin();
-  }
+  };
 
-  async function submitPin() {
+  async function submitPin(pin: string) {
     if (!isValidPin(pin) || busy) return;
     busy = true;
     error = '';
     try {
       await signInWithPin(pin);
-      pin = '';
     } catch (e) {
-      pin = '';
       error =
         e instanceof Unauthorized ? 'Wrong PIN' : (e as Error).message || 'That PIN didn’t work';
+    } finally {
+      busy = false;
+    }
+  }
+
+  async function submitJoin(code: string) {
+    const name = askName.trim();
+    if (busy) return;
+    if (!name) {
+      error = 'Pop your name in first, so the bar knows who you are';
+      return;
+    }
+    busy = true;
+    error = '';
+    try {
+      saveName(name);
+      await joinWithJoinCode(code, name);
+    } catch (e) {
+      error =
+        e instanceof Unauthorized
+          ? 'That code is wrong or has expired'
+          : (e as Error).message || 'That code didn’t work';
     } finally {
       busy = false;
     }
@@ -85,8 +102,12 @@
     busy = true;
     error = '';
     try {
+      saveName(name);
       await askToHelp(name);
-      asking = false;
+      door = 'pin';
+      // Waiting is a background activity — hand the screen back so they can carry
+      // on ordering instead of staring at a modal until somebody answers.
+      onasked();
     } catch (e) {
       error = (e as Error).message || 'Couldn’t send that request';
     } finally {
@@ -97,7 +118,7 @@
   /** Acknowledge a finished request and go back to the door. */
   function dismiss() {
     clearRequest();
-    asking = false;
+    door = 'pin';
   }
 
   /** How long ago the request was sent, so "waiting" doesn't feel like a hang. */
@@ -109,8 +130,7 @@
   }
 
   onMount(() => {
-    // Reopening the panel is a deliberate "any news?" — answer it immediately
-    // rather than on the next tick.
+    // Reopening the panel is a deliberate "any news?" — answer it immediately.
     void checkDecision();
   });
 </script>
@@ -118,49 +138,35 @@
 <div class="bt-gate">
   {#if mode === 'pin'}
     <p class="bt-gate-msg">Enter bar PIN</p>
-    <!-- A real password input, so it masks itself, and so a hardware keyboard still
-         works. The keypad below is for thumbs behind the bar. -->
+    <Keypad length={PIN_LENGTH} label="Bar PIN" disabled={busy} {busy} onsubmit={submitPin} />
+    <button type="button" class="bt-gate-alt" onclick={goto('join')}> Helping out tonight? </button>
+  {:else if mode === 'join'}
+    <p class="bt-gate-msg">Got a join code?</p>
+    <p class="bt-gate-hint">Ask whoever’s running the bar — they can show you one.</p>
     <input
-      type="password"
-      inputmode="numeric"
-      aria-label="Bar PIN"
-      autocomplete="one-time-code"
-      maxlength={PIN_LENGTH}
-      value={pin}
-      oninput={(e) => {
-        // Digits only, so a stray character can never make a valid-looking PIN.
-        pin = e.currentTarget.value.replace(/\D/g, '').slice(0, PIN_LENGTH);
-        e.currentTarget.value = pin;
-      }}
-      onkeydown={(e) => e.key === 'Enter' && submitPin()}
+      type="text"
+      autocomplete="name"
+      autocapitalize="words"
+      placeholder="your name"
+      maxlength={LIMITS.maxFieldLen}
+      bind:value={askName}
     />
-    <div class="pin-pad">
-      {#each KEYS as key (key)}
-        {#if key === ''}
-          <span></span>
-        {:else}
-          <button
-            type="button"
-            class="pin-key"
-            class:is-back={key === '⌫'}
-            disabled={busy}
-            onclick={() => tap(key)}
-            aria-label={key === '⌫' ? 'Delete last digit' : key}
-          >
-            {key}
-          </button>
-        {/if}
-      {/each}
-    </div>
-    <button type="button" class="bt-unlock" onclick={submitPin} disabled={busy || !ready}>
-      {busy ? 'Checking…' : 'Unlock'}
+    <Keypad
+      length={JOIN_CODE_LENGTH}
+      label="Join code"
+      disabled={busy}
+      {busy}
+      onsubmit={submitJoin}
+    />
+    <button type="button" class="bt-gate-alt" onclick={goto('ask')}>
+      No code? Ask them to let you in
     </button>
-    <button type="button" class="bt-gate-alt" onclick={() => (asking = true)}>
-      Helping out tonight? Ask to join
-    </button>
+    <button type="button" class="bt-gate-alt" onclick={goto('pin')}>Back</button>
   {:else if mode === 'ask'}
     <p class="bt-gate-msg">Ask to help at the bar</p>
-    <p class="bt-gate-hint">The host approves you on their device — no PIN needed.</p>
+    <p class="bt-gate-hint">
+      We’ll notify them, and tell you as soon as they answer. You can carry on ordering meanwhile.
+    </p>
     <input
       type="text"
       autocomplete="name"
@@ -173,19 +179,26 @@
     <button type="button" class="bt-unlock" onclick={submitRequest} disabled={busy}>
       {busy ? 'Sending…' : 'Ask to join'}
     </button>
-    <button type="button" class="bt-gate-alt" onclick={() => (asking = false)}>
-      Back to PIN
-    </button>
+    <button type="button" class="bt-gate-alt" onclick={goto('join')}>Back</button>
   {:else if mode === 'waiting'}
     <p class="bt-status-badge is-sent">✓ Request sent</p>
     <p class="bt-gate-msg">Waiting for the host…</p>
     <p class="bt-gate-hint">
-      Asked as <strong>{staffRequest.name}</strong>, {since(staffRequest.at)}. The host approves you
-      in <strong>🍸 Bar → ⋯ → Bar staff</strong>.
+      Asked as <strong>{staffRequest.name}</strong>, {since(staffRequest.at)}. We’ve notified them.
     </p>
     <p class="bt-gate-hint">
-      You can close this — we’ll let you know either way, and it’ll be here when you come back.
+      Close this and carry on — we’ll tell you either way, and it’ll be here when you come back.
     </p>
+    <button
+      type="button"
+      class="bt-unlock"
+      onclick={() => {
+        clearRequest();
+        door = 'join';
+      }}
+    >
+      Got a code instead?
+    </button>
     <button type="button" class="bt-gate-alt" onclick={dismiss}>Cancel request</button>
   {:else}
     <p class="bt-status-badge is-no">✕ Not approved</p>
@@ -201,10 +214,10 @@
       class="bt-unlock"
       onclick={() => {
         clearRequest();
-        asking = true;
+        door = 'join';
       }}
     >
-      Ask again
+      Try a join code
     </button>
     <button type="button" class="bt-gate-alt" onclick={dismiss}>Back to PIN</button>
   {/if}

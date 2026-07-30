@@ -13,6 +13,8 @@ import type {
   StaffClaimResponse,
   StaffListResponse,
   StaffRequestCreated,
+  JoinCodeResponse,
+  JoinResponse,
 } from '@cocktails/shared';
 
 // Same-origin by default: dev → Vite proxy, prod → Caddy, both route /api.
@@ -163,3 +165,21 @@ export const subscribePush = (body: {
   role: SubscriberRole;
   subscription: unknown;
 }) => req<OkResponse>('/subscriptions', { method: 'POST', body: JSON.stringify(body) });
+
+/** Turn this device off entirely — every role. See the route for why it's a delete. */
+export const unsubscribePush = (deviceId: string) =>
+  req<OkResponse>('/subscriptions', { method: 'DELETE', body: JSON.stringify({ deviceId }) });
+
+// ---- staff: join codes ----
+
+/** Host mints a code to read out. The plaintext comes back exactly once. */
+export const createJoinCode = () => req<JoinCodeResponse>('/staff/join-code', { method: 'POST' });
+
+export const revokeJoinCodes = () => req<OkResponse>('/staff/join-code', { method: 'DELETE' });
+
+/** Helper redeems a code and is working the bar immediately. */
+export const joinWithCode = (code: string, name: string, deviceId: string) =>
+  req<JoinResponse>('/staff/join', {
+    method: 'POST',
+    body: JSON.stringify({ code, name, deviceId }),
+  });

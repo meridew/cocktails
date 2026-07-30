@@ -21,7 +21,13 @@
     NotFound,
   } from './api.ts';
   import { dialog } from './dialog.ts';
-  import { enablePush, pushSupported, pushState, refreshPushState } from './push.svelte';
+  import {
+    enableIfPermitted,
+    enablePush,
+    pushSupported,
+    pushState,
+    refreshPushState,
+  } from './push.svelte';
   import { hydrateSession, session, signOut } from './session.svelte';
   import StaffGate from './StaffGate.svelte';
   import StaffAdmin from './StaffAdmin.svelte';
@@ -136,7 +142,12 @@
     if (!session.signedIn) return;
     startPolling();
     void fetchStaff();
-    void refreshPushState('bartender');
+    // One opt-in applies everywhere: someone who already allowed notifications as a
+    // guest should start getting order alerts on signing in, not meet a second
+    // consent step for a permission they've already given.
+    void refreshPushState('bartender').then((state) => {
+      if (state === 'idle') void enableIfPermitted('bartender');
+    });
   }
 
   /**
@@ -271,7 +282,7 @@
   {#if connErr}<p class="bt-conn" role="status">{connErr}</p>{/if}
 
   {#if !signedIn}
-    <StaffGate />
+    <StaffGate onasked={onclose} />
   {:else if showStaff && isAdmin}
     <StaffAdmin
       {staff}

@@ -8,7 +8,15 @@
    */
   import { SvelteSet } from 'svelte/reactivity';
   import type { Staff } from '@cocktails/shared';
-  import { approveStaff, removeStaff, revokeAllHelpers, revokeStaff, Unauthorized } from './api.ts';
+  import {
+    approveStaff,
+    createJoinCode,
+    removeStaff,
+    revokeAllHelpers,
+    revokeJoinCodes,
+    revokeStaff,
+    Unauthorized,
+  } from './api.ts';
   import { session } from './session.svelte';
 
   let {
@@ -26,6 +34,22 @@
   let err = $state('');
   let busy = new SvelteSet<string>();
   let confirmingRevokeAll = $state(false);
+
+  /** The live join code, once minted. Shown in the clear — that's its whole job. */
+  let joinCode = $state<{ code: string; expiresAt: number } | null>(null);
+  /** Ticks so the countdown is honest about how long is left. */
+  let nowMs = $state(Date.now());
+  $effect(() => {
+    if (!joinCode) return;
+    const t = setInterval(() => (nowMs = Date.now()), 1000);
+    return () => clearInterval(t);
+  });
+  let codeLeft = $derived(joinCode ? Math.max(0, joinCode.expiresAt - nowMs) : 0);
+  // Drop it from the screen the moment it stops working, rather than leaving a
+  // dead code up for someone to read out.
+  $effect(() => {
+    if (joinCode && codeLeft <= 0) joinCode = null;
+  });
 
   let pending = $derived(staff.filter((s) => s.status === 'pending'));
   let helpers = $derived(staff.filter((s) => s.status !== 'pending' && s.role !== 'admin'));
@@ -47,6 +71,11 @@
     }
   }
 
+  const mmss = (ms: number): string => {
+    const s = Math.ceil(ms / 1000);
+    return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+  };
+
   const ago = (ts: number): string => {
     const s = Math.max(0, Math.round((Date.now() - ts) / 1000));
     if (s < 60) return `${s}s`;
@@ -62,6 +91,57 @@
   </header>
 
   {#if err}<p class="bt-conn" role="status">{err}</p>{/if}
+
+  <!-- The fast path: read this out to whoever's next to you and they're in. No
+       waiting, no approval round-trip, nothing to notice and act on later. -->
+  <section class="bt-staff-group">
+    <h4>Add someone now</h4>
+    {#if joinCode}
+      <p class="joincode" aria-label="Join code {joinCode.code.split('').join(' ')}">
+        {joinCode.code}
+      </p>
+      <p class="bt-staff-note">
+        They tap 🍸 → “Helping out tonight?” and type this. Expires in {mmss(codeLeft)}.
+      </p>
+      <div class="bt-acts">
+        <button
+          type="button"
+          class="bt-act"
+          disabled={busy.has('__code')}
+          onclick={() =>
+            act('__code', async () => {
+              joinCode = await createJoinCode();
+            })}
+        >
+          New code
+        </button>
+        <button
+          type="button"
+          class="bt-act del"
+          disabled={busy.has('__code')}
+          onclick={() =>
+            act('__code', async () => {
+              await revokeJoinCodes();
+              joinCode = null;
+            })}
+        >
+          Stop sharing
+        </button>
+      </div>
+    {:else}
+      <button
+        type="button"
+        class="bt-chip"
+        disabled={busy.has('__code')}
+        onclick={() =>
+          act('__code', async () => {
+            joinCode = await createJoinCode();
+          })}
+      >
+        Show a join code
+      </button>
+    {/if}
+  </section>
 
   <section class="bt-staff-group">
     <h4>
@@ -184,6 +264,6 @@
         </div>
       </div>
     {/each}
-    <p class="bt-staff-note">Admins sign in with a password and can't be revoked here.</p>
+    <p class="bt-staff-note">Admins sign in with the bar PIN and can't be revoked here.</p>
   </section>
 </div>
