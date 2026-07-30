@@ -8,6 +8,10 @@ import { defineConfig } from 'vitest/config';
  */
 export default defineConfig({
   plugins: [sveltekit()],
+  // `vite dev` ignores PORT by default, which leaves anything that assigns one (a
+  // container, CI, the preview harness) talking to the wrong place. The built
+  // server already honours it, so this makes dev match.
+  server: { port: Number(process.env.PORT) || 5173 },
   test: {
     environment: 'jsdom',
     setupFiles: ['./tests/setup.ts'],
@@ -22,6 +26,20 @@ export default defineConfig({
     // The request log in hooks.server.ts is useful in production and pure noise
     // across a few hundred tests; keep it for failures only.
     silent: 'passed-only',
+    /**
+     * The test environment, stated rather than inherited. `.env` holds real VAPID
+     * keys and the real PIN; with those in scope, push.ts would be live and the
+     * order-status tests would make outbound calls to real push services.
+     */
+    env: {
+      DB_PATH: ':memory:',
+      VAPID_PUBLIC_KEY: '',
+      VAPID_PRIVATE_KEY: '',
+      VAPID_SUBJECT: '',
+      STAFF_PIN: '',
+      STAFF_EMAIL: '',
+      STAFF_PASSWORD: '',
+    },
   },
   // Svelte 5 under jsdom must resolve its *browser* build, or components render to
   // a string and nothing is mountable. Scoped to test runs so it can't affect the

@@ -1,4 +1,22 @@
 import { randomBytes } from 'node:crypto';
+import { env } from '$env/dynamic/private';
+
+/**
+ * The environment, from both places it can come from.
+ *
+ * `process.env` alone is wrong: Vite doesn't load `.env` into it for server modules
+ * during `vite dev`, so reading it directly worked in the built container and
+ * silently fell back to dev defaults locally — the configured PIN was rejected on a
+ * machine where it was set.
+ *
+ * `$env/dynamic/private` alone is also wrong: it includes `.env`, which a test run
+ * must not inherit. Real VAPID keys leaking in would turn every order-status test
+ * into an outbound network call.
+ *
+ * So: `.env` provides the baseline and `process.env` overrides it. Tests set what
+ * they need (see the `env` block in vite.config.ts) and win.
+ */
+const ENV: NodeJS.ProcessEnv = { ...(env as NodeJS.ProcessEnv), ...process.env };
 
 /**
  * Seed staff password. In production, a MISSING secret must never fall back to
@@ -44,35 +62,33 @@ export function resolveAllowedOrigin(env: NodeJS.ProcessEnv = process.env): stri
   if (env.NODE_ENV === 'production') {
     return ['capacitor://localhost', 'https://localhost'];
   }
-  return '*'; // dev convenience (the Vite proxy is same-origin anyway)
+  return '*'; // dev convenience — the app and API are same-origin anyway
 }
 
 /** Runtime configuration, all overridable by environment variables. */
 export const config = {
-  port: Number(process.env.PORT ?? 8787),
   /** CORS origin(s) allowed to call the API. */
-  allowedOrigin: resolveAllowedOrigin(),
+  allowedOrigin: resolveAllowedOrigin(ENV),
   /**
    * Seed staff account, created on first boot if the staff table is empty.
    * Dev defaults make localhost work out of the box; set real values via env
    * (STAFF_EMAIL / STAFF_PASSWORD / STAFF_PIN) in production.
    */
   staff: {
-    email: (process.env.STAFF_EMAIL ?? 'bar@local').trim().toLowerCase(),
-    password: resolveStaffPassword(),
+    email: (ENV.STAFF_EMAIL || 'bar@local').trim().toLowerCase(),
+    password: resolveStaffPassword(ENV),
     /** Short PIN for the same admin account. Empty → PIN sign-in is off. */
-    pin: resolveStaffPin(),
+    pin: resolveStaffPin(ENV),
   },
   /** SQLite file path (a Docker volume on the NAS). Relative to the API cwd. */
-  dbPath: process.env.DB_PATH ?? './data/cocktails.sqlite',
+  dbPath: ENV.DB_PATH || './data/cocktails.sqlite',
   /**
    * Web Push (VAPID). Empty keys → push is disabled and the sender no-ops.
-   * Generate a pair with `npm -w @cocktails/api run gen-vapid`, then set
-   * VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY (secret!) / VAPID_SUBJECT in env.
+   * Set VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY (secret!) / VAPID_SUBJECT in env.
    */
   vapid: {
-    subject: process.env.VAPID_SUBJECT ?? 'mailto:bar@meridew.com',
-    publicKey: process.env.VAPID_PUBLIC_KEY ?? '',
-    privateKey: process.env.VAPID_PRIVATE_KEY ?? '',
+    subject: ENV.VAPID_SUBJECT || 'mailto:bar@meridew.com',
+    publicKey: ENV.VAPID_PUBLIC_KEY ?? '',
+    privateKey: ENV.VAPID_PRIVATE_KEY ?? '',
   },
 } as const;

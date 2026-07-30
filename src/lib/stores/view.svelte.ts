@@ -1,10 +1,14 @@
 /**
- * Where the user was: which overlay was open, and how they'd set the bar up.
+ * Where the user was, for the parts of it the URL can't say.
  *
- * Reloading used to dump you back on the menu, which is wrong everywhere but
- * especially behind the bar — a bartender who refreshes mid-service loses their
- * filter and their place. This is also what makes a native cold start resume
- * rather than restart, so it's a step towards the app builds.
+ * The bar used to live here as a `bar: boolean`, because it was an overlay and a
+ * refresh would otherwise dump a bartender back on the menu mid-service. It's a
+ * route now — `/bar` — so the browser carries that state for free, and back,
+ * forward and reload all behave the way people expect without any help from us.
+ *
+ * What's left is genuinely not addressable: whether the order sheet is showing,
+ * whether the menu is filtered to favourites, and how the bartender has their queue
+ * sorted. Those persist so a reload doesn't reset the setup.
  *
  * Deliberately *not* persisted: the drink configurator. Its half-made selections
  * live in the component, so restoring the shell without them would reopen a dialog
@@ -21,7 +25,6 @@ export type BarFilter = 'active' | OrderStatus;
 export type BarSort = 'oldest' | 'newest';
 
 interface ViewState {
-  bar: boolean;
   order: boolean;
   favesOnly: boolean;
   barFilter: BarFilter;
@@ -29,7 +32,6 @@ interface ViewState {
 }
 
 const DEFAULTS: ViewState = {
-  bar: false,
   order: false,
   favesOnly: false,
   barFilter: 'active',
@@ -49,7 +51,6 @@ function load(): ViewState {
   const pick = <T>(value: unknown, allowed: T[], fallback: T): T =>
     allowed.includes(value as T) ? (value as T) : fallback;
   return {
-    bar: raw.bar === true,
     order: raw.order === true,
     favesOnly: raw.favesOnly === true,
     barFilter: pick(raw.barFilter, BAR_FILTERS, DEFAULTS.barFilter),
@@ -65,13 +66,6 @@ function persist(): void {
 }
 
 export const view = {
-  get bar() {
-    return state.bar;
-  },
-  set bar(open: boolean) {
-    state.bar = open;
-    persist();
-  },
   get order() {
     return state.order;
   },
@@ -103,14 +97,19 @@ export const view = {
 };
 
 /**
- * Apply the dev-hub / notification deep links (`/?bartender`, `/?order`).
+ * The settings sheet, which any route can raise.
  *
- * A link is an explicit instruction about where to go, so it wins over whatever
- * was stored — and it's recorded, so following a "new order" notification and then
- * reloading keeps you on the bar.
+ * Not persisted: reopening the app into a settings dialog nobody asked for would be
+ * an odd place to land.
+ */
+export const settings = $state({ open: false });
+
+/**
+ * Honour the legacy `?order` deep link.
+ *
+ * `?bartender` is gone — that's `/bar` now — but notifications already sent carry
+ * the old URL, so +page.svelte redirects it rather than silently landing on the menu.
  */
 export function applyDeepLink(search: string): void {
-  const params = new URLSearchParams(search);
-  if (params.has('bartender')) view.bar = true;
-  if (params.has('order')) view.order = true;
+  if (new URLSearchParams(search).has('order')) view.order = true;
 }

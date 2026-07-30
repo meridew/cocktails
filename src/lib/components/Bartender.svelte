@@ -20,7 +20,6 @@
     Unauthorized,
     NotFound,
   } from '$lib/api';
-  import { dialog } from '$lib/dialog';
   import {
     enableIfPermitted,
     enablePush,
@@ -252,14 +251,10 @@
   onMount(() => () => stopPolling());
 </script>
 
-<div
-  class="bartender"
-  role="dialog"
-  aria-modal="true"
-  aria-label="Bar"
-  tabindex="-1"
-  use:dialog={{ onclose }}
->
+<!-- Not a dialog any more: this is a page. `use:dialog` inerted everything behind
+     the panel and trapped focus inside it, which is right for a modal over the menu
+     and wrong for a route that *is* the whole screen. -->
+<div class="bartender">
   <header class="bar-top">
     <h2>🍸 Bar</h2>
     {#if signedIn}
@@ -276,7 +271,8 @@
         ⋯{#if isAdmin && pendingCount}<b class="bar-dot"></b>{/if}
       </button>
     {/if}
-    <button type="button" class="bar-icon" onclick={onclose} aria-label="Close bar mode">✕</button>
+    <button type="button" class="bar-icon" onclick={onclose} aria-label="Back to the menu">✕</button
+    >
   </header>
 
   {#if connErr}<p class="bt-conn" role="status">{connErr}</p>{/if}
