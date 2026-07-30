@@ -27,6 +27,41 @@ export interface PushPayload {
   url?: string;
 }
 
+/**
+ * Hosts we are willing to POST a push to. A subscription endpoint is supplied by
+ * an unauthenticated client and is later used as a request target by this server,
+ * so without an allow-list it is a blind SSRF primitive — an attacker could point
+ * it at an internal address on the NAS network and have us call it.
+ */
+const PUSH_HOSTS = [
+  'android.googleapis.com',
+  'fcm.googleapis.com',
+  'updates.push.services.mozilla.com',
+  'web.push.apple.com',
+] as const;
+const PUSH_HOST_SUFFIXES = [
+  '.googleapis.com',
+  '.push.services.mozilla.com',
+  '.notify.windows.com',
+  '.push.apple.com',
+] as const;
+
+/** True if `endpoint` is an https URL belonging to a known push service. */
+export function isAllowedPushEndpoint(endpoint: string): boolean {
+  let url: URL;
+  try {
+    url = new URL(endpoint);
+  } catch {
+    return false;
+  }
+  if (url.protocol !== 'https:') return false;
+  const host = url.hostname.toLowerCase();
+  return (
+    (PUSH_HOSTS as readonly string[]).includes(host) ||
+    PUSH_HOST_SUFFIXES.some((suffix) => host.endsWith(suffix))
+  );
+}
+
 async function deliver(rec: SubscriptionRecord, payload: PushPayload): Promise<void> {
   if (rec.transport !== 'webpush') return; // fcm/apns: Phase D
   try {
@@ -37,7 +72,17 @@ async function deliver(rec: SubscriptionRecord, payload: PushPayload): Promise<v
   } catch (err) {
     // 404/410 Gone = the browser dropped this subscription → forget it.
     const code = (err as { statusCode?: number }).statusCode;
-    if (code === 404 || code === 410) deleteSubscription(rec.deviceId, rec.subscription.endpoint);
+    if (code === 404 || code === 410) {
+      deleteSubscription(rec.deviceId, rec.subscription.endpoint);
+      return;
+    }
+    // Anything else is a real fault we would otherwise never see — e.g. a VAPID
+    // subject that doesn't match the keys returns 403 on every send, which would
+    // silently deliver zero notifications forever.
+    const host = URL.canParse(rec.subscription.endpoint)
+      ? new URL(rec.subscription.endpoint).host
+      : 'unparseable-endpoint';
+    console.warn(`push failed (${code ?? 'no status'}) for ${host}: ${(err as Error).message}`);
   }
 }
 

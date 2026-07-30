@@ -102,8 +102,8 @@ describe('schema + migrations', () => {
       .run(
         'dev-1',
         'guest',
-        JSON.stringify(sub('https://push.example/a')),
-        'https://push.example/a',
+        JSON.stringify(sub('https://fcm.googleapis.com/fcm/send/a')),
+        'https://fcm.googleapis.com/fcm/send/a',
         1000,
       );
     old.close();
@@ -204,6 +204,27 @@ describe('orders', () => {
     assert.equal(db.orderDeviceId(newOrder('NoDevice').id), null);
   });
 
+  test('the cap evicts finished orders before live ones', () => {
+    // Flooding the public endpoint must not delete the party's live queue, so a
+    // 'done' row is always the first candidate regardless of age.
+    const done = newOrder('AlreadyServed');
+    db.setOrderStatus(done.id, 'done');
+    newOrder('StillWaiting');
+
+    for (let i = 0; i < LIMITS.maxOrders - 2; i++) {
+      db.createOrder({ name: `Filler${i}`, items: [{ name: 'Mojito', qty: 1 }], note: '' });
+    }
+    assert.equal(db.listOrders().length, LIMITS.maxOrders);
+
+    db.createOrder({ name: 'Overflow', items: [{ name: 'Wine', qty: 1 }], note: '' });
+    const names = db.listOrders().map((o) => o.name);
+    assert.ok(!names.includes('AlreadyServed'), 'the done order should have been evicted');
+    assert.ok(
+      names.includes('StillWaiting'),
+      'a live order must not be evicted while done rows exist',
+    );
+  });
+
   test('the order cap evicts to stay at the limit', () => {
     for (let i = 0; i < LIMITS.maxOrders; i++) {
       db.createOrder({ name: `G${i}`, items: [{ name: 'Mojito', qty: 1 }], note: '' });
@@ -228,34 +249,36 @@ describe('orders', () => {
 
 describe('subscriptions', () => {
   test('re-subscribing the same device+endpoint updates in place', () => {
-    db.saveSubscription('dev-1', 'guest', sub('https://push.example/a'));
-    db.saveSubscription('dev-1', 'bartender', sub('https://push.example/a'));
+    db.saveSubscription('dev-1', 'guest', sub('https://fcm.googleapis.com/fcm/send/a'));
+    db.saveSubscription('dev-1', 'bartender', sub('https://fcm.googleapis.com/fcm/send/a'));
     const rows = db.subscriptionsForDevice('dev-1');
     assert.equal(rows.length, 1, 'the composite key should have collapsed these');
     assert.equal(rows[0]?.role, 'bartender');
   });
 
   test('a second endpoint for the same device is a separate row', () => {
-    db.saveSubscription('dev-1', 'guest', sub('https://push.example/a'));
-    db.saveSubscription('dev-1', 'guest', sub('https://push.example/b'));
+    db.saveSubscription('dev-1', 'guest', sub('https://fcm.googleapis.com/fcm/send/a'));
+    db.saveSubscription('dev-1', 'guest', sub('https://fcm.googleapis.com/fcm/send/b'));
     assert.equal(db.subscriptionsForDevice('dev-1').length, 2);
   });
 
   test('lookups filter by role and parse the stored subscription back', () => {
-    db.saveSubscription('dev-guest', 'guest', sub('https://push.example/g'));
-    db.saveSubscription('dev-staff', 'bartender', sub('https://push.example/s'));
+    db.saveSubscription('dev-guest', 'guest', sub('https://fcm.googleapis.com/fcm/send/g'));
+    db.saveSubscription('dev-staff', 'bartender', sub('https://fcm.googleapis.com/fcm/send/s'));
 
     const staff = db.subscriptionsForRole('bartender');
     assert.equal(staff.length, 1);
     assert.equal(staff[0]?.deviceId, 'dev-staff');
-    assert.deepEqual(staff[0]?.subscription, sub('https://push.example/s'));
+    assert.deepEqual(staff[0]?.subscription, sub('https://fcm.googleapis.com/fcm/send/s'));
     assert.equal(db.subscriptionsForRole('guest').length, 1);
   });
 
   test('deleteSubscription removes one; an unknown pair is a silent no-op', () => {
-    db.saveSubscription('dev-1', 'guest', sub('https://push.example/a'));
-    db.deleteSubscription('dev-1', 'https://push.example/a');
+    db.saveSubscription('dev-1', 'guest', sub('https://fcm.googleapis.com/fcm/send/a'));
+    db.deleteSubscription('dev-1', 'https://fcm.googleapis.com/fcm/send/a');
     assert.equal(db.subscriptionsForDevice('dev-1').length, 0);
-    assert.doesNotThrow(() => db.deleteSubscription('dev-1', 'https://push.example/gone'));
+    assert.doesNotThrow(() =>
+      db.deleteSubscription('dev-1', 'https://fcm.googleapis.com/fcm/send/gone'),
+    );
   });
 });

@@ -8,7 +8,7 @@ import { config } from './config.ts';
 import { seedStaff } from './auth.ts';
 import { app } from './app.ts';
 
-seedStaff();
+await seedStaff();
 
 serve({ fetch: app.fetch, port: config.port }, (info) => {
   console.log(`\u{1F378} cocktails API listening on http://localhost:${info.port}`);

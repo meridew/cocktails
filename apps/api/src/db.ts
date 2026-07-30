@@ -162,7 +162,14 @@ export function createDb(dbPath: string) {
   const stListOrders = db.prepare(`SELECT * FROM orders ORDER BY created_at ASC, rowid ASC`);
   const stGetOrder = db.prepare(`SELECT * FROM orders WHERE id = ?`);
   const stCountOrders = db.prepare(`SELECT COUNT(*) AS n FROM orders`);
-  const stOldestId = db.prepare(`SELECT id FROM orders ORDER BY created_at ASC, rowid ASC LIMIT 1`);
+  // Eviction candidate: finished orders first, then the oldest. Without the status
+  // term, flooding the endpoint would delete the live queue before touching rows
+  // nobody cares about any more.
+  const stEvictionCandidate = db.prepare(
+    `SELECT id FROM orders
+     ORDER BY (status = 'done') DESC, created_at ASC, rowid ASC
+     LIMIT 1`,
+  );
   const stSetStatus = db.prepare(`UPDATE orders SET status = ?, updated_at = ? WHERE id = ?`);
   const stDeleteOrder = db.prepare(`DELETE FROM orders WHERE id = ?`);
   const stClearDone = db.prepare(`DELETE FROM orders WHERE status = 'done'`);
@@ -209,8 +216,8 @@ export function createDb(dbPath: string) {
     }): Order {
       const count = (stCountOrders.get() as { n: number }).n;
       if (count >= LIMITS.maxOrders) {
-        const oldest = stOldestId.get() as { id: string } | undefined;
-        if (oldest) stDeleteOrder.run(oldest.id);
+        const evict = stEvictionCandidate.get() as { id: string } | undefined;
+        if (evict) stDeleteOrder.run(evict.id);
       }
       const ts = now();
       const id = genId();

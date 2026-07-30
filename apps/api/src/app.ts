@@ -6,12 +6,15 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { bodyLimit } from 'hono/body-limit';
-import type { Context, MiddlewareHandler } from 'hono';
+import { logger } from 'hono/logger';
+import { secureHeaders } from 'hono/secure-headers';
+import type { MiddlewareHandler } from 'hono';
 import { isOrderStatus, LIMITS } from '@cocktails/shared';
 import type {
   ClearWhich,
   Order,
   OrderItem,
+  PushSubscriptionJSON,
   SubscriberRole,
   OrderCreatedResponse,
   OrderListResponse,
@@ -31,8 +34,17 @@ import {
   saveSubscription,
   setOrderStatus,
 } from './db.ts';
-import { pushEnabled, pushToDevice, pushToRole, vapidPublicKey, type PushPayload } from './push.ts';
+import {
+  isAllowedPushEndpoint,
+  pushEnabled,
+  pushToDevice,
+  pushToRole,
+  vapidPublicKey,
+  type PushPayload,
+} from './push.ts';
 import { login, logout, loginBlocked, noteLoginAttempt, sessionStaff } from './auth.ts';
+import { bearerToken, clientIp } from './http.ts';
+import { createRateLimiter } from './ratelimit.ts';
 
 // ---- notification copy (the moments we push on) ----------------------------
 
@@ -73,6 +85,23 @@ function cleanStr(v: unknown, max: number = LIMITS.maxFieldLen): string {
   return s.length > max ? s.slice(0, max) : s;
 }
 
+/**
+ * Validate a client-supplied Web Push subscription, returning a typed value or
+ * null. Both keys are required (`web-push` needs p256dh to encrypt, and a missing
+ * one would otherwise be stored and then fail silently at send time), and the
+ * endpoint must belong to a real push service — see isAllowedPushEndpoint.
+ */
+function parseSubscription(raw: unknown): PushSubscriptionJSON | null {
+  if (typeof raw !== 'object' || raw === null) return null;
+  const { endpoint, keys } = raw as { endpoint?: unknown; keys?: unknown };
+  if (typeof endpoint !== 'string' || !isAllowedPushEndpoint(endpoint)) return null;
+  if (typeof keys !== 'object' || keys === null) return null;
+  const { p256dh, auth } = keys as { p256dh?: unknown; auth?: unknown };
+  if (typeof p256dh !== 'string' || !p256dh) return null;
+  if (typeof auth !== 'string' || !auth) return null;
+  return { endpoint, keys: { p256dh, auth } };
+}
+
 function cleanItems(raw: unknown): OrderItem[] {
   if (!Array.isArray(raw)) return [];
   const out: OrderItem[] = [];
@@ -94,6 +123,19 @@ function cleanItems(raw: unknown): OrderItem[] {
 type AppEnv = { Variables: { staff: Staff } };
 export const app = new Hono<AppEnv>();
 
+// Request logging: without it a failure on the NAS leaves nothing in `docker logs`.
+app.use('*', logger());
+
+// Defence-in-depth for the API responses themselves (the site's own headers are
+// set by Caddy, which serves the web app).
+app.use('*', secureHeaders());
+
+/** Last-resort handler: log the fault, return a generic message, never a stack. */
+app.onError((err, c) => {
+  console.error(`unhandled error on ${c.req.method} ${c.req.path}:`, err);
+  return c.json({ ok: false, error: 'internal error' }, 500);
+});
+
 app.use(
   '/api/*',
   cors({
@@ -113,11 +155,24 @@ app.use(
   }),
 );
 
-/** Pull the bearer token from the Authorization header. */
-function bearer(c: Context<AppEnv>): string | undefined {
-  const h = c.req.header('authorization');
-  return h && /^bearer /i.test(h) ? h.slice(7) : undefined;
-}
+const bearer = (c: { req: { header: (n: string) => string | undefined } }): string | undefined =>
+  bearerToken(c.req.header('authorization'));
+
+/**
+ * Throttle for the unauthenticated write endpoints. Without it, a loop against
+ * POST /api/orders both spams the bartender with pushes and — once the order cap
+ * is reached — evicts the party's real queue.
+ */
+const writeLimiter = createRateLimiter({ max: 30, windowMs: 60 * 1000 });
+
+const rateLimitWrites: MiddlewareHandler<AppEnv> = async (c, next) => {
+  const ip = clientIp(c);
+  if (writeLimiter.isLimited(ip)) {
+    return c.json({ ok: false, error: 'slow down — too many requests' }, 429);
+  }
+  writeLimiter.record(ip);
+  await next();
+};
 
 /** Staff-only guard (replaces the old shared PIN). */
 const requireStaff: MiddlewareHandler<AppEnv> = async (c, next) => {
@@ -136,14 +191,14 @@ app.get('/api/push/key', (c) =>
 
 // ---- staff auth ----
 app.post('/api/auth/login', async (c) => {
-  const ip = c.req.header('cf-connecting-ip') ?? c.req.header('x-forwarded-for') ?? 'local';
+  const ip = clientIp(c);
   if (loginBlocked(ip)) {
     return c.json({ ok: false, error: 'too many attempts — try again later' }, 429);
   }
   const body = await c.req.json().catch(() => ({}) as Record<string, unknown>);
   const email = cleanStr(body?.email, 120);
   const password = typeof body?.password === 'string' ? body.password : '';
-  const result = login(email, password);
+  const result = await login(email, password);
   noteLoginAttempt(ip, !!result);
   if (!result) return c.json({ ok: false, error: 'wrong email or password' }, 401);
   return c.json({ ok: true, token: result.token, staff: result.staff } satisfies LoginResponse);
@@ -157,7 +212,7 @@ app.get('/api/auth/me', requireStaff, (c) => {
 });
 
 // ---- public: place an order ----
-app.post('/api/orders', async (c) => {
+app.post('/api/orders', rateLimitWrites, async (c) => {
   const body = await c.req.json().catch(() => ({}) as Record<string, unknown>);
   const name = cleanStr(body?.name);
   const note = cleanStr(body?.note);
@@ -206,17 +261,17 @@ app.post('/api/orders/clear', requireStaff, async (c) => {
 });
 
 // ---- public: register a push subscription ----
-app.post('/api/subscriptions', async (c) => {
+app.post('/api/subscriptions', rateLimitWrites, async (c) => {
   const body = await c.req.json().catch(() => ({}) as Record<string, unknown>);
   const deviceId = cleanStr(body?.deviceId, 80);
   // Only authenticated staff may register a 'bartender' subscription — otherwise
   // anyone could enroll and receive guests' order details via push. Else: guest.
   const role: SubscriberRole =
     body?.role === 'bartender' && sessionStaff(bearer(c)) ? 'bartender' : 'guest';
-  const sub = body?.subscription as { endpoint?: unknown; keys?: { auth?: unknown } } | undefined;
-  if (!deviceId || typeof sub?.endpoint !== 'string' || typeof sub?.keys?.auth !== 'string') {
+  const subscription = parseSubscription(body?.subscription);
+  if (!deviceId || !subscription) {
     return c.json({ ok: false, error: 'invalid subscription' }, 422);
   }
-  saveSubscription(deviceId, role, sub as never);
+  saveSubscription(deviceId, role, subscription);
   return c.json({ ok: true });
 });

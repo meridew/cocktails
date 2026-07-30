@@ -82,7 +82,7 @@ curl --resolve cock.meridew.com:443:104.21.41.29 https://cock.meridew.com/api/he
 
 ---
 
-## Phase 0 — Foundations · unblocks everything else
+## Phase 0 — Foundations · unblocks everything else ✅ DONE
 
 Goal: make the code testable, add the test runner, add the formatter. No behaviour change.
 
@@ -91,17 +91,17 @@ Goal: make the code testable, add the test runner, add the formatter. No behavio
 Module-load side effects currently make the API untestable: `db.ts` opens SQLite + migrates at import,
 `config.ts` freezes env at import, `server.ts` calls `seedStaff()` + `serve()` at import.
 
-- [ ] **`apps/api/src/db.ts` → `createDb(dbPath)` factory.** Move the existing body (currently
+- [x] **`apps/api/src/db.ts` → `createDb(dbPath)` factory.** Move the existing body (currently
       lines ~19–end) inside the factory verbatim; return the query functions. Keep **every current named
       export as a one-line delegate** over a lazy singleton (`let singleton; const d = () => (singleton ??= createDb(config.dbPath))`)
       so **no call site in `auth.ts`/`push.ts`/`app.ts` changes**. Also export `raw: db` for migration tests.
       Side benefit: the DB opens lazily on first query instead of at import.
-- [ ] **Fix `:memory:`** — currently `resolve(process.cwd(), config.dbPath)` mangles it, so
+- [x] **Fix `:memory:`** — currently `resolve(process.cwd(), config.dbPath)` mangles it, so
       `DB_PATH=':memory:'` fails with `ERR_SQLITE_ERROR: unable to open database file` ✅**ran**.
       Special-case it (and skip `mkdirSync`/WAL for in-memory).
-- [ ] **`apps/api/src/config.ts`** — `export` `resolveStaffPassword` / `resolveAllowedOrigin` and give
+- [x] **`apps/api/src/config.ts`** — `export` `resolveStaffPassword` / `resolveAllowedOrigin` and give
       each an `env: NodeJS.ProcessEnv = process.env` parameter. The `config` literal stays untouched.
-- [ ] **Split `apps/api/src/app.ts` from `server.ts`.** `app.ts` holds the Hono app and routes
+- [x] **Split `apps/api/src/app.ts` from `server.ts`.** `app.ts` holds the Hono app and routes
       (lines 1–~207 moved verbatim, `export const app`). `server.ts` becomes ~7 lines: import `app`, call
       `seedStaff()`, call `serve()`. Deployment contract unchanged.
 
@@ -111,40 +111,40 @@ Chosen over Vitest: no new deps, matches the "Node built-ins" ethos, and tests r
 loader that ships in Docker_. Vitest's unique wins (Svelte component tests, `import.meta.env`) are out
 of scope (§Out of scope). Revisit only if component tests are ever wanted.
 
-- [ ] Create `apps/api/tests/` and `apps/web/tests/` — **plural**. A dir named `test/` makes Node
+- [x] Create `apps/api/tests/` and `apps/web/tests/` — **plural**. A dir named `test/` makes Node
       execute _every_ file in it, so helper modules would run as tests ✅**ran**.
-- [ ] `apps/api/tests/setup.ts`: `process.env.DB_PATH ??= ':memory:';` — must be in an `--import` file,
+- [x] `apps/api/tests/setup.ts`: `process.env.DB_PATH ??= ':memory:';` — must be in an `--import` file,
       not at the top of a test, because static imports are hoisted and `config.ts` would freeze first.
-- [ ] `apps/web/tests/setup.ts`: 2-line `$state` shim (`globalThis.$state = v => v`) so
+- [x] `apps/web/tests/setup.ts`: 2-line `$state` shim (`globalThis.$state = v => v`) so
       `basket.svelte.ts` is importable under plain Node ✅**ran**.
-- [ ] Scripts: root `"test": "npm run test --workspaces --if-present"`; each workspace
+- [x] Scripts: root `"test": "npm run test --workspaces --if-present"`; each workspace
       `"test": "node --test --import ./tests/setup.ts \"tests/**/*.test.ts\""` (double quotes — Node
       expands the glob itself, portable across pwsh/cmd/bash).
-- [ ] tsconfig `include` += `tests/**/*.ts` in both apps; add `"node"` to `apps/web` tsconfig `types`
+- [x] tsconfig `include` += `tests/**/*.ts` in both apps; add `"node"` to `apps/web` tsconfig `types`
       and `@types/node` to its devDependencies (resolves via hoisting today, but be explicit for `npm ci`).
-- [ ] **CI:** add a `Test` step to the existing `check` job in `.github/workflows/nas-deploy.yml`,
+- [x] **CI:** add a `Test` step to the existing `check` job in `.github/workflows/nas-deploy.yml`,
       after `npm run check`. `deploy` already has `needs: check`, so tests gate prod with no new job.
       Do **not** set `VAPID_*` on that job — with keys unset, `push.ts` is inert and the suite makes zero
       outbound requests.
 
 ### 0.3 Prettier
 
-- [ ] Add `prettier` + `prettier-plugin-svelte` (devDeps) and a `.prettierrc` matching current style
+- [x] Add `prettier` + `prettier-plugin-svelte` (devDeps) and a `.prettierrc` matching current style
       (~100 col, single quotes, trailing commas). Add `.prettierignore` (`dist`, `dev-dist`, `android`, `ios`, `package-lock.json`).
-- [ ] Scripts: `"format"` and `"format:check"`. Add `format:check` to the CI `check` job.
-- [ ] **Commit the repo-wide reformat on its own**, with no logic changes, so later diffs stay reviewable.
+- [x] Scripts: `"format"` and `"format:check"`. Add `format:check` to the CI `check` job.
+- [x] **Commit the repo-wide reformat on its own**, with no logic changes, so later diffs stay reviewable.
 
 **Exit criteria:** `npm run check` clean · `npm test` runs (even with 0 tests) · both build modes correct
 (default emits `sw.js`, `--mode native` does not) · `npm run format:check` clean · deploy green.
 
 ---
 
-## Phase 1 — Tier-1 tests · the safety net
+## Phase 1 — Tier-1 tests · the safety net ✅ DONE
 
 Write tests for **current** behaviour first (pure logic), so later phases are verifiable. Regression
 tests for specific bugs are written in the phase that fixes them.
 
-- [ ] **`apps/web/tests/data.test.ts` — the menu axes engine.** Highest value in the repo; pure, no
+- [x] **`apps/web/tests/data.test.ts` — the menu axes engine.** Highest value in the repo; pure, no
       refactor needed. Cover: `axesFor` (Margarita prepends BOOZE; Old Fashioned `boozeChoice:false` has
       spirits but no booze axis; Wine has neither); `visibleAxes` (`booze:'Boring'` hides `strength`;
       Wine `colour:'Red'` hides `ice`, White/Rosé show it; **Old Fashioned with `{}` shows `strength`**
@@ -154,11 +154,11 @@ tests for specific bugs are written in the phase that fixes them.
       for all `DRINKS`; `buildLine` — **most valuable single test: hidden axes must not leak** (Boring +
       `strength:'Double'` ⇒ no `Double` tag, no `Extra shot` add, no spirits in `recipe`), tag/add ordering
       follows axis order, unknown choice values are skipped without throwing.
-- [ ] **`apps/api/tests/shared.test.ts` — contracts.** `isOrderStatus` accept/reject sets;
+- [x] **`apps/api/tests/shared.test.ts` — contracts.** `isOrderStatus` accept/reject sets;
       `Object.keys(STATUS_META)` is exactly `ORDER_STATUSES`; ranks unique + ascending; walking `next` from
       `pending` visits all four exactly once and terminates (no cycle/orphan); `next === null` iff
       `nextLabel === null`; all `LIMITS` are positive integers.
-- [ ] **`apps/api/tests/auth.test.ts`.** Hash shape + salt randomness; round-trip; wrong password;
+- [x] **`apps/api/tests/auth.test.ts`.** Hash shape + salt randomness; round-trip; wrong password;
       malformed stored hashes (`''`, `'nocolon'`, `':'`, `'aa:'`) → false. Sessions: round-trip, expiry
       boundary, `undefined`/garbage → null, **raw token never stored** (row equals `sha256(token)`).
       `login`: email normalisation (`'  BAR@LOCAL  '`), wrong password creates no session row, unknown
@@ -167,7 +167,7 @@ tests for specific bugs are written in the phase that fixes them.
       second call), rotates when the env password differs. Rate limiter with
       `mock.timers.enable({ apis:['Date'] })` ✅**ran**: 9 fails not blocked, 10th blocks, success resets,
       window expiry unblocks and restarts at 1. ⚠️ `loginHits` is module-level — give every test a unique IP.
-- [ ] **`apps/api/tests/db.test.ts`.** **Migrations** (the reason for 0.1): hand-build an old-schema DB
+- [x] **`apps/api/tests/db.test.ts`.** **Migrations** (the reason for 0.1): hand-build an old-schema DB
       in a temp file (no `user_id`, no `transport`/`platform`) with pre-existing rows → `createDb(path)` →
       assert columns added, defaults applied (`'webpush'`, `'web'`), **rows survived**; call again → no
       throw. Orders CRUD; corrupt `items` JSON → `[]` and no throw; `listOrders` ordering; unknown-id
@@ -176,7 +176,7 @@ tests for specific bugs are written in the phase that fixes them.
       ⚠️ `node:sqlite` returns null-prototype rows — spread (`{...row}`) before `deepStrictEqual` ✅**ran**.
       ⚠️ Don't assert _which_ order the `maxOrders` eviction removed — all rows share a millisecond, so it's
       non-deterministic today (Phase 2 makes it deterministic). Assert the count invariant instead.
-- [ ] **`apps/api/tests/routes.test.ts` via `app.request()`** — in-process, no port ✅**ran**.
+- [x] **`apps/api/tests/routes.test.ts` via `app.request()`** — in-process, no port ✅**ran**.
       Auth gate: every staff route 401s with no header / garbage / `Basic`, and accepts lowercase `bearer`.
       Login flow incl. non-JSON body → 401 not 500, and 429 after 10 fails (different IP still 401).
       `POST /api/orders` validation matrix (`{}`→422, empty items→422, whitespace name→422, `items:'nope'`→422;
@@ -184,10 +184,10 @@ tests for specific bugs are written in the phase that fixes them.
       body limit 300 KB → 413. `PATCH` bad status → 422, unknown id → 404, full `pending→making→serving→done`
       chain. `clear` both modes. **`POST /api/subscriptions` role downgrade** (bartender role without a
       token stores `guest`; with a valid staff token stores `bartender`; expired token downgrades).
-- [ ] **`apps/web/tests/basket.test.ts`** (needs the `$state` shim). Dedupe by name, qty clamp to
+- [x] **`apps/web/tests/basket.test.ts`** (needs the `$state` shim). Dedupe by name, qty clamp to
       `LIMITS.maxQty`, `setQty(0|-1)` removes, unknown name no-ops, `basketCount()` sums quantities not
       lines, `clearBasket` in `beforeEach` (module-level singleton).
-- [ ] **`apps/api/tests/config.test.ts`.** Prod + no `STAFF_PASSWORD` ⇒ random (never `'cocktails'`);
+- [x] **`apps/api/tests/config.test.ts`.** Prod + no `STAFF_PASSWORD` ⇒ random (never `'cocktails'`);
       prod + set ⇒ uses it; prod + no `ALLOWED_ORIGIN` ⇒ capacitor origins (never `'*'`);
       `'a, b ,'` ⇒ `['a','b']`.
 
@@ -196,17 +196,17 @@ second · no stray `apps/api/data/*.sqlite` artifacts created by the run.
 
 ---
 
-## Phase 2 — Observability + Security
+## Phase 2 — Observability + Security ✅ DONE
 
 The API is publicly reachable. Do observability first — it is what makes everything else debuggable.
 
 ### 2.1 Observability (zero new dependencies — all already installed)
 
-- [ ] `hono/logger` — there is currently **no request logging at all**.
-- [ ] `app.onError` — there is currently **no error handler**; an unexpected throw returns a bare 500
+- [x] `hono/logger` — there is currently **no request logging at all**.
+- [x] `app.onError` — there is currently **no error handler**; an unexpected throw returns a bare 500
       with nothing in `docker logs`.
-- [ ] `hono/secure-headers`.
-- [ ] `push.ts`: `console.warn` the endpoint host + `statusCode` for non-404/410 failures. Today every
+- [x] `hono/secure-headers`.
+- [x] `push.ts`: `console.warn` the endpoint host + `statusCode` for non-404/410 failures. Today every
       such failure is swallowed, so e.g. a mismatched `VAPID_SUBJECT` ⇒ **zero notifications delivered,
       nothing logged**, while the API still returns `{ok:true}`.
 
@@ -215,51 +215,51 @@ The API is publicly reachable. Do observability first — it is what makes every
 `POST /api/orders` and `POST /api/subscriptions` are unauthenticated with **no throttle** — only
 `/api/auth/login` is limited. Combined with 2.3, 500 requests wipe the live queue.
 
-- [ ] Generalise the existing `loginHits` window (`auth.ts`) into **one** reusable rate-limit helper
+- [x] Generalise the existing `loginHits` window (`auth.ts`) into **one** reusable rate-limit helper
       (DRY — do not write a second limiter) and apply it as middleware to `/api/orders` and
       `/api/subscriptions`. Do **not** add `hono-rate-limiter`; its value is a Redis store we don't want.
-- [ ] **Trusted IP derivation.** `server.ts` reads raw `x-forwarded-for`, which is client-controlled;
+- [x] **Trusted IP derivation.** `server.ts` reads raw `x-forwarded-for`, which is client-controlled;
       the LAN `:8088` port bypasses Cloudflare entirely, so a random XFF per request defeats the brake.
       Prefer `cf-connecting-ip`, else the **first hop** of XFF, else `getConnInfo` from
       `@hono/node-server/conninfo` (already installed). Extract as a single `clientIp(c)` helper.
-- [ ] **Bound the limiter Map.** The current prune only deletes _expired_ entries, so it does nothing
+- [x] **Bound the limiter Map.** The current prune only deletes _expired_ entries, so it does nothing
       when all are fresh — evict oldest-`resetAt` unconditionally past the cap.
 
 ### 2.3 Order eviction (HIGH — data loss)
 
 `createOrder` deletes the oldest order once `LIMITS.maxOrders` (500) is reached, regardless of status.
 
-- [ ] Prefer `done` rows, then oldest, and make it **deterministic**:
+- [x] Prefer `done` rows, then oldest, and make it **deterministic**:
       `ORDER BY (status='done') DESC, created_at ASC, rowid ASC`.
-- [ ] Regression test: 500 orders + 1 more ⇒ count stays 500, a `done` row goes before a `pending` one.
+- [x] Regression test: 500 orders + 1 more ⇒ count stays 500, a `done` row goes before a `pending` one.
 
 ### 2.4 Subscription endpoint validation — SSRF (HIGH)
 
 `endpoint` is only checked `typeof === 'string'`, then `web-push` POSTs to it; `keys.p256dh` is never
 validated; the row is cast `as never`.
 
-- [ ] Require `new URL(endpoint).protocol === 'https:'` **and** an allow-list of push-service hosts
+- [x] Require `new URL(endpoint).protocol === 'https:'` **and** an allow-list of push-service hosts
       (`*.googleapis.com`, `*.push.services.mozilla.com`, `*.notify.windows.com`, `web.push.apple.com`).
-- [ ] Require `keys.p256dh` (Phase 3's schema makes this structural).
-- [ ] Cap rows per `device_id` so random device ids can't fill the volume.
-- [ ] Regression tests: `http://`, an internal IP, and a missing `p256dh` all 422.
+- [x] Require `keys.p256dh` (Phase 3's schema makes this structural).
+- [x] Cap rows per `device_id` so random device ids can't fill the volume.
+- [x] Regression tests: `http://`, an internal IP, and a missing `p256dh` all 422.
 
 ### 2.5 Password hardening
 
-- [ ] **`verifyPassword` empty-hash bypass** — `verifyPassword('anything', 'aa:zz')` returns **`true`**
+- [x] **`verifyPassword` empty-hash bypass** — `verifyPassword('anything', 'aa:zz')` returns **`true`**
       ✅**ran** (`Buffer.from('zz','hex')` is empty ⇒ `scryptSync(...,0)` is empty ⇒ `timingSafeEqual` passes).
       Guard `if (expected.length === 0) return false;`. Test first, then fix.
-- [ ] **scrypt cost** — currently Node defaults (N=2^14), **8× under the OWASP floor** (2^17). Raise N
+- [x] **scrypt cost** — currently Node defaults (N=2^14), **8× under the OWASP floor** (2^17). Raise N
       and lift `maxmem` accordingly; switch to the async (non-blocking) form. Existing hashes self-heal
       because `seedStaff` re-derives from env and rewrites on mismatch. Consider embedding params in the
       stored string before a second account exists.
 
 ### 2.6 Transport / session
 
-- [ ] Security headers in `infra/Caddyfile` (CSP, `frame-ancestors 'none'`, `X-Content-Type-Options`,
+- [x] Security headers in `infra/Caddyfile` (CSP, `frame-ancestors 'none'`, `X-Content-Type-Options`,
       `Referrer-Policy`, HSTS) — currently none anywhere in the chain, next to a 30-day bearer token in
       `localStorage`.
-- [ ] Shorten `SESSION_TTL_MS` (30d is long for a party app) and refresh on use.
+- [x] Shorten `SESSION_TTL_MS` (30d is long for a party app) and refresh on use.
 
 **Exit criteria:** all 2.x tests green · flood test cannot evict a `pending` order · SSRF cases rejected ·
 prod `/api/health` 200 after deploy · logs show request lines and a caught error.
