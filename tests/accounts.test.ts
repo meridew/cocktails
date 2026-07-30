@@ -176,3 +176,19 @@ describe('resetting a forgotten password', () => {
     assert.notEqual(withOld.status, 200, 'the old password must be dead');
   });
 });
+
+describe('Google sign-in', () => {
+  test('is simply absent when no credentials are configured', async () => {
+    // The test environment sets no GOOGLE_CLIENT_ID, so Better Auth registers no
+    // Google routes at all. That's the behaviour worth pinning: the alternative —
+    // a provider configured with empty strings — would give a button that leads to
+    // a redirect loop or a 500, which is worse than no button.
+    const res = await request('/api/account/sign-in/social', send('POST', { provider: 'google' }));
+    assert.notEqual(res.status, 200, 'an unconfigured provider must not appear to work');
+  });
+
+  test('and the host page knows not to offer it', async () => {
+    const { load } = await import('../src/routes/host/+page.server');
+    assert.equal(load().googleEnabled, false, 'the button must not render without credentials');
+  });
+});

@@ -308,6 +308,13 @@ it applies at first query and round-trips an order._
 Better Auth on the Drizzle handle; email + password with verification; Google/Apple
 OAuth as configuration.
 
+> **Google was left out and later put back.** This phase was marked done with OAuth
+> quietly moved to OUTSTANDING as "optional" — a deliverable narrowed without asking.
+> Built on 30 Jul 2026 once Dan noticed. Apple stays out on a stated judgement, not
+> silently: it needs a paid developer membership and a client secret that expires
+> every six months, which is four times faster than the Entra secret we avoided by
+> using a certificate.
+
 **Email is an interface.** Define `EmailSender` with a development implementation that
 logs to the console, so this phase completes without the Entra registration (§8.1).
 Wiring Graph `sendMail` behind it is then a small, separate task.

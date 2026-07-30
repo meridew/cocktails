@@ -979,3 +979,46 @@ a.bt-gate-alt {
   text-align: center;
   text-decoration: none;
 }
+
+/* Google's button. Deliberately white-on-dark rather than neon: people recognise
+   this control by its shape, and restyling it to match the party costs more in
+   hesitation than it gains in coherence. */
+.host-google {
+  font: inherit;
+  font-weight: 700;
+  min-height: 44px;
+  padding: 0.7rem 1rem;
+  border-radius: 0.6rem;
+  border: 2px solid rgb(255 255 255 / 0.85);
+  background: #fff;
+  color: #1f1f1f;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+}
+.host-google:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+.host-google-g {
+  font-weight: 900;
+  font-size: 1.1rem;
+  color: #4285f4;
+}
+.host-or {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0.15rem 0;
+  opacity: 0.55;
+  font-size: 0.8rem;
+}
+.host-or::before,
+.host-or::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: currentColor;
+}

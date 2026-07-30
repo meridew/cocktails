@@ -28,11 +28,15 @@
     signInToAccount,
     signOutOfAccount,
     signUp,
+    googleSignInUrl,
     type AccountUser,
     type Party,
   } from '$lib/api';
   import { adoptApprovedSession } from '$lib/stores/session.svelte';
   import { rememberEvent } from '$lib/party';
+
+  /** From +page.server.ts: whether Google is configured on this deployment. */
+  let { data }: { data: { googleEnabled: boolean } } = $props();
 
   let user = $state<AccountUser | null>(null);
   let parties = $state<Party[]>([]);
@@ -138,6 +142,19 @@
       notice = 'Sent again — check your inbox.';
     });
 
+  /**
+   * Hand the browser to Google.
+   *
+   * A full navigation rather than a fetch: the consent screen is a page, and
+   * Google refuses to be framed or XHR'd. `location.href` rather than `goto`
+   * because this leaves the app entirely.
+   */
+  const withGoogle = () =>
+    attempt(async () => {
+      const { url } = await googleSignInUrl();
+      window.location.href = url;
+    });
+
   /** The link to put in a QR code on the kitchen table. */
   const guestLink = (party: Party): string => `${page.url.origin}/e/${party.id}`;
 
@@ -194,6 +211,14 @@
         ? 'An account lets you own a party, set what you have in, and open its bar from any phone.'
         : 'Sign in to your parties.'}
     </p>
+
+    {#if data.googleEnabled}
+      <button class="host-google" type="button" onclick={withGoogle} disabled={busy}>
+        <span class="host-google-g" aria-hidden="true">G</span>
+        Continue with Google
+      </button>
+      <p class="host-or"><span>or</span></p>
+    {/if}
 
     <form
       class="host-form"

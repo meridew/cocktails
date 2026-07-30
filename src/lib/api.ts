@@ -186,6 +186,16 @@ export const currentAccount = () =>
 export const resendVerification = (email: string) =>
   account<unknown>('/send-verification-email', { email, callbackURL: '/host?verified' });
 
+/**
+ * Start the Google sign-in dance.
+ *
+ * Better Auth answers with the URL to send the browser to rather than redirecting
+ * the fetch, because a 302 on an XHR would be followed invisibly and land the OAuth
+ * consent screen inside a JSON parse. The caller navigates.
+ */
+export const googleSignInUrl = () =>
+  account<{ url: string }>('/sign-in/social', { provider: 'google', callbackURL: '/host' });
+
 // ---- the host's own parties ----
 
 export interface Party {

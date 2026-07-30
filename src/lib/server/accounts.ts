@@ -55,6 +55,24 @@ const build = () =>
       },
     },
 
+    /**
+     * Google, when it's configured. Absent credentials mean the key isn't set at
+     * all, so Better Auth exposes no Google routes and the client hides the button
+     * — rather than offering a door that opens onto a 500.
+     *
+     * Google has already verified the address, so these accounts skip our own
+     * verification email: asking someone to confirm an address Google just proved
+     * they control is a step that teaches nobody anything.
+     */
+    socialProviders: config.accounts.google.clientId
+      ? {
+          google: {
+            clientId: config.accounts.google.clientId,
+            clientSecret: config.accounts.google.clientSecret,
+          },
+        }
+      : undefined,
+
     emailVerification: {
       sendOnSignUp: true,
       // Verifying is proof enough of the address; making them sign in again

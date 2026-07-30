@@ -104,6 +104,17 @@ export const config = {
   accounts: {
     secret: resolveAuthSecret(ENV),
     origin: (ENV.ORIGIN || 'http://localhost:5173').replace(/\/$/, ''),
+    /**
+     * Sign in with Google. Both halves present → the button appears; either
+     * missing → it doesn't, and email/password carries on alone.
+     *
+     * Unlike Graph, this genuinely needs a *secret*: the OAuth authorization-code
+     * flow has no certificate option. Nothing to be done about that.
+     */
+    google: {
+      clientId: (ENV.GOOGLE_CLIENT_ID ?? '').trim(),
+      clientSecret: (ENV.GOOGLE_CLIENT_SECRET ?? '').trim(),
+    },
   },
   /**
    * Microsoft Graph, for outbound email. Any piece missing → the logging sender,

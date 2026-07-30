@@ -115,10 +115,38 @@ and identifiers in [`PLATFORM-PLAN.md`](PLATFORM-PLAN.md) §8.1.
 Still unset: **`BETTER_AUTH_SECRET`**… actually no — it is set on the Mac. What
 remains unset is **`STAFF_PIN`**, so PIN sign-in is off; email and password work.
 
-### OAuth sign-in (Google / Apple) — optional
+### Google sign-in — needs credentials
 
-Client ids and secrets, if that door is wanted. Better Auth makes it configuration
-rather than code, so this is a config block and two secrets.
+**I was wrong to file this as "optional".** Phase 1 of the plan lists "Google/Apple
+OAuth as configuration" as a deliverable; demoting it was scope-narrowing without
+asking. The code is now written and tested — only the credentials are missing.
+
+From the **Google Cloud Console** → APIs & Services → Credentials → OAuth client ID
+(type: Web application):
+
+- **Authorised redirect URI:** `https://cock.meridew.com/api/account/callback/google`
+- For local testing, add `http://localhost:5173/api/account/callback/google` too.
+
+Then two lines in `~/.config/cocktails/env` on the Mac and a restart:
+
+```
+GOOGLE_CLIENT_ID=…
+GOOGLE_CLIENT_SECRET=…
+```
+
+Unlike Graph, this genuinely needs a _secret_ — the OAuth authorization-code flow has
+no certificate option. Until both are set, Better Auth registers no Google routes and
+the button doesn't render; `tests/accounts.test.ts` asserts both halves of that, so
+the app can never offer a door that opens onto a 500.
+
+### Apple sign-in — not recommended at this scale
+
+Deliberately not built, and this is a judgement worth recording rather than a task.
+Apple requires **membership of the Apple Developer Program (~£79/year)**, and its
+"client secret" is a JWT you must regenerate **at least every six months** — the plan
+already lists an expiring credential with no reminder as an accepted risk, and this
+one expires four times faster than the Entra secret we avoided. For a hobby project
+serving friends, Google plus email covers it.
 
 ## ⚠️ The NAS volume must be wiped before any deploy to it
 
