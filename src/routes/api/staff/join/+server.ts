@@ -1,6 +1,6 @@
 import { json, type RequestEvent } from '@sveltejs/kit';
 import { cleanStr, type JoinResponse } from '$lib/shared';
-import { joinBlocked, noteJoinAttempt, redeemJoinCode } from '$lib/server/auth';
+import { ensureLiveEvent, joinBlocked, noteJoinAttempt, redeemJoinCode } from '$lib/server/auth';
 import { body, fail } from '$lib/server/guards';
 import { clientIp } from '$lib/server/http';
 
@@ -22,7 +22,7 @@ export async function POST(event: RequestEvent) {
     noteJoinAttempt(ip, false);
     return fail(422, 'name and deviceId required');
   }
-  const result = redeemJoinCode(code, name, deviceId);
+  const result = redeemJoinCode(ensureLiveEvent(), code, name, deviceId);
   noteJoinAttempt(ip, !!result);
   if (!result) return fail(401, 'that code is wrong or has expired');
   return json({ ok: true, token: result.token, staff: result.staff } satisfies JoinResponse);

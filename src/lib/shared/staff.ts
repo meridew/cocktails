@@ -49,6 +49,12 @@ export type StaffStatus = 'pending' | 'active' | 'revoked';
 /** A staff member as the client sees them. Never carries secrets. */
 export interface Staff {
   id: string;
+  /**
+   * Which party they are working. Carried to the client because the bar screen is
+   * always the bar *of an event* — and because every mutation the client makes is
+   * scoped to it server-side, so showing anything else would be a lie.
+   */
+  eventId: string;
   /** What the admin actually recognises in the list. Always present. */
   name: string;
   /** Required for admins (they sign in with it); optional for helpers. */

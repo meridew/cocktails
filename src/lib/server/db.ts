@@ -42,7 +42,7 @@ import type {
 import { LIMITS, isHandoff } from '$lib/shared';
 import { config } from './config';
 import * as schema from './schema';
-import { joinCodes, orders, staff, staffSessions, subscriptions } from './schema';
+import { event, inventory, joinCodes, orders, staff, staffSessions, subscriptions } from './schema';
 
 export const now = (): number => Date.now();
 export const genId = (): string => randomBytes(6).toString('hex');
@@ -56,6 +56,8 @@ export const genId = (): string => randomBytes(6).toString('hex');
  */
 export type StaffRow = typeof staff.$inferSelect;
 export type SessionRow = typeof staffSessions.$inferSelect;
+export type EventRow = typeof event.$inferSelect;
+export type InventoryRow = typeof inventory.$inferSelect;
 type OrderRow = typeof orders.$inferSelect;
 type SubRow = typeof subscriptions.$inferSelect;
 
@@ -109,9 +111,19 @@ export function createDb(dbPath: string) {
   const db: BetterSQLite3Database<typeof schema> = drizzle(sqlite, { schema });
   migrate(db, { migrationsFolder: migrationsDir() });
 
-  /** One order by id, or undefined. Used after every mutation to return the truth. */
-  const getRow = (id: string): OrderRow | undefined =>
-    db.select().from(orders).where(eq(orders.id, id)).get();
+  /**
+   * One order by id **within an event**, or undefined.
+   *
+   * The event is part of the lookup rather than checked afterwards, so an id
+   * belonging to another host's party simply isn't found — the same answer as an id
+   * that never existed, which is also the answer that leaks least.
+   */
+  const getRow = (eventId: string, id: string): OrderRow | undefined =>
+    db
+      .select()
+      .from(orders)
+      .where(and(eq(orders.eventId, eventId), eq(orders.id, id)))
+      .get();
 
   return {
     /** Escape hatch for tests (PRAGMA inspection). Not for application use. */
@@ -126,13 +138,13 @@ export function createDb(dbPath: string) {
      */
     orm: db,
 
-    createOrder(input: {
-      name: string;
-      items: OrderItem[];
-      note: string;
-      deviceId?: string;
-    }): Order {
-      const total = db.select({ n: count() }).from(orders).get()?.n ?? 0;
+    createOrder(
+      eventId: string,
+      input: { name: string; items: OrderItem[]; note: string; deviceId?: string },
+    ): Order {
+      // The cap is per event, so one busy party can't evict another's queue.
+      const total =
+        db.select({ n: count() }).from(orders).where(eq(orders.eventId, eventId)).get()?.n ?? 0;
       if (total >= LIMITS.maxOrders) {
         // Eviction candidate: finished orders first, then the oldest. Without the
         // status term, flooding the endpoint would delete the live queue before
@@ -140,6 +152,7 @@ export function createDb(dbPath: string) {
         const evict = db
           .select({ id: orders.id })
           .from(orders)
+          .where(eq(orders.eventId, eventId))
           .orderBy(sql`(${orders.status} = 'done') DESC`, asc(orders.createdAt), sql`rowid ASC`)
           .limit(1)
           .get();
@@ -150,6 +163,7 @@ export function createDb(dbPath: string) {
       db.insert(orders)
         .values({
           id,
+          eventId,
           name: input.name,
           items: JSON.stringify(input.items),
           note: input.note,
@@ -159,17 +173,18 @@ export function createDb(dbPath: string) {
           updatedAt: ts,
         })
         .run();
-      return rowToOrder(getRow(id)!);
+      return rowToOrder(getRow(eventId, id)!);
     },
 
     /**
      * Bumped orders first (most recently bumped wins), then oldest. The client can
      * re-sort for display, but this keeps the wire order meaningful on its own.
      */
-    listOrders(): Order[] {
+    listOrders(eventId: string): Order[] {
       return db
         .select()
         .from(orders)
+        .where(eq(orders.eventId, eventId))
         .orderBy(
           sql`(${orders.bumpedAt} IS NOT NULL) DESC`,
           desc(orders.bumpedAt),
@@ -187,27 +202,32 @@ export function createDb(dbPath: string) {
      * `pending`/`making` clears it — otherwise re-serving would silently reuse the
      * previous choice and notify the guest with stale wording.
      */
-    setOrderStatus(id: string, status: OrderStatus, handoff?: Handoff): Order | null {
-      const existing = getRow(id);
+    setOrderStatus(
+      eventId: string,
+      id: string,
+      status: OrderStatus,
+      handoff?: Handoff,
+    ): Order | null {
+      const existing = getRow(eventId, id);
       if (!existing) return null;
       const nextHandoff =
         handoff ?? (status === 'pending' || status === 'making' ? null : existing.handoff);
       db.update(orders)
         .set({ status, handoff: nextHandoff, updatedAt: now() })
-        .where(eq(orders.id, id))
+        .where(and(eq(orders.eventId, eventId), eq(orders.id, id)))
         .run();
-      return rowToOrder(getRow(id)!);
+      return rowToOrder(getRow(eventId, id)!);
     },
 
     /** Push an order to the front of the queue (or clear that, with null). */
-    bumpOrder(id: string, bumped: boolean): Order | null {
+    bumpOrder(eventId: string, id: string, bumped: boolean): Order | null {
       const res = db
         .update(orders)
         .set({ bumpedAt: bumped ? now() : null, updatedAt: now() })
-        .where(eq(orders.id, id))
+        .where(and(eq(orders.eventId, eventId), eq(orders.id, id)))
         .run();
       if (res.changes === 0) return null;
-      return rowToOrder(getRow(id)!);
+      return rowToOrder(getRow(eventId, id)!);
     },
 
     /**
@@ -215,8 +235,8 @@ export function createDb(dbPath: string) {
      * than trusted from the client, and the item name/qty are never taken from the
      * request — only the count changes.
      */
-    setItemProgress(id: string, index: number, made: number): Order | null {
-      const row = getRow(id);
+    setItemProgress(eventId: string, id: string, index: number, made: number): Order | null {
+      const row = getRow(eventId, id);
       if (!row) return null;
       const order = rowToOrder(row);
       const item = order.items[index];
@@ -226,26 +246,31 @@ export function createDb(dbPath: string) {
       );
       db.update(orders)
         .set({ items: JSON.stringify(next), updatedAt: now() })
-        .where(eq(orders.id, id))
+        .where(and(eq(orders.eventId, eventId), eq(orders.id, id)))
         .run();
-      return rowToOrder(getRow(id)!);
+      return rowToOrder(getRow(eventId, id)!);
     },
 
-    deleteOrder(id: string): boolean {
-      return db.delete(orders).where(eq(orders.id, id)).run().changes > 0;
+    deleteOrder(eventId: string, id: string): boolean {
+      return (
+        db
+          .delete(orders)
+          .where(and(eq(orders.eventId, eventId), eq(orders.id, id)))
+          .run().changes > 0
+      );
     },
 
-    clearOrders(which: ClearWhich): void {
-      if (which === 'all') db.delete(orders).run();
-      else db.delete(orders).where(eq(orders.status, 'done')).run();
+    clearOrders(eventId: string, which: ClearWhich): void {
+      const scope =
+        which === 'all'
+          ? eq(orders.eventId, eventId)
+          : and(eq(orders.eventId, eventId), eq(orders.status, 'done'));
+      db.delete(orders).where(scope).run();
     },
 
     /** The anonymous device that placed an order, for routing "your drink" pushes. */
-    orderDeviceId(id: string): string | null {
-      return (
-        db.select({ deviceId: orders.deviceId }).from(orders).where(eq(orders.id, id)).get()
-          ?.deviceId ?? null
-      );
+    orderDeviceId(eventId: string, id: string): string | null {
+      return getRow(eventId, id)?.deviceId ?? null;
     },
 
     saveSubscription(
@@ -331,35 +356,138 @@ export function createDb(dbPath: string) {
       db.delete(joinCodes).run();
     },
 
+    // ---- events ----
+
+    createEvent(e: {
+      /** Null only for the default event seeded before anyone has signed up. */
+      hostUserId?: string | null;
+      name: string;
+      startsAt?: number | null;
+      status?: string;
+    }): EventRow {
+      const id = genId();
+      db.insert(event)
+        .values({
+          id,
+          hostUserId: e.hostUserId ?? null,
+          name: e.name,
+          startsAt: e.startsAt ?? null,
+          status: e.status ?? 'live',
+          createdAt: now(),
+        })
+        .run();
+      return db.select().from(event).where(eq(event.id, id)).get()!;
+    },
+
+    eventById(id: string): EventRow | null {
+      return db.select().from(event).where(eq(event.id, id)).get() ?? null;
+    },
+
+    /**
+     * The party currently being served.
+     *
+     * Exactly one event is live at a time for now, which is what lets a guest scan
+     * a QR code and order without choosing anything. When a host can run two at
+     * once, this becomes a lookup by code and every caller already takes the id.
+     */
+    liveEvent(): EventRow | null {
+      return (
+        db
+          .select()
+          .from(event)
+          .where(eq(event.status, 'live'))
+          .orderBy(desc(event.createdAt), sql`rowid DESC`)
+          .get() ?? null
+      );
+    },
+
+    eventsForHost(hostUserId: string): EventRow[] {
+      return db
+        .select()
+        .from(event)
+        .where(eq(event.hostUserId, hostUserId))
+        .orderBy(desc(event.createdAt))
+        .all();
+    },
+
+    // ---- inventory ----
+
+    listInventory(eventId: string): InventoryRow[] {
+      return db
+        .select()
+        .from(inventory)
+        .where(eq(inventory.eventId, eventId))
+        .orderBy(asc(inventory.ingredient))
+        .all();
+    },
+
+    /** Upsert one ingredient's availability for this event. */
+    setInStock(eventId: string, ingredient: string, inStock: boolean): void {
+      db.insert(inventory)
+        .values({ eventId, ingredient, inStock })
+        .onConflictDoUpdate({
+          target: [inventory.eventId, inventory.ingredient],
+          set: { inStock: sql`excluded.in_stock` },
+        })
+        .run();
+    },
+
     staffByEmail(email: string): StaffRow | null {
       return db.select().from(staff).where(eq(staff.email, email)).get() ?? null;
     },
 
-    staffById(id: string): StaffRow | null {
+    /**
+     * By primary key, **ignoring the event**.
+     *
+     * Only correct where the event isn't known yet and the id came from a
+     * credential we already trusted — resolving a session, collecting a claim.
+     * Anywhere a caller supplies the id, use `staffInEvent`: this one will happily
+     * hand host A a row belonging to host B, which is exactly the leak the tenancy
+     * suite exists to catch.
+     */
+    staffByIdUnscoped(id: string): StaffRow | null {
       return db.select().from(staff).where(eq(staff.id, id)).get() ?? null;
     },
 
-    /** Look up the pending request a device already has, so it can't queue several. */
-    pendingStaffForDevice(deviceId: string): StaffRow | null {
+    /** The normal lookup: by id *within* an event, so a foreign id is simply absent. */
+    staffInEvent(eventId: string, id: string): StaffRow | null {
       return (
         db
           .select()
           .from(staff)
-          .where(and(eq(staff.deviceId, deviceId), eq(staff.status, 'pending')))
+          .where(and(eq(staff.eventId, eventId), eq(staff.id, id)))
+          .get() ?? null
+      );
+    },
+
+    /** Look up the pending request a device already has, so it can't queue several. */
+    pendingStaffForDevice(eventId: string, deviceId: string): StaffRow | null {
+      return (
+        db
+          .select()
+          .from(staff)
+          .where(
+            and(
+              eq(staff.eventId, eventId),
+              eq(staff.deviceId, deviceId),
+              eq(staff.status, 'pending'),
+            ),
+          )
           .get() ?? null
       );
     },
 
     /**
-     * Whatever staff row this device already has, in any status — an admin first,
-     * so the host's own phone is never mistaken for a helper it also has a row for.
+     * Whatever staff row this device already has at this event, in any status — an
+     * admin first, so the host's own phone is never mistaken for a helper it also
+     * has a row for.
      */
-    staffForDevice(deviceId: string): StaffRow | null {
+    staffForDevice(eventId: string, deviceId: string): StaffRow | null {
       return (
         db
           .select()
           .from(staff)
-          .where(eq(staff.deviceId, deviceId))
+          .where(and(eq(staff.eventId, eventId), eq(staff.deviceId, deviceId)))
           .orderBy(
             sql`(${staff.role} = 'admin') DESC`,
             sql`(${staff.status} = 'active') DESC`,
@@ -379,16 +507,20 @@ export function createDb(dbPath: string) {
     },
 
     /** Pending first (that's what needs action), then newest. */
-    listStaff(): StaffRow[] {
+    listStaff(eventId: string): StaffRow[] {
       return db
         .select()
         .from(staff)
+        .where(eq(staff.eventId, eventId))
         .orderBy(sql`(${staff.status} = 'pending') DESC`, desc(staff.createdAt), sql`rowid DESC`)
         .all();
     },
 
     createStaff(s: {
       id: string;
+      eventId: string;
+      /** Set when this person has a host account; null for a device-only helper. */
+      userId?: string | null;
       displayName: string;
       email?: string | null;
       passwordHash?: string | null;
@@ -403,6 +535,8 @@ export function createDb(dbPath: string) {
       db.insert(staff)
         .values({
           id: s.id,
+          eventId: s.eventId,
+          userId: s.userId ?? null,
           displayName: s.displayName,
           email: s.email ?? null,
           passwordHash: s.passwordHash ?? null,
@@ -455,17 +589,21 @@ export function createDb(dbPath: string) {
       db.delete(staffSessions).where(eq(staffSessions.staffId, id)).run();
     },
 
-    /** End the party: revoke every helper and kill their sessions. Admins survive. */
-    revokeAllHelpers(): void {
+    /**
+     * End the party: revoke every helper at *this* event and kill their sessions.
+     * Admins survive, and another host's helpers are untouched.
+     */
+    revokeAllHelpers(eventId: string): void {
+      const helpersHere = and(eq(staff.eventId, eventId), ne(staff.role, 'admin'));
       db.update(staff)
         .set({ status: 'revoked' })
-        .where(and(ne(staff.role, 'admin'), eq(staff.status, 'active')))
+        .where(and(helpersHere, eq(staff.status, 'active')))
         .run();
       db.delete(staffSessions)
         .where(
           inArray(
             staffSessions.staffId,
-            db.select({ id: staff.id }).from(staff).where(ne(staff.role, 'admin')),
+            db.select({ id: staff.id }).from(staff).where(helpersHere),
           ),
         )
         .run();
@@ -526,16 +664,27 @@ const d = (): Db => (singleton ??= createDb(config.dbPath));
 /** The shared Drizzle handle, for Better Auth's adapter. See `accounts.ts`. */
 export const orm = (): Db['orm'] => d().orm;
 
-export const createOrder: Db['createOrder'] = (input) => d().createOrder(input);
-export const listOrders: Db['listOrders'] = () => d().listOrders();
-export const setOrderStatus: Db['setOrderStatus'] = (id, status, handoff) =>
-  d().setOrderStatus(id, status, handoff);
-export const bumpOrder: Db['bumpOrder'] = (id, bumped) => d().bumpOrder(id, bumped);
-export const setItemProgress: Db['setItemProgress'] = (id, index, made) =>
-  d().setItemProgress(id, index, made);
-export const deleteOrder: Db['deleteOrder'] = (id) => d().deleteOrder(id);
-export const clearOrders: Db['clearOrders'] = (which) => d().clearOrders(which);
-export const orderDeviceId: Db['orderDeviceId'] = (id) => d().orderDeviceId(id);
+// Every one of these takes the event first. That is the whole of phase 2: the
+// scope is a required parameter, so omitting it does not compile.
+export const createOrder: Db['createOrder'] = (eventId, input) => d().createOrder(eventId, input);
+export const listOrders: Db['listOrders'] = (eventId) => d().listOrders(eventId);
+export const setOrderStatus: Db['setOrderStatus'] = (eventId, id, status, handoff) =>
+  d().setOrderStatus(eventId, id, status, handoff);
+export const bumpOrder: Db['bumpOrder'] = (eventId, id, bumped) =>
+  d().bumpOrder(eventId, id, bumped);
+export const setItemProgress: Db['setItemProgress'] = (eventId, id, index, made) =>
+  d().setItemProgress(eventId, id, index, made);
+export const deleteOrder: Db['deleteOrder'] = (eventId, id) => d().deleteOrder(eventId, id);
+export const clearOrders: Db['clearOrders'] = (eventId, which) => d().clearOrders(eventId, which);
+export const orderDeviceId: Db['orderDeviceId'] = (eventId, id) => d().orderDeviceId(eventId, id);
+
+export const createEvent: Db['createEvent'] = (e) => d().createEvent(e);
+export const eventById: Db['eventById'] = (id) => d().eventById(id);
+export const liveEvent: Db['liveEvent'] = () => d().liveEvent();
+export const eventsForHost: Db['eventsForHost'] = (hostUserId) => d().eventsForHost(hostUserId);
+export const listInventory: Db['listInventory'] = (eventId) => d().listInventory(eventId);
+export const setInStock: Db['setInStock'] = (eventId, ingredient, inStock) =>
+  d().setInStock(eventId, ingredient, inStock);
 
 export const saveSubscription: Db['saveSubscription'] = (dev, role, sub, transport, platform) =>
   d().saveSubscription(dev, role, sub, transport, platform);
@@ -553,13 +702,15 @@ export const liveJoinCode: Db['liveJoinCode'] = (hash) => d().liveJoinCode(hash)
 export const clearJoinCodes: Db['clearJoinCodes'] = () => d().clearJoinCodes();
 
 export const staffByEmail: Db['staffByEmail'] = (email) => d().staffByEmail(email);
-export const staffById: Db['staffById'] = (id) => d().staffById(id);
+export const staffByIdUnscoped: Db['staffByIdUnscoped'] = (id) => d().staffByIdUnscoped(id);
+export const staffInEvent: Db['staffInEvent'] = (eventId, id) => d().staffInEvent(eventId, id);
 export const staffByClaim: Db['staffByClaim'] = (hash) => d().staffByClaim(hash);
-export const pendingStaffForDevice: Db['pendingStaffForDevice'] = (deviceId) =>
-  d().pendingStaffForDevice(deviceId);
-export const staffForDevice: Db['staffForDevice'] = (deviceId) => d().staffForDevice(deviceId);
+export const pendingStaffForDevice: Db['pendingStaffForDevice'] = (eventId, deviceId) =>
+  d().pendingStaffForDevice(eventId, deviceId);
+export const staffForDevice: Db['staffForDevice'] = (eventId, deviceId) =>
+  d().staffForDevice(eventId, deviceId);
 export const renameStaff: Db['renameStaff'] = (id, name) => d().renameStaff(id, name);
-export const listStaff: Db['listStaff'] = () => d().listStaff();
+export const listStaff: Db['listStaff'] = (eventId) => d().listStaff(eventId);
 export const createStaff: Db['createStaff'] = (s) => d().createStaff(s);
 export const setJoinedVia: Db['setJoinedVia'] = (id, via) => d().setJoinedVia(id, via);
 export const updateStaffPassword: Db['updateStaffPassword'] = (id, hash) =>
@@ -572,7 +723,7 @@ export const setStaffClaim: Db['setStaffClaim'] = (id, hash, expiresAt) =>
   d().setStaffClaim(id, hash, expiresAt);
 export const deleteStaff: Db['deleteStaff'] = (id) => d().deleteStaff(id);
 export const revokeStaff: Db['revokeStaff'] = (id) => d().revokeStaff(id);
-export const revokeAllHelpers: Db['revokeAllHelpers'] = () => d().revokeAllHelpers();
+export const revokeAllHelpers: Db['revokeAllHelpers'] = (eventId) => d().revokeAllHelpers(eventId);
 export const purgeStalePendingStaff: Db['purgeStalePendingStaff'] = () =>
   d().purgeStalePendingStaff();
 export const createStaffSession: Db['createStaffSession'] = (hash, staffId, expiresAt) =>

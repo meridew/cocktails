@@ -6,7 +6,6 @@
  */
 import { test, describe, beforeEach, afterAll } from 'vitest';
 import assert from 'node:assert/strict';
-import { DatabaseSync } from 'node:sqlite';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -14,8 +13,12 @@ import { LIMITS, type PushSubscriptionJSON } from '$lib/shared';
 import { createDb, type Db } from '$lib/server/db';
 
 let db: Db;
+/** Every test gets its own party. Scope is a required argument now, so there is
+ *  nowhere to hide an unscoped query. */
+let ev: string;
 beforeEach(() => {
   db = createDb(':memory:');
+  ev = db.createEvent({ name: 'Test party' }).id;
 });
 
 // Temp-file databases must have their handles closed before the directory can be
@@ -84,6 +87,9 @@ describe('schema', () => {
       'handoff',
       'created_at',
       'updated_at',
+      // Appended by the tenancy migration rather than slotted in after `id`:
+      // SQLite's ALTER TABLE ADD COLUMN can only append. Position is cosmetic.
+      'event_id',
     ]);
     // user_id was added for an accounts feature that never happened.
     assert.ok(!names('orders').includes('user_id'), 'dead column');
@@ -120,15 +126,22 @@ describe('schema', () => {
     // SQLite allows many NULLs under a UNIQUE index; this is what makes the
     // nullable email safe rather than a collision waiting to happen.
     for (const id of ['h1', 'h2', 'h3']) {
-      db.createStaff({ id, displayName: id, deviceId: id, role: 'bartender', status: 'active' });
+      db.createStaff({
+        id,
+        eventId: ev,
+        displayName: id,
+        deviceId: id,
+        role: 'bartender',
+        status: 'active',
+      });
     }
-    assert.equal(db.listStaff().length, 3);
+    assert.equal(db.listStaff(ev).length, 3);
   });
 });
 
 describe('orders', () => {
   const newOrder = (name = 'Dan', deviceId?: string) =>
-    db.createOrder({ name, items: [{ name: 'Mojito', qty: 1 }], note: '', deviceId });
+    db.createOrder(ev, { name, items: [{ name: 'Mojito', qty: 1 }], note: '', deviceId });
 
   test('createOrder starts pending with matching timestamps', () => {
     const order = newOrder();
@@ -141,34 +154,34 @@ describe('orders', () => {
   test('a corrupt items column yields an empty list rather than throwing', () => {
     db.raw
       .prepare(
-        `INSERT INTO orders (id,name,items,note,status,created_at,updated_at)
-         VALUES ('bad','Eve','not json','','pending',1,1)`,
+        `INSERT INTO orders (id,event_id,name,items,note,status,created_at,updated_at)
+         VALUES ('bad','${ev}','Eve','not json','','pending',1,1)`,
       )
       .run();
-    const orders = db.listOrders();
+    const orders = db.listOrders(ev);
     assert.equal(orders.length, 1);
     assert.deepEqual(orders[0]?.items, [], 'must degrade to [] at the API boundary');
   });
 
   test('setOrderStatus advances the order and bumps updatedAt', () => {
     const order = newOrder();
-    const updated = db.setOrderStatus(order.id, 'making');
+    const updated = db.setOrderStatus(ev, order.id, 'making');
     assert.equal(updated?.status, 'making');
     assert.ok((updated?.updatedAt ?? 0) >= order.updatedAt);
   });
 
   test('unknown ids report absence rather than throwing', () => {
-    assert.equal(db.setOrderStatus('nope', 'making'), null);
-    assert.equal(db.deleteOrder('nope'), false);
-    assert.equal(db.orderDeviceId('nope'), null);
+    assert.equal(db.setOrderStatus(ev, 'nope', 'making'), null);
+    assert.equal(db.deleteOrder(ev, 'nope'), false);
+    assert.equal(db.orderDeviceId(ev, 'nope'), null);
   });
 
   test('deleteOrder removes exactly one row', () => {
     const a = newOrder('A');
     newOrder('B');
-    assert.equal(db.deleteOrder(a.id), true);
+    assert.equal(db.deleteOrder(ev, a.id), true);
     assert.deepEqual(
-      db.listOrders().map((o) => o.name),
+      db.listOrders(ev).map((o) => o.name),
       ['B'],
     );
   });
@@ -176,37 +189,37 @@ describe('orders', () => {
   test('clearOrders removes done rows, or everything', () => {
     const done = newOrder('Done');
     newOrder('Pending');
-    db.setOrderStatus(done.id, 'done');
+    db.setOrderStatus(ev, done.id, 'done');
 
-    db.clearOrders('done');
+    db.clearOrders(ev, 'done');
     assert.deepEqual(
-      db.listOrders().map((o) => o.name),
+      db.listOrders(ev).map((o) => o.name),
       ['Pending'],
     );
 
-    db.clearOrders('all');
-    assert.equal(db.listOrders().length, 0);
+    db.clearOrders(ev, 'all');
+    assert.equal(db.listOrders(ev).length, 0);
   });
 
   test('orderDeviceId returns the placing device, or null when anonymous', () => {
-    assert.equal(db.orderDeviceId(newOrder('WithDevice', 'dev-9').id), 'dev-9');
-    assert.equal(db.orderDeviceId(newOrder('NoDevice').id), null);
+    assert.equal(db.orderDeviceId(ev, newOrder('WithDevice', 'dev-9').id), 'dev-9');
+    assert.equal(db.orderDeviceId(ev, newOrder('NoDevice').id), null);
   });
 
   test('the cap evicts finished orders before live ones', () => {
     // Flooding the public endpoint must not delete the party's live queue, so a
     // 'done' row is always the first candidate regardless of age.
     const done = newOrder('AlreadyServed');
-    db.setOrderStatus(done.id, 'done');
+    db.setOrderStatus(ev, done.id, 'done');
     newOrder('StillWaiting');
 
     for (let i = 0; i < LIMITS.maxOrders - 2; i++) {
-      db.createOrder({ name: `Filler${i}`, items: [{ name: 'Mojito', qty: 1 }], note: '' });
+      db.createOrder(ev, { name: `Filler${i}`, items: [{ name: 'Mojito', qty: 1 }], note: '' });
     }
-    assert.equal(db.listOrders().length, LIMITS.maxOrders);
+    assert.equal(db.listOrders(ev).length, LIMITS.maxOrders);
 
-    db.createOrder({ name: 'Overflow', items: [{ name: 'Wine', qty: 1 }], note: '' });
-    const names = db.listOrders().map((o) => o.name);
+    db.createOrder(ev, { name: 'Overflow', items: [{ name: 'Wine', qty: 1 }], note: '' });
+    const names = db.listOrders(ev).map((o) => o.name);
     assert.ok(!names.includes('AlreadyServed'), 'the done order should have been evicted');
     assert.ok(
       names.includes('StillWaiting'),
@@ -216,13 +229,17 @@ describe('orders', () => {
 
   test('the order cap evicts to stay at the limit', () => {
     for (let i = 0; i < LIMITS.maxOrders; i++) {
-      db.createOrder({ name: `G${i}`, items: [{ name: 'Mojito', qty: 1 }], note: '' });
+      db.createOrder(ev, { name: `G${i}`, items: [{ name: 'Mojito', qty: 1 }], note: '' });
     }
-    const before = db.listOrders();
+    const before = db.listOrders(ev);
     assert.equal(before.length, LIMITS.maxOrders);
 
-    const fresh = db.createOrder({ name: 'Latest', items: [{ name: 'Wine', qty: 1 }], note: '' });
-    const remaining = db.listOrders();
+    const fresh = db.createOrder(ev, {
+      name: 'Latest',
+      items: [{ name: 'Wine', qty: 1 }],
+      note: '',
+    });
+    const remaining = db.listOrders(ev);
     assert.equal(remaining.length, LIMITS.maxOrders, 'must not exceed the cap');
     assert.ok(
       remaining.some((o) => o.id === fresh.id),

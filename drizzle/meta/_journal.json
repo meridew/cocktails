@@ -15,6 +15,13 @@
       "when": 1785442819652,
       "tag": "0001_accounts",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1785444360128,
+      "tag": "0002_tenancy",
+      "breakpoints": true
     }
   ]
 }

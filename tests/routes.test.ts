@@ -13,7 +13,7 @@ import { test, describe, beforeAll } from 'vitest';
 import assert from 'node:assert/strict';
 import { LIMITS, type Staff } from '$lib/shared';
 import { request } from './app';
-import { hashPassword } from '$lib/server/auth';
+import { hashPassword, ensureLiveEvent } from '$lib/server/auth';
 import { createStaff, genId } from '$lib/server/db';
 
 const STAFF = { email: 'routes@local', password: 'routes-pw' };
@@ -40,6 +40,7 @@ async function placeOrder(name = 'Guest', deviceId?: string): Promise<string> {
 
 beforeAll(async () => {
   createStaff({
+    eventId: ensureLiveEvent(),
     id: genId(),
     displayName: 'Routes Admin',
     email: STAFF.email,

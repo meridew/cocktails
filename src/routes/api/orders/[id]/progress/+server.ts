@@ -18,7 +18,7 @@ export async function PATCH(event: RequestEvent) {
   if (!Number.isInteger(index) || index < 0 || !Number.isFinite(made)) {
     return fail(422, 'index and made required');
   }
-  const updated = setItemProgress(event.params.id!, index, made);
+  const updated = setItemProgress(auth.staff.eventId, event.params.id!, index, made);
   if (!updated) return fail(404, 'not found');
   return json({ ok: true, order: updated });
 }

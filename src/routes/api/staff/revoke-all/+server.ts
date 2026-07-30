@@ -7,6 +7,6 @@ import { denied, requireCapability } from '$lib/server/guards';
 export function POST(event: RequestEvent) {
   const auth = requireCapability(event, 'staff:revoke');
   if (denied(auth)) return auth.denied;
-  revokeAllHelpers();
+  revokeAllHelpers(auth.staff.eventId);
   return json({ ok: true } satisfies OkResponse);
 }

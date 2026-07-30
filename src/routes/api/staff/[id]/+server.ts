@@ -1,6 +1,6 @@
 import { json, type RequestEvent } from '@sveltejs/kit';
 import type { OkResponse } from '$lib/shared';
-import { deleteStaff, staffById } from '$lib/server/db';
+import { deleteStaff, staffInEvent } from '$lib/server/db';
 import { staffDecisionPush } from '$lib/server/notify';
 import { pushToDevice } from '$lib/server/push';
 import { denied, fail, requireCapability } from '$lib/server/guards';
@@ -15,7 +15,7 @@ export function DELETE(event: RequestEvent) {
   const auth = requireCapability(event, 'staff:revoke');
   if (denied(auth)) return auth.denied;
 
-  const target = staffById(event.params.id!);
+  const target = staffInEvent(auth.staff.eventId, event.params.id!);
   if (!target) return fail(404, 'not found');
   if (target.role === 'admin') return fail(403, 'cannot remove an admin');
 

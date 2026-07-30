@@ -12,7 +12,7 @@ import { test, describe, beforeAll, beforeEach } from 'vitest';
 import assert from 'node:assert/strict';
 import type { Staff, StaffClaimResponse } from '$lib/shared';
 import { request } from './app';
-import { hashPassword } from '$lib/server/auth';
+import { hashPassword, ensureLiveEvent } from '$lib/server/auth';
 import { createStaff, genId, listStaff, deleteStaff } from '$lib/server/db';
 
 const ADMIN = { email: 'admin@local', password: 'admin-pw' };
@@ -39,12 +39,13 @@ const claim = async (secret: string): Promise<StaffClaimResponse> => {
 };
 
 const pendingFor = (name: string): Staff | undefined =>
-  listStaff()
+  listStaff(ensureLiveEvent())
     .map((r) => ({ id: r.id, name: r.displayName, status: r.status }) as unknown as Staff)
     .find((s) => s.name === name && s.status === 'pending');
 
 beforeAll(async () => {
   createStaff({
+    eventId: ensureLiveEvent(),
     id: genId(),
     displayName: 'Admin',
     email: ADMIN.email,
@@ -59,7 +60,7 @@ beforeAll(async () => {
 
 // Keep each test's view of the staff list to itself.
 beforeEach(() => {
-  for (const row of listStaff()) if (row.role !== 'admin') deleteStaff(row.id);
+  for (const row of listStaff(ensureLiveEvent())) if (row.role !== 'admin') deleteStaff(row.id);
 });
 
 describe('asking to help', () => {
@@ -95,7 +96,7 @@ describe('asking to help', () => {
     const second = await askToHelp('Sarah', 'dev-sarah');
     assert.notEqual(first, second, 'a fresh secret is issued');
 
-    const pending = listStaff().filter((r) => r.status === 'pending');
+    const pending = listStaff(ensureLiveEvent()).filter((r) => r.status === 'pending');
     assert.equal(pending.length, 1, 'still exactly one pending request');
 
     // The newest secret works; the superseded one no longer does.

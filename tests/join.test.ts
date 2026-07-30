@@ -9,7 +9,7 @@ import { test, describe, beforeAll, beforeEach } from 'vitest';
 import assert from 'node:assert/strict';
 import { JOIN_CODE_LENGTH, JOIN_CODE_TTL_MS, type Staff } from '$lib/shared';
 import { request } from './app';
-import { hashPassword } from '$lib/server/auth';
+import { hashPassword, ensureLiveEvent } from '$lib/server/auth';
 import { createStaff, genId, clearJoinCodes, listStaff, staffForDevice } from '$lib/server/db';
 
 const ADMIN = { email: 'joinadmin@local', password: 'join-admin-pw' };
@@ -44,6 +44,7 @@ beforeAll(async () => {
     [HELPER, 'bartender'],
   ] as const) {
     createStaff({
+      eventId: ensureLiveEvent(),
       id: genId(),
       displayName: role,
       email: who.email,
@@ -130,18 +131,18 @@ describe('redeeming a code', () => {
     // Someone asks, gets impatient, then goes and gets the code. The host should
     // see one person, not a pending request plus a helper.
     await request('/api/staff/requests', send('POST', { name: 'Mo', deviceId: 'device-mo' }));
-    const before = listStaff().filter((s) => s.deviceId === 'device-mo');
+    const before = listStaff(ensureLiveEvent()).filter((s) => s.deviceId === 'device-mo');
     assert.equal(before.length, 1);
     assert.equal(before[0]?.status, 'pending');
 
     const { code } = await mintCode();
     assert.equal((await redeem(code, 'Mo', 'device-mo')).status, 200);
 
-    const after = listStaff().filter((s) => s.deviceId === 'device-mo');
+    const after = listStaff(ensureLiveEvent()).filter((s) => s.deviceId === 'device-mo');
     assert.equal(after.length, 1, 'no duplicate row');
     assert.equal(after[0]?.status, 'active');
     // The claim is spent, so the old pending request can't also be collected.
-    assert.equal(staffForDevice('device-mo')?.claimHash ?? null, null);
+    assert.equal(staffForDevice(ensureLiveEvent(), 'device-mo')?.claimHash ?? null, null);
   });
 
   test('rejects a wrong code, and a malformed one, the same way', async () => {

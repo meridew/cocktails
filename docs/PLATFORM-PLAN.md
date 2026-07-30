@@ -333,7 +333,7 @@ verification link out of the captured message the way a person reads their inbox
 - Real email needs the Entra registration — see `OUTSTANDING.md`. It is _not_ blocking:
   the sender is an interface and the dev implementation logs.
 
-### Phase 2 — tenancy
+### ~~Phase 2 — tenancy~~ ✅ done, 30 Jul 2026
 
 `account`, `event`, `event_member`, `inventory`. Every existing query gains a scope.
 
@@ -341,8 +341,28 @@ verification link out of the captured message the way a person reads their inbox
 a _type error_ rather than a silent cross-tenant leak. This is the phase where a
 mistake is invisible and expensive; the type system is the defence, not care.
 
-_Gate: a test proving host A cannot read, mutate or even count host B's orders,
-through every endpoint that touches them._
+_Gate: **met** — `tests/tenancy.test.ts`, 282 tests total, 0 type errors._
+
+**Two corrections to §5's domain model, made while building it:**
+
+- **There is no separate `account` table.** Better Auth's `user` already is one, and
+  it owns a different table literally named `account` for provider credentials.
+  `event.hostUserId` points at `user`.
+- **`staff` _is_ `event_member`.** A separate membership table only works if every
+  participant has an account, and helpers deliberately don't — a join code gets them
+  in with nothing to invent. Two membership tables would then have to be kept in
+  agreement about who may do what, which is the exact bug §6 exists to kill. So one
+  table, with a nullable `userId` for the rows that do have an account.
+
+**`event.hostUserId` is nullable**, for exactly one case: the default event seeded at
+boot, before anybody has signed up. Making it NOT NULL would mean inventing a user
+account to satisfy a foreign key.
+
+**The gate caught three real leaks**, which is the argument for writing it before
+believing the refactor. Orders were correctly isolated, but `staffById` was a global
+lookup, so a host could approve, revoke or delete another host's helper. Fixed by
+splitting it into `staffInEvent(eventId, id)` and `staffByIdUnscoped(id)` — the latter
+is genuinely needed when resolving a session, and its name now makes misuse obvious.
 
 ### Phase 3 — inventory and the generator
 

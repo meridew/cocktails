@@ -1,4 +1,5 @@
 import { json, type RequestEvent } from '@sveltejs/kit';
+import { ensureLiveEvent } from '$lib/server/auth';
 import {
   cleanItems,
   cleanStr,
@@ -15,7 +16,11 @@ import { rateLimitWrites } from '$lib/server/ratelimit';
 export function GET(event: RequestEvent) {
   const auth = requireCapability(event, 'orders:read');
   if (denied(auth)) return auth.denied;
-  return json({ ok: true, orders: listOrders(), now: now() } satisfies OrderListResponse);
+  return json({
+    ok: true,
+    orders: listOrders(auth.staff.eventId),
+    now: now(),
+  } satisfies OrderListResponse);
 }
 
 /** Public: a guest places a round. No account, just a device id. */
@@ -31,7 +36,7 @@ export async function POST(event: RequestEvent) {
   if (!name || items.length === 0) {
     return fail(422, 'name and at least one item required');
   }
-  const order = createOrder({ name, items, note, deviceId });
+  const order = createOrder(ensureLiveEvent(), { name, items, note, deviceId });
   void pushToRole('bartender', newOrderPush(order)); // fire-and-forget
   return json({ ok: true, id: order.id, order } satisfies OrderCreatedResponse);
 }

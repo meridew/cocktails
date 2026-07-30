@@ -8,7 +8,7 @@ export async function POST(event: RequestEvent) {
   if (denied(auth)) return auth.denied;
   const b = await body(event);
   // Default to bumping; `{ bumped: false }` restores natural order.
-  const updated = bumpOrder(event.params.id!, b.bumped !== false);
+  const updated = bumpOrder(auth.staff.eventId, event.params.id!, b.bumped !== false);
   if (!updated) return fail(404, 'not found');
   return json({ ok: true, order: updated });
 }

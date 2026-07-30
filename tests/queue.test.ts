@@ -10,7 +10,7 @@ import { test, describe, beforeAll, beforeEach } from 'vitest';
 import assert from 'node:assert/strict';
 import { STATUS_META, orderProgress, type Order } from '$lib/shared';
 import { request } from './app';
-import { hashPassword } from '$lib/server/auth';
+import { hashPassword, ensureLiveEvent } from '$lib/server/auth';
 import { createStaff, genId, clearOrders } from '$lib/server/db';
 
 const STAFF = { email: 'queue@local', password: 'queue-pw' };
@@ -38,6 +38,7 @@ const listOrders = async (): Promise<Order[]> => {
 
 beforeAll(async () => {
   createStaff({
+    eventId: ensureLiveEvent(),
     id: genId(),
     displayName: 'Queue Staff',
     email: STAFF.email,
@@ -50,7 +51,7 @@ beforeAll(async () => {
   assert.ok(token);
 });
 
-beforeEach(() => clearOrders('all'));
+beforeEach(() => clearOrders(ensureLiveEvent(), 'all'));
 
 describe('stepping a status back', () => {
   test('every status except the first declares a previous one', () => {

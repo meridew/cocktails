@@ -17,6 +17,7 @@ import {
   seedStaff,
   loginBlocked,
   noteLoginAttempt,
+  ensureLiveEvent,
 } from '$lib/server/auth';
 import { config } from '$lib/server/config';
 import {
@@ -34,6 +35,7 @@ const sha256 = (s: string): string => createHash('sha256').update(s).digest('hex
 /** Register a staff account and return its credentials. */
 async function makeStaff(email: string, password = `pw-${email}`) {
   createStaff({
+    eventId: ensureLiveEvent(),
     id: genId(),
     displayName: email.split('@')[0] ?? 'Helper',
     email,

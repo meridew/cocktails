@@ -10,6 +10,6 @@ export async function POST(event: RequestEvent) {
   // Anything other than an explicit 'all' clears only finished orders — the
   // safe reading of an ambiguous request.
   const which: ClearWhich = b.which === 'all' ? 'all' : 'done';
-  clearOrders(which);
+  clearOrders(auth.staff.eventId, which);
   return json({ ok: true } satisfies OkResponse);
 }

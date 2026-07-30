@@ -10,7 +10,7 @@ import { test, describe, beforeAll, beforeEach } from 'vitest';
 import assert from 'node:assert/strict';
 import { HANDOFFS, HANDOFF_META, STATUS_META, isHandoff, type Order } from '$lib/shared';
 import { request } from './app';
-import { hashPassword } from '$lib/server/auth';
+import { hashPassword, ensureLiveEvent } from '$lib/server/auth';
 import { createStaff, genId, clearOrders } from '$lib/server/db';
 
 const STAFF = { email: 'handoff@local', password: 'handoff-pw' };
@@ -40,6 +40,7 @@ async function patch(id: string, body: Record<string, unknown>): Promise<Order> 
 
 beforeAll(async () => {
   createStaff({
+    eventId: ensureLiveEvent(),
     id: genId(),
     displayName: 'Handoff Staff',
     email: STAFF.email,
@@ -51,7 +52,7 @@ beforeAll(async () => {
   token = ((await res.json()) as { token: string }).token;
 });
 
-beforeEach(() => clearOrders('all'));
+beforeEach(() => clearOrders(ensureLiveEvent(), 'all'));
 
 describe('the handoff contract', () => {
   test('every handoff has a bar-facing label and a distinct action class', () => {
@@ -97,7 +98,7 @@ describe('recording a handoff', () => {
 
   test('both choices round-trip through the queue listing', async () => {
     for (const choice of HANDOFFS) {
-      await clearOrders('all');
+      await clearOrders(ensureLiveEvent(), 'all');
       const order = await place(`Guest ${choice}`);
       await patch(order.id, { status: 'serving', handoff: choice });
       const res = await request('/api/orders', { headers: auth() });

@@ -20,10 +20,12 @@ import {
   clearStaffClaim,
   createJoinCode as dbCreateJoinCode,
   createStaff,
+  createEvent,
   createStaffSession,
   deleteStaffSession,
   ensureAdmin,
   genId,
+  liveEvent,
   liveJoinCode,
   now,
   pendingStaffForDevice,
@@ -35,7 +37,7 @@ import {
   setStaffStatus,
   staffByClaim,
   staffByEmail,
-  staffById,
+  staffByIdUnscoped,
   staffForDevice,
   staffSession,
   updateStaffPassword,
@@ -96,10 +98,28 @@ export async function verifyPassword(password: string, stored: string): Promise<
 
 const sha256 = (value: string): string => createHash('sha256').update(value).digest('hex');
 
+/**
+ * The id of the party currently being served, creating a default one if there
+ * isn't one yet.
+ *
+ * Everything is scoped to an event now, so *something* has to exist before the
+ * first guest scans a QR code — and at boot there is no host account to own it.
+ * Hence the null `hostUserId`: an honest "nobody has claimed this yet" rather than
+ * a fabricated account to satisfy a foreign key.
+ */
+export function ensureLiveEvent(): string {
+  const live = liveEvent();
+  if (live) return live.id;
+  const created = createEvent({ name: 'The party', status: 'live' });
+  console.log(`\u{1F389} created the default event: ${created.id}`);
+  return created.id;
+}
+
 /** Strip secrets before a staff row ever leaves the server. */
 export function toStaff(row: StaffRow): Staff {
   return {
     id: row.id,
+    eventId: row.eventId,
     name: row.displayName,
     email: row.email,
     role: row.role === 'admin' ? 'admin' : 'bartender',
@@ -115,11 +135,13 @@ export function toStaff(row: StaffRow): Staff {
  * the stored hash on the next boot.
  */
 export async function seedStaff(): Promise<void> {
+  const eventId = ensureLiveEvent();
   if (!config.staff.email || !config.staff.password) return;
   const existing = staffByEmail(config.staff.email);
   if (!existing) {
     createStaff({
       id: genId(),
+      eventId,
       displayName: config.staff.email.split('@')[0] || 'Admin',
       email: config.staff.email,
       passwordHash: await hashPassword(config.staff.password),
@@ -216,6 +238,7 @@ export function createJoinCode(createdBy: string): { code: string; expiresAt: nu
  * up as two rows in the host's list.
  */
 export function redeemJoinCode(
+  eventId: string,
   code: string,
   name: string,
   deviceId: string,
@@ -223,7 +246,7 @@ export function redeemJoinCode(
   if (!isValidJoinCode(code) || !deviceId) return null;
   if (!liveJoinCode(sha256(code))) return null;
 
-  const existing = staffForDevice(deviceId);
+  const existing = staffForDevice(eventId, deviceId);
   if (existing && existing.role !== 'admin') {
     // A code grants access without anyone approving it, so `approved_by` stays
     // null and `joined_via` carries the fact instead.
@@ -231,7 +254,7 @@ export function redeemJoinCode(
     setJoinedVia(existing.id, 'code');
     clearStaffClaim(existing.id);
     if (name) renameStaff(existing.id, name);
-    const row = staffById(existing.id);
+    const row = staffByIdUnscoped(existing.id);
     return row ? startSession(row) : null;
   }
   if (existing?.role === 'admin') return startSession(existing); // the host's own device
@@ -239,6 +262,7 @@ export function redeemJoinCode(
   const id = genId();
   createStaff({
     id,
+    eventId,
     displayName: name,
     email: null,
     deviceId,
@@ -246,7 +270,7 @@ export function redeemJoinCode(
     status: 'active',
     joinedVia: 'code',
   });
-  const row = staffById(id);
+  const row = staffByIdUnscoped(id);
   return row ? startSession(row) : null;
 }
 
@@ -259,13 +283,14 @@ export function redeemJoinCode(
  * than queueing duplicates.
  */
 export function requestStaffAccess(input: {
+  eventId: string;
   name: string;
   deviceId: string;
   email?: string | null;
 }): string {
   purgeStalePendingStaff();
   const claim = randomBytes(32).toString('hex');
-  const existing = pendingStaffForDevice(input.deviceId);
+  const existing = pendingStaffForDevice(input.eventId, input.deviceId);
   if (existing) {
     // Re-issue against the same row so a lost secret is recoverable and the
     // admin's list doesn't fill with duplicates of one person.
@@ -274,6 +299,7 @@ export function requestStaffAccess(input: {
   }
   createStaff({
     id: genId(),
+    eventId: input.eventId,
     displayName: input.name,
     // Left null: an unverified email is a label, not proof, so it must not
     // collide with (or impersonate) a real sign-in account.
@@ -310,7 +336,7 @@ export function claimStaffAccess(
 
 /** Approve a pending request. Only meaningful for a row that is still pending. */
 export function approveStaff(id: string, approvedBy: string): boolean {
-  const row = staffById(id);
+  const row = staffByIdUnscoped(id);
   if (!row || row.status !== 'pending') return false;
   setStaffStatus(id, 'active', approvedBy);
   return true;
@@ -408,7 +434,7 @@ export function sessionStaff(token: string | undefined): Staff | null {
   if (!token) return null;
   const sess = staffSession(sha256(token));
   if (!sess || sess.expiresAt < now()) return null;
-  const row = staffById(sess.staffId);
+  const row = staffByIdUnscoped(sess.staffId);
   if (!row || row.status !== 'active') return null;
   return toStaff(row);
 }

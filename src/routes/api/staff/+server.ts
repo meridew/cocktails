@@ -7,5 +7,8 @@ import { denied, requireCapability } from '$lib/server/guards';
 export function GET(event: RequestEvent) {
   const auth = requireCapability(event, 'staff:read');
   if (denied(auth)) return auth.denied;
-  return json({ ok: true, staff: listStaff().map(toStaff) } satisfies StaffListResponse);
+  return json({
+    ok: true,
+    staff: listStaff(auth.staff.eventId).map(toStaff),
+  } satisfies StaffListResponse);
 }

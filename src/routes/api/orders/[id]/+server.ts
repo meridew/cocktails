@@ -16,13 +16,13 @@ export async function PATCH(event: RequestEvent) {
   // client that knows nothing about handoffs must keep working.
   const handoff: Handoff | undefined = isHandoff(b.handoff) ? b.handoff : undefined;
 
-  const updated = setOrderStatus(event.params.id!, b.status, handoff);
+  const updated = setOrderStatus(auth.staff.eventId, event.params.id!, b.status, handoff);
   if (!updated) return fail(404, 'not found');
 
   // Notify the guest on the moments that matter (making, then ready).
   const payload = guestStatusPush(updated);
   if (payload) {
-    const device = orderDeviceId(updated.id);
+    const device = orderDeviceId(auth.staff.eventId, updated.id);
     if (device) void pushToDevice(device, payload); // fire-and-forget
   }
   return json({ ok: true, order: updated });
@@ -31,6 +31,6 @@ export async function PATCH(event: RequestEvent) {
 export function DELETE(event: RequestEvent) {
   const auth = requireCapability(event, 'orders:delete');
   if (denied(auth)) return auth.denied;
-  if (!deleteOrder(event.params.id!)) return fail(404, 'not found');
+  if (!deleteOrder(auth.staff.eventId, event.params.id!)) return fail(404, 'not found');
   return json({ ok: true });
 }

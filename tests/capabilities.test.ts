@@ -16,7 +16,7 @@ import { readdirSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
 import { CAPABILITIES, can, type Capability } from '$lib/shared';
 import { ROUTES, request, send } from './app';
-import { hashPassword } from '$lib/server/auth';
+import { hashPassword, ensureLiveEvent } from '$lib/server/auth';
 import { createStaff, genId } from '$lib/server/db';
 
 /** What an endpoint demands of its caller. */
@@ -93,6 +93,7 @@ let bartenderToken = '';
 
 beforeAll(async () => {
   createStaff({
+    eventId: ensureLiveEvent(),
     id: genId(),
     displayName: 'Caps Admin',
     email: ADMIN.email,
