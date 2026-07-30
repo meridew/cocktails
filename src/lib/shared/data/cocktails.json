@@ -200,10 +200,7 @@
       "id": "gin-tonic",
       "name": "Gin & Tonic",
       "base": "Gin",
-      "ingredients": [
-        "Tonic Water",
-        "Built"
-      ],
+      "ingredients": ["Tonic Water", "Built"],
       "garnish": "Lime wedge",
       "ice": "Cubes, plenty",
       "glass": "Highball / copa",
@@ -214,11 +211,7 @@
       "id": "negroni",
       "name": "Negroni",
       "base": "Gin",
-      "ingredients": [
-        "Campari",
-        "Sweet Vermouth",
-        "Stirred"
-      ],
+      "ingredients": ["Campari", "Sweet Vermouth", "Stirred"],
       "garnish": "Orange peel",
       "ice": "One large cube",
       "glass": "Rocks",
@@ -229,11 +222,7 @@
       "id": "martini",
       "name": "Dry Martini",
       "base": "Gin",
-      "ingredients": [
-        "Dry Vermouth",
-        "Olive",
-        "Stirred"
-      ],
+      "ingredients": ["Dry Vermouth", "Olive", "Stirred"],
       "garnish": "Olive",
       "ice": "Stirred, served up",
       "glass": "Martini",
@@ -244,11 +233,7 @@
       "id": "gibson",
       "name": "Gibson",
       "base": "Gin",
-      "ingredients": [
-        "Dry Vermouth",
-        "Cocktail Onion",
-        "Stirred"
-      ],
+      "ingredients": ["Dry Vermouth", "Cocktail Onion", "Stirred"],
       "garnish": "Pickled cocktail onion",
       "ice": "Stirred, served up",
       "glass": "Martini",
@@ -259,11 +244,7 @@
       "id": "martini-twist",
       "name": "Martini, with a Twist",
       "base": "Gin",
-      "ingredients": [
-        "Dry Vermouth",
-        "Lemon Twist",
-        "Stirred"
-      ],
+      "ingredients": ["Dry Vermouth", "Lemon Twist", "Stirred"],
       "garnish": "Lemon twist (expressed)",
       "ice": "Stirred, served up",
       "glass": "Martini",
@@ -274,11 +255,7 @@
       "id": "dirty-martini",
       "name": "Dirty Martini",
       "base": "Gin",
-      "ingredients": [
-        "Dry Vermouth",
-        "Olive Brine",
-        "Stirred"
-      ],
+      "ingredients": ["Dry Vermouth", "Olive Brine", "Stirred"],
       "garnish": "Olives on a pick",
       "ice": "Stirred, served up",
       "glass": "Martini",
@@ -289,12 +266,7 @@
       "id": "tom-collins",
       "name": "Tom Collins",
       "base": "Gin",
-      "ingredients": [
-        "Lemon Juice",
-        "Simple Syrup",
-        "Soda Water",
-        "Shaken"
-      ],
+      "ingredients": ["Lemon Juice", "Simple Syrup", "Soda Water", "Shaken"],
       "garnish": "Lemon slice & cherry",
       "ice": "Cubes",
       "glass": "Collins",
@@ -305,13 +277,7 @@
       "id": "gin-fizz",
       "name": "Gin Fizz",
       "base": "Gin",
-      "ingredients": [
-        "Lemon Juice",
-        "Simple Syrup",
-        "Soda Water",
-        "Egg White",
-        "Shaken"
-      ],
+      "ingredients": ["Lemon Juice", "Simple Syrup", "Soda Water", "Egg White", "Shaken"],
       "garnish": "None",
       "ice": "Shaken, then soda",
       "glass": "Highball",
@@ -322,11 +288,7 @@
       "id": "gimlet",
       "name": "Gimlet",
       "base": "Gin",
-      "ingredients": [
-        "Lime Juice",
-        "Simple Syrup",
-        "Shaken"
-      ],
+      "ingredients": ["Lime Juice", "Simple Syrup", "Shaken"],
       "garnish": "Lime wheel",
       "ice": "Shaken, served up",
       "glass": "Coupe",
@@ -337,12 +299,7 @@
       "id": "aviation",
       "name": "Aviation",
       "base": "Gin",
-      "ingredients": [
-        "Maraschino Liqueur",
-        "Crème de Violette",
-        "Lemon Juice",
-        "Shaken"
-      ],
+      "ingredients": ["Maraschino Liqueur", "Crème de Violette", "Lemon Juice", "Shaken"],
       "garnish": "Cherry",
       "ice": "Shaken, served up",
       "glass": "Coupe",
@@ -353,12 +310,7 @@
       "id": "french-75",
       "name": "French 75",
       "base": "Gin",
-      "ingredients": [
-        "Lemon Juice",
-        "Simple Syrup",
-        "Champagne",
-        "Shaken"
-      ],
+      "ingredients": ["Lemon Juice", "Simple Syrup", "Champagne", "Shaken"],
       "garnish": "Lemon twist",
       "ice": "Shaken, then topped",
       "glass": "Flute",
@@ -369,12 +321,7 @@
       "id": "bramble",
       "name": "Bramble",
       "base": "Gin",
-      "ingredients": [
-        "Crème de Mûre",
-        "Lemon Juice",
-        "Simple Syrup",
-        "Shaken"
-      ],
+      "ingredients": ["Crème de Mûre", "Lemon Juice", "Simple Syrup", "Shaken"],
       "garnish": "Blackberry & lemon",
       "ice": "Crushed",
       "glass": "Rocks",
@@ -385,12 +332,7 @@
       "id": "southside",
       "name": "Southside",
       "base": "Gin",
-      "ingredients": [
-        "Lime Juice",
-        "Simple Syrup",
-        "Mint",
-        "Shaken"
-      ],
+      "ingredients": ["Lime Juice", "Simple Syrup", "Mint", "Shaken"],
       "garnish": "Mint sprig",
       "ice": "Shaken, served up",
       "glass": "Coupe",
@@ -401,12 +343,7 @@
       "id": "last-word",
       "name": "Last Word",
       "base": "Gin",
-      "ingredients": [
-        "Green Chartreuse",
-        "Maraschino Liqueur",
-        "Lime Juice",
-        "Shaken"
-      ],
+      "ingredients": ["Green Chartreuse", "Maraschino Liqueur", "Lime Juice", "Shaken"],
       "garnish": "Cherry",
       "ice": "Shaken, served up",
       "glass": "Coupe",
@@ -417,12 +354,7 @@
       "id": "elderflower-collins",
       "name": "Elderflower Collins",
       "base": "Gin",
-      "ingredients": [
-        "Elderflower Liqueur",
-        "Lemon Juice",
-        "Soda Water",
-        "Shaken"
-      ],
+      "ingredients": ["Elderflower Liqueur", "Lemon Juice", "Soda Water", "Shaken"],
       "garnish": "Lemon & cucumber",
       "ice": "Cubes",
       "glass": "Collins",
@@ -433,12 +365,7 @@
       "id": "white-lady",
       "name": "White Lady",
       "base": "Gin",
-      "ingredients": [
-        "Triple Sec",
-        "Lemon Juice",
-        "Egg White",
-        "Shaken"
-      ],
+      "ingredients": ["Triple Sec", "Lemon Juice", "Egg White", "Shaken"],
       "garnish": "Lemon twist",
       "ice": "Shaken, served up",
       "glass": "Coupe",
@@ -449,12 +376,7 @@
       "id": "clover-club",
       "name": "Clover Club",
       "base": "Gin",
-      "ingredients": [
-        "Raspberry Syrup",
-        "Lemon Juice",
-        "Egg White",
-        "Shaken"
-      ],
+      "ingredients": ["Raspberry Syrup", "Lemon Juice", "Egg White", "Shaken"],
       "garnish": "Raspberries",
       "ice": "Shaken, served up",
       "glass": "Coupe",
@@ -465,12 +387,7 @@
       "id": "vesper",
       "name": "Vesper",
       "base": "Gin",
-      "ingredients": [
-        "Vodka",
-        "Lillet Blanc",
-        "Lemon Twist",
-        "Stirred"
-      ],
+      "ingredients": ["Vodka", "Lillet Blanc", "Lemon Twist", "Stirred"],
       "garnish": "Lemon twist",
       "ice": "Shaken, served up",
       "glass": "Martini",
@@ -481,13 +398,7 @@
       "id": "corpse-reviver",
       "name": "Corpse Reviver No. 2",
       "base": "Gin",
-      "ingredients": [
-        "Triple Sec",
-        "Lillet Blanc",
-        "Lemon Juice",
-        "Absinthe",
-        "Shaken"
-      ],
+      "ingredients": ["Triple Sec", "Lillet Blanc", "Lemon Juice", "Absinthe", "Shaken"],
       "garnish": "Orange twist",
       "ice": "Shaken, served up",
       "glass": "Coupe",
@@ -517,11 +428,7 @@
       "id": "bees-knees",
       "name": "Bee's Knees",
       "base": "Gin",
-      "ingredients": [
-        "Lemon Juice",
-        "Honey Syrup",
-        "Shaken"
-      ],
+      "ingredients": ["Lemon Juice", "Honey Syrup", "Shaken"],
       "garnish": "Lemon twist",
       "ice": "Shaken, served up",
       "glass": "Coupe",
@@ -532,10 +439,7 @@
       "id": "pink-gin",
       "name": "Pink Gin",
       "base": "Gin",
-      "ingredients": [
-        "Angostura Bitters",
-        "Stirred"
-      ],
+      "ingredients": ["Angostura Bitters", "Stirred"],
       "garnish": "Lemon peel",
       "ice": "Stirred, served up",
       "glass": "Nick & Nora",
@@ -546,13 +450,7 @@
       "id": "sloe-gin-fizz",
       "name": "Sloe Gin Fizz",
       "base": "Gin",
-      "ingredients": [
-        "Sloe Gin",
-        "Lemon Juice",
-        "Simple Syrup",
-        "Soda Water",
-        "Shaken"
-      ],
+      "ingredients": ["Sloe Gin", "Lemon Juice", "Simple Syrup", "Soda Water", "Shaken"],
       "garnish": "Lemon & cherry",
       "ice": "Cubes",
       "glass": "Highball",
@@ -563,12 +461,7 @@
       "id": "martinez",
       "name": "Martinez",
       "base": "Gin",
-      "ingredients": [
-        "Sweet Vermouth",
-        "Maraschino Liqueur",
-        "Orange Bitters",
-        "Stirred"
-      ],
+      "ingredients": ["Sweet Vermouth", "Maraschino Liqueur", "Orange Bitters", "Stirred"],
       "garnish": "Lemon twist",
       "ice": "Stirred, served up",
       "glass": "Coupe",
@@ -579,11 +472,7 @@
       "id": "moscow-mule",
       "name": "Moscow Mule",
       "base": "Vodka",
-      "ingredients": [
-        "Lime Juice",
-        "Ginger Beer",
-        "Shaken"
-      ],
+      "ingredients": ["Lime Juice", "Ginger Beer", "Shaken"],
       "garnish": "Lime wedge",
       "ice": "Cubes",
       "glass": "Copper mug",
@@ -594,12 +483,7 @@
       "id": "cosmopolitan",
       "name": "Cosmopolitan",
       "base": "Vodka",
-      "ingredients": [
-        "Triple Sec",
-        "Lime Juice",
-        "Cranberry Juice",
-        "Shaken"
-      ],
+      "ingredients": ["Triple Sec", "Lime Juice", "Cranberry Juice", "Shaken"],
       "garnish": "Flamed orange",
       "ice": "Shaken, served up",
       "glass": "Martini",
@@ -610,12 +494,7 @@
       "id": "espresso-martini",
       "name": "Espresso Martini",
       "base": "Vodka",
-      "ingredients": [
-        "Coffee Liqueur",
-        "Espresso",
-        "Simple Syrup",
-        "Built"
-      ],
+      "ingredients": ["Coffee Liqueur", "Espresso", "Simple Syrup", "Built"],
       "garnish": "Three coffee beans",
       "ice": "Shaken hard, up",
       "glass": "Martini",
@@ -626,11 +505,7 @@
       "id": "vodka-martini",
       "name": "Vodka Martini",
       "base": "Vodka",
-      "ingredients": [
-        "Dry Vermouth",
-        "Olive",
-        "Stirred"
-      ],
+      "ingredients": ["Dry Vermouth", "Olive", "Stirred"],
       "garnish": "Olive",
       "ice": "Stirred (or shaken), up",
       "glass": "Martini",
@@ -641,13 +516,7 @@
       "id": "bloody-mary",
       "name": "Bloody Mary",
       "base": "Vodka",
-      "ingredients": [
-        "Tomato Juice",
-        "Lemon Juice",
-        "Hot Sauce",
-        "Worcestershire Sauce",
-        "Shaken"
-      ],
+      "ingredients": ["Tomato Juice", "Lemon Juice", "Hot Sauce", "Worcestershire Sauce", "Shaken"],
       "garnish": "Celery, the works",
       "ice": "Cubes",
       "glass": "Highball",
@@ -658,10 +527,7 @@
       "id": "screwdriver",
       "name": "Screwdriver",
       "base": "Vodka",
-      "ingredients": [
-        "Orange Juice",
-        "Shaken"
-      ],
+      "ingredients": ["Orange Juice", "Shaken"],
       "garnish": "Orange slice",
       "ice": "Cubes",
       "glass": "Highball",
@@ -672,11 +538,7 @@
       "id": "sea-breeze",
       "name": "Sea Breeze",
       "base": "Vodka",
-      "ingredients": [
-        "Cranberry Juice",
-        "Grapefruit Juice",
-        "Shaken"
-      ],
+      "ingredients": ["Cranberry Juice", "Grapefruit Juice", "Shaken"],
       "garnish": "Lime wedge",
       "ice": "Cubes",
       "glass": "Highball",
@@ -687,11 +549,7 @@
       "id": "bay-breeze",
       "name": "Bay Breeze",
       "base": "Vodka",
-      "ingredients": [
-        "Cranberry Juice",
-        "Pineapple Juice",
-        "Shaken"
-      ],
+      "ingredients": ["Cranberry Juice", "Pineapple Juice", "Shaken"],
       "garnish": "Lime wedge",
       "ice": "Cubes",
       "glass": "Highball",
@@ -702,11 +560,7 @@
       "id": "madras",
       "name": "Madras",
       "base": "Vodka",
-      "ingredients": [
-        "Cranberry Juice",
-        "Orange Juice",
-        "Shaken"
-      ],
+      "ingredients": ["Cranberry Juice", "Orange Juice", "Shaken"],
       "garnish": "Orange slice",
       "ice": "Cubes",
       "glass": "Highball",
@@ -717,11 +571,7 @@
       "id": "white-russian",
       "name": "White Russian",
       "base": "Vodka",
-      "ingredients": [
-        "Coffee Liqueur",
-        "Cream",
-        "Shaken"
-      ],
+      "ingredients": ["Coffee Liqueur", "Cream", "Shaken"],
       "garnish": "None",
       "ice": "Cubes",
       "glass": "Rocks",
@@ -732,10 +582,7 @@
       "id": "black-russian",
       "name": "Black Russian",
       "base": "Vodka",
-      "ingredients": [
-        "Coffee Liqueur",
-        "Stirred"
-      ],
+      "ingredients": ["Coffee Liqueur", "Stirred"],
       "garnish": "None",
       "ice": "Cubes",
       "glass": "Rocks",
@@ -746,12 +593,7 @@
       "id": "mudslide",
       "name": "Mudslide",
       "base": "Vodka",
-      "ingredients": [
-        "Coffee Liqueur",
-        "Irish Cream",
-        "Cream",
-        "Shaken"
-      ],
+      "ingredients": ["Coffee Liqueur", "Irish Cream", "Cream", "Shaken"],
       "garnish": "Chocolate drizzle",
       "ice": "Cubes / blended",
       "glass": "Hurricane",
@@ -762,13 +604,7 @@
       "id": "cucumber-cooler",
       "name": "Cucumber Cooler",
       "base": "Vodka",
-      "ingredients": [
-        "Lime Juice",
-        "Simple Syrup",
-        "Soda Water",
-        "Cucumber",
-        "Shaken"
-      ],
+      "ingredients": ["Lime Juice", "Simple Syrup", "Soda Water", "Cucumber", "Shaken"],
       "garnish": "Cucumber ribbon",
       "ice": "Cubes",
       "glass": "Collins",
@@ -779,10 +615,7 @@
       "id": "vodka-tonic",
       "name": "Vodka Tonic",
       "base": "Vodka",
-      "ingredients": [
-        "Tonic Water",
-        "Built"
-      ],
+      "ingredients": ["Tonic Water", "Built"],
       "garnish": "Lime wedge",
       "ice": "Cubes, plenty",
       "glass": "Highball",
@@ -793,12 +626,7 @@
       "id": "vodka-collins",
       "name": "Vodka Collins",
       "base": "Vodka",
-      "ingredients": [
-        "Lemon Juice",
-        "Simple Syrup",
-        "Soda Water",
-        "Shaken"
-      ],
+      "ingredients": ["Lemon Juice", "Simple Syrup", "Soda Water", "Shaken"],
       "garnish": "Lemon & cherry",
       "ice": "Cubes",
       "glass": "Collins",
@@ -809,12 +637,7 @@
       "id": "lemon-drop",
       "name": "Lemon Drop",
       "base": "Vodka",
-      "ingredients": [
-        "Triple Sec",
-        "Lemon Juice",
-        "Simple Syrup",
-        "Shaken"
-      ],
+      "ingredients": ["Triple Sec", "Lemon Juice", "Simple Syrup", "Shaken"],
       "garnish": "Sugar rim & lemon",
       "ice": "Shaken, served up",
       "glass": "Martini",
@@ -825,11 +648,7 @@
       "id": "kamikaze",
       "name": "Kamikaze",
       "base": "Vodka",
-      "ingredients": [
-        "Triple Sec",
-        "Lime Juice",
-        "Shaken"
-      ],
+      "ingredients": ["Triple Sec", "Lime Juice", "Shaken"],
       "garnish": "Lime wheel",
       "ice": "Shaken, served up",
       "glass": "Coupe",
@@ -840,11 +659,7 @@
       "id": "harvey-wallbanger",
       "name": "Harvey Wallbanger",
       "base": "Vodka",
-      "ingredients": [
-        "Galliano",
-        "Orange Juice",
-        "Shaken"
-      ],
+      "ingredients": ["Galliano", "Orange Juice", "Shaken"],
       "garnish": "Orange & cherry",
       "ice": "Cubes",
       "glass": "Highball",
@@ -855,10 +670,7 @@
       "id": "greyhound",
       "name": "Greyhound",
       "base": "Vodka",
-      "ingredients": [
-        "Grapefruit Juice",
-        "Shaken"
-      ],
+      "ingredients": ["Grapefruit Juice", "Shaken"],
       "garnish": "Grapefruit wedge",
       "ice": "Cubes",
       "glass": "Highball",
@@ -869,11 +681,7 @@
       "id": "salty-dog",
       "name": "Salty Dog",
       "base": "Vodka",
-      "ingredients": [
-        "Grapefruit Juice",
-        "Salt Rim",
-        "Shaken"
-      ],
+      "ingredients": ["Grapefruit Juice", "Salt Rim", "Shaken"],
       "garnish": "Salt rim",
       "ice": "Cubes",
       "glass": "Highball",
@@ -884,12 +692,7 @@
       "id": "margarita",
       "name": "Margarita",
       "base": "Tequila",
-      "ingredients": [
-        "Triple Sec",
-        "Lime Juice",
-        "Agave Syrup",
-        "Shaken"
-      ],
+      "ingredients": ["Triple Sec", "Lime Juice", "Agave Syrup", "Shaken"],
       "garnish": "Salt rim & lime",
       "ice": "Shaken; up or rocks",
       "glass": "Coupe / rocks",
@@ -900,11 +703,7 @@
       "id": "tommys-margarita",
       "name": "Tommy's Margarita",
       "base": "Tequila",
-      "ingredients": [
-        "Lime Juice",
-        "Agave Syrup",
-        "Shaken"
-      ],
+      "ingredients": ["Lime Juice", "Agave Syrup", "Shaken"],
       "garnish": "Lime wheel",
       "ice": "Shaken, on the rocks",
       "glass": "Rocks",
@@ -915,13 +714,7 @@
       "id": "spicy-margarita",
       "name": "Spicy Margarita",
       "base": "Tequila",
-      "ingredients": [
-        "Triple Sec",
-        "Lime Juice",
-        "Agave Syrup",
-        "Fresh Chili",
-        "Shaken"
-      ],
+      "ingredients": ["Triple Sec", "Lime Juice", "Agave Syrup", "Fresh Chili", "Shaken"],
       "garnish": "Tajín rim & chili",
       "ice": "Shaken, on the rocks",
       "glass": "Rocks",
@@ -932,13 +725,7 @@
       "id": "cadillac-margarita",
       "name": "Cadillac Margarita",
       "base": "Tequila",
-      "ingredients": [
-        "Triple Sec",
-        "Grand Marnier",
-        "Lime Juice",
-        "Agave Syrup",
-        "Shaken"
-      ],
+      "ingredients": ["Triple Sec", "Grand Marnier", "Lime Juice", "Agave Syrup", "Shaken"],
       "garnish": "Grand Marnier float",
       "ice": "Shaken, on the rocks",
       "glass": "Rocks",
@@ -949,13 +736,7 @@
       "id": "strawberry-margarita",
       "name": "Strawberry Margarita",
       "base": "Tequila",
-      "ingredients": [
-        "Triple Sec",
-        "Lime Juice",
-        "Agave Syrup",
-        "Strawberry Purée",
-        "Shaken"
-      ],
+      "ingredients": ["Triple Sec", "Lime Juice", "Agave Syrup", "Strawberry Purée", "Shaken"],
       "garnish": "Strawberry",
       "ice": "Blended",
       "glass": "Coupe",
@@ -966,11 +747,7 @@
       "id": "paloma",
       "name": "Paloma",
       "base": "Tequila",
-      "ingredients": [
-        "Lime Juice",
-        "Grapefruit Soda",
-        "Shaken"
-      ],
+      "ingredients": ["Lime Juice", "Grapefruit Soda", "Shaken"],
       "garnish": "Grapefruit & lime",
       "ice": "Cubes",
       "glass": "Highball",
@@ -981,11 +758,7 @@
       "id": "tequila-sunrise",
       "name": "Tequila Sunrise",
       "base": "Tequila",
-      "ingredients": [
-        "Orange Juice",
-        "Grenadine",
-        "Shaken"
-      ],
+      "ingredients": ["Orange Juice", "Grenadine", "Shaken"],
       "garnish": "Orange & cherry",
       "ice": "Cubes",
       "glass": "Highball",
@@ -996,11 +769,7 @@
       "id": "ranch-water",
       "name": "Ranch Water",
       "base": "Tequila",
-      "ingredients": [
-        "Lime Juice",
-        "Soda Water",
-        "Shaken"
-      ],
+      "ingredients": ["Lime Juice", "Soda Water", "Shaken"],
       "garnish": "Lime wedge",
       "ice": "Cubes",
       "glass": "Highball",
@@ -1011,12 +780,7 @@
       "id": "tequila-sour",
       "name": "Tequila Sour",
       "base": "Tequila",
-      "ingredients": [
-        "Lime Juice",
-        "Agave Syrup",
-        "Egg White",
-        "Shaken"
-      ],
+      "ingredients": ["Lime Juice", "Agave Syrup", "Egg White", "Shaken"],
       "garnish": "Lime wheel",
       "ice": "Shaken, served up",
       "glass": "Coupe",
@@ -1027,12 +791,7 @@
       "id": "el-diablo",
       "name": "El Diablo",
       "base": "Tequila",
-      "ingredients": [
-        "Crème de Cassis",
-        "Lime Juice",
-        "Ginger Beer",
-        "Shaken"
-      ],
+      "ingredients": ["Crème de Cassis", "Lime Juice", "Ginger Beer", "Shaken"],
       "garnish": "Lime wheel",
       "ice": "Cubes",
       "glass": "Highball",
@@ -1043,11 +802,7 @@
       "id": "matador",
       "name": "Matador",
       "base": "Tequila",
-      "ingredients": [
-        "Pineapple Juice",
-        "Lime Juice",
-        "Shaken"
-      ],
+      "ingredients": ["Pineapple Juice", "Lime Juice", "Shaken"],
       "garnish": "Pineapple wedge",
       "ice": "Cubes",
       "glass": "Rocks",
@@ -1058,11 +813,7 @@
       "id": "tequila-old-fashioned",
       "name": "Tequila Old Fashioned",
       "base": "Tequila",
-      "ingredients": [
-        "Agave Syrup",
-        "Angostura Bitters",
-        "Stirred"
-      ],
+      "ingredients": ["Agave Syrup", "Angostura Bitters", "Stirred"],
       "garnish": "Orange peel",
       "ice": "One large cube",
       "glass": "Rocks",
@@ -1073,10 +824,7 @@
       "id": "brave-bull",
       "name": "Brave Bull",
       "base": "Tequila",
-      "ingredients": [
-        "Coffee Liqueur",
-        "Stirred"
-      ],
+      "ingredients": ["Coffee Liqueur", "Stirred"],
       "garnish": "Lemon twist",
       "ice": "Cubes",
       "glass": "Rocks",
@@ -1087,11 +835,7 @@
       "id": "daiquiri",
       "name": "Daiquiri",
       "base": "White Rum",
-      "ingredients": [
-        "Lime Juice",
-        "Simple Syrup",
-        "Shaken"
-      ],
+      "ingredients": ["Lime Juice", "Simple Syrup", "Shaken"],
       "garnish": "Lime wheel",
       "ice": "Shaken, served up",
       "glass": "Coupe",
@@ -1102,13 +846,7 @@
       "id": "mojito",
       "name": "Mojito",
       "base": "White Rum",
-      "ingredients": [
-        "Lime Juice",
-        "Simple Syrup",
-        "Mint",
-        "Soda Water",
-        "Muddled"
-      ],
+      "ingredients": ["Lime Juice", "Simple Syrup", "Mint", "Soda Water", "Muddled"],
       "garnish": "Mint bouquet",
       "ice": "Crushed",
       "glass": "Highball",
@@ -1119,11 +857,7 @@
       "id": "pina-colada",
       "name": "Piña Colada",
       "base": "White Rum",
-      "ingredients": [
-        "Pineapple Juice",
-        "Coconut Cream",
-        "Blended"
-      ],
+      "ingredients": ["Pineapple Juice", "Coconut Cream", "Blended"],
       "garnish": "Pineapple & cherry",
       "ice": "Blended or crushed",
       "glass": "Hurricane",
@@ -1134,11 +868,7 @@
       "id": "dark-n-stormy",
       "name": "Dark 'n' Stormy",
       "base": "Aged Rum",
-      "ingredients": [
-        "Lime Juice",
-        "Ginger Beer",
-        "Shaken"
-      ],
+      "ingredients": ["Lime Juice", "Ginger Beer", "Shaken"],
       "garnish": "Lime wedge",
       "ice": "Cubes",
       "glass": "Highball",
@@ -1149,11 +879,7 @@
       "id": "cuba-libre",
       "name": "Cuba Libre",
       "base": "White Rum",
-      "ingredients": [
-        "Lime Juice",
-        "Cola",
-        "Shaken"
-      ],
+      "ingredients": ["Lime Juice", "Cola", "Shaken"],
       "garnish": "Lime wedge",
       "ice": "Cubes",
       "glass": "Highball",
@@ -1164,12 +890,7 @@
       "id": "mai-tai",
       "name": "Mai Tai",
       "base": "Aged Rum",
-      "ingredients": [
-        "Orange Curaçao",
-        "Lime Juice",
-        "Orgeat",
-        "Shaken"
-      ],
+      "ingredients": ["Orange Curaçao", "Lime Juice", "Orgeat", "Shaken"],
       "garnish": "Mint & lime shell",
       "ice": "Crushed",
       "glass": "Rocks / tiki",
@@ -1180,13 +901,7 @@
       "id": "hurricane",
       "name": "Hurricane",
       "base": "Aged Rum",
-      "ingredients": [
-        "Passion Fruit Purée",
-        "Lime Juice",
-        "Orange Juice",
-        "Grenadine",
-        "Shaken"
-      ],
+      "ingredients": ["Passion Fruit Purée", "Lime Juice", "Orange Juice", "Grenadine", "Shaken"],
       "garnish": "Orange & cherry",
       "ice": "Cubes",
       "glass": "Hurricane",
@@ -1197,13 +912,7 @@
       "id": "rum-punch",
       "name": "Rum Punch",
       "base": "Aged Rum",
-      "ingredients": [
-        "Orange Juice",
-        "Pineapple Juice",
-        "Lime Juice",
-        "Grenadine",
-        "Shaken"
-      ],
+      "ingredients": ["Orange Juice", "Pineapple Juice", "Lime Juice", "Grenadine", "Shaken"],
       "garnish": "Pineapple & cherry",
       "ice": "Crushed",
       "glass": "Hurricane",
@@ -1214,12 +923,7 @@
       "id": "painkiller",
       "name": "Painkiller",
       "base": "Aged Rum",
-      "ingredients": [
-        "Pineapple Juice",
-        "Orange Juice",
-        "Coconut Cream",
-        "Blended"
-      ],
+      "ingredients": ["Pineapple Juice", "Orange Juice", "Coconut Cream", "Blended"],
       "garnish": "Nutmeg dusting",
       "ice": "Crushed",
       "glass": "Tiki",
@@ -1248,12 +952,7 @@
       "id": "hemingway-daiquiri",
       "name": "Hemingway Daiquiri",
       "base": "White Rum",
-      "ingredients": [
-        "Maraschino Liqueur",
-        "Grapefruit Juice",
-        "Lime Juice",
-        "Shaken"
-      ],
+      "ingredients": ["Maraschino Liqueur", "Grapefruit Juice", "Lime Juice", "Shaken"],
       "garnish": "Lime wheel",
       "ice": "Shaken, served up",
       "glass": "Coupe",
@@ -1264,11 +963,7 @@
       "id": "rum-old-fashioned",
       "name": "Rum Old Fashioned",
       "base": "Aged Rum",
-      "ingredients": [
-        "Demerara Syrup",
-        "Angostura Bitters",
-        "Stirred"
-      ],
+      "ingredients": ["Demerara Syrup", "Angostura Bitters", "Stirred"],
       "garnish": "Orange peel",
       "ice": "One large cube",
       "glass": "Rocks",
@@ -1279,11 +974,7 @@
       "id": "bacardi-cocktail",
       "name": "Bacardí Cocktail",
       "base": "White Rum",
-      "ingredients": [
-        "Lime Juice",
-        "Grenadine",
-        "Shaken"
-      ],
+      "ingredients": ["Lime Juice", "Grenadine", "Shaken"],
       "garnish": "Lime wheel",
       "ice": "Shaken, served up",
       "glass": "Coupe",
@@ -1294,13 +985,7 @@
       "id": "jungle-bird",
       "name": "Jungle Bird",
       "base": "Aged Rum",
-      "ingredients": [
-        "Campari",
-        "Pineapple Juice",
-        "Lime Juice",
-        "Simple Syrup",
-        "Shaken"
-      ],
+      "ingredients": ["Campari", "Pineapple Juice", "Lime Juice", "Simple Syrup", "Shaken"],
       "garnish": "Pineapple leaves",
       "ice": "Cubes",
       "glass": "Rocks / tiki",
@@ -1311,12 +996,7 @@
       "id": "mary-pickford",
       "name": "Mary Pickford",
       "base": "White Rum",
-      "ingredients": [
-        "Maraschino Liqueur",
-        "Pineapple Juice",
-        "Grenadine",
-        "Shaken"
-      ],
+      "ingredients": ["Maraschino Liqueur", "Pineapple Juice", "Grenadine", "Shaken"],
       "garnish": "Cherry",
       "ice": "Shaken, served up",
       "glass": "Coupe",
@@ -1327,13 +1007,7 @@
       "id": "planters-punch",
       "name": "Planter's Punch",
       "base": "Aged Rum",
-      "ingredients": [
-        "Lime Juice",
-        "Orange Juice",
-        "Grenadine",
-        "Angostura Bitters",
-        "Shaken"
-      ],
+      "ingredients": ["Lime Juice", "Orange Juice", "Grenadine", "Angostura Bitters", "Shaken"],
       "garnish": "Orange & cherry",
       "ice": "Crushed",
       "glass": "Highball",
@@ -1344,11 +1018,7 @@
       "id": "old-fashioned",
       "name": "Old Fashioned",
       "base": "Bourbon",
-      "ingredients": [
-        "Sugar Cube",
-        "Angostura Bitters",
-        "Stirred"
-      ],
+      "ingredients": ["Sugar Cube", "Angostura Bitters", "Stirred"],
       "garnish": "Orange peel & cherry",
       "ice": "One large cube",
       "glass": "Rocks",
@@ -1359,12 +1029,7 @@
       "id": "whiskey-sour",
       "name": "Whiskey Sour",
       "base": "Bourbon",
-      "ingredients": [
-        "Lemon Juice",
-        "Simple Syrup",
-        "Egg White",
-        "Shaken"
-      ],
+      "ingredients": ["Lemon Juice", "Simple Syrup", "Egg White", "Shaken"],
       "garnish": "Cherry & orange",
       "ice": "Shaken, on the rocks",
       "glass": "Rocks",
@@ -1375,11 +1040,7 @@
       "id": "manhattan",
       "name": "Manhattan",
       "base": "Rye",
-      "ingredients": [
-        "Sweet Vermouth",
-        "Angostura Bitters",
-        "Stirred"
-      ],
+      "ingredients": ["Sweet Vermouth", "Angostura Bitters", "Stirred"],
       "garnish": "Cherry",
       "ice": "Stirred, served up",
       "glass": "Coupe",
@@ -1390,11 +1051,7 @@
       "id": "dry-manhattan",
       "name": "Dry Manhattan",
       "base": "Rye",
-      "ingredients": [
-        "Dry Vermouth",
-        "Angostura Bitters",
-        "Stirred"
-      ],
+      "ingredients": ["Dry Vermouth", "Angostura Bitters", "Stirred"],
       "garnish": "Lemon twist",
       "ice": "Stirred, served up",
       "glass": "Coupe",
@@ -1405,12 +1062,7 @@
       "id": "perfect-manhattan",
       "name": "Perfect Manhattan",
       "base": "Rye",
-      "ingredients": [
-        "Sweet Vermouth",
-        "Dry Vermouth",
-        "Angostura Bitters",
-        "Stirred"
-      ],
+      "ingredients": ["Sweet Vermouth", "Dry Vermouth", "Angostura Bitters", "Stirred"],
       "garnish": "Lemon twist",
       "ice": "Stirred, served up",
       "glass": "Coupe",
@@ -1421,11 +1073,7 @@
       "id": "boulevardier",
       "name": "Boulevardier",
       "base": "Bourbon",
-      "ingredients": [
-        "Campari",
-        "Sweet Vermouth",
-        "Stirred"
-      ],
+      "ingredients": ["Campari", "Sweet Vermouth", "Stirred"],
       "garnish": "Orange peel",
       "ice": "One large cube",
       "glass": "Rocks",
@@ -1436,11 +1084,7 @@
       "id": "mint-julep",
       "name": "Mint Julep",
       "base": "Bourbon",
-      "ingredients": [
-        "Simple Syrup",
-        "Mint",
-        "Muddled"
-      ],
+      "ingredients": ["Simple Syrup", "Mint", "Muddled"],
       "garnish": "Mint bouquet",
       "ice": "Crushed, mounded",
       "glass": "Julep cup",
@@ -1451,12 +1095,7 @@
       "id": "whiskey-smash",
       "name": "Whiskey Smash",
       "base": "Bourbon",
-      "ingredients": [
-        "Lemon Juice",
-        "Simple Syrup",
-        "Mint",
-        "Muddled"
-      ],
+      "ingredients": ["Lemon Juice", "Simple Syrup", "Mint", "Muddled"],
       "garnish": "Mint & lemon",
       "ice": "Crushed",
       "glass": "Rocks",
@@ -1467,12 +1106,7 @@
       "id": "sazerac",
       "name": "Sazerac",
       "base": "Rye",
-      "ingredients": [
-        "Sugar Cube",
-        "Absinthe",
-        "Peychaud's Bitters",
-        "Stirred"
-      ],
+      "ingredients": ["Sugar Cube", "Absinthe", "Peychaud's Bitters", "Stirred"],
       "garnish": "Lemon peel (discarded)",
       "ice": "Stirred, served down",
       "glass": "Rocks",
@@ -1483,10 +1117,7 @@
       "id": "whiskey-highball",
       "name": "Whiskey Highball",
       "base": "Bourbon",
-      "ingredients": [
-        "Soda Water",
-        "Built"
-      ],
+      "ingredients": ["Soda Water", "Built"],
       "garnish": "Lemon peel",
       "ice": "Cubes, tall",
       "glass": "Highball",
@@ -1497,11 +1128,7 @@
       "id": "gold-rush",
       "name": "Gold Rush",
       "base": "Bourbon",
-      "ingredients": [
-        "Honey Syrup",
-        "Lemon Juice",
-        "Shaken"
-      ],
+      "ingredients": ["Honey Syrup", "Lemon Juice", "Shaken"],
       "garnish": "Lemon twist",
       "ice": "On the rocks",
       "glass": "Rocks",
@@ -1512,12 +1139,7 @@
       "id": "paper-plane",
       "name": "Paper Plane",
       "base": "Bourbon",
-      "ingredients": [
-        "Aperol",
-        "Amaro",
-        "Lemon Juice",
-        "Shaken"
-      ],
+      "ingredients": ["Aperol", "Amaro", "Lemon Juice", "Shaken"],
       "garnish": "None",
       "ice": "Shaken, served up",
       "glass": "Coupe",
@@ -1528,12 +1150,7 @@
       "id": "new-york-sour",
       "name": "New York Sour",
       "base": "Bourbon",
-      "ingredients": [
-        "Lemon Juice",
-        "Simple Syrup",
-        "Red Wine",
-        "Shaken"
-      ],
+      "ingredients": ["Lemon Juice", "Simple Syrup", "Red Wine", "Shaken"],
       "garnish": "Red wine float",
       "ice": "Shaken, on the rocks",
       "glass": "Rocks",
@@ -1562,11 +1179,7 @@
       "id": "brown-derby",
       "name": "Brown Derby",
       "base": "Bourbon",
-      "ingredients": [
-        "Grapefruit Juice",
-        "Honey Syrup",
-        "Shaken"
-      ],
+      "ingredients": ["Grapefruit Juice", "Honey Syrup", "Shaken"],
       "garnish": "Grapefruit twist",
       "ice": "Shaken, served up",
       "glass": "Coupe",
@@ -1577,12 +1190,7 @@
       "id": "lynchburg-lemonade",
       "name": "Lynchburg Lemonade",
       "base": "Bourbon",
-      "ingredients": [
-        "Triple Sec",
-        "Lemon Juice",
-        "Lemonade",
-        "Shaken"
-      ],
+      "ingredients": ["Triple Sec", "Lemon Juice", "Lemonade", "Shaken"],
       "garnish": "Lemon & cherry",
       "ice": "Cubes",
       "glass": "Highball",
@@ -1593,12 +1201,7 @@
       "id": "irish-coffee",
       "name": "Irish Coffee",
       "base": "Irish Whiskey",
-      "ingredients": [
-        "Coffee",
-        "Simple Syrup",
-        "Cream",
-        "Shaken"
-      ],
+      "ingredients": ["Coffee", "Simple Syrup", "Cream", "Shaken"],
       "garnish": "Float of cream",
       "ice": "None — served hot",
       "glass": "Irish coffee mug",
@@ -1609,11 +1212,7 @@
       "id": "rob-roy",
       "name": "Rob Roy",
       "base": "Scotch",
-      "ingredients": [
-        "Sweet Vermouth",
-        "Angostura Bitters",
-        "Stirred"
-      ],
+      "ingredients": ["Sweet Vermouth", "Angostura Bitters", "Stirred"],
       "garnish": "Cherry",
       "ice": "Stirred, served up",
       "glass": "Coupe",
@@ -1624,10 +1223,7 @@
       "id": "rusty-nail",
       "name": "Rusty Nail",
       "base": "Scotch",
-      "ingredients": [
-        "Drambuie",
-        "Stirred"
-      ],
+      "ingredients": ["Drambuie", "Stirred"],
       "garnish": "Lemon twist",
       "ice": "On the rocks",
       "glass": "Rocks",
@@ -1638,12 +1234,7 @@
       "id": "blood-and-sand",
       "name": "Blood and Sand",
       "base": "Scotch",
-      "ingredients": [
-        "Cherry Heering",
-        "Sweet Vermouth",
-        "Orange Juice",
-        "Shaken"
-      ],
+      "ingredients": ["Cherry Heering", "Sweet Vermouth", "Orange Juice", "Shaken"],
       "garnish": "Orange twist",
       "ice": "Shaken, served up",
       "glass": "Coupe",
@@ -1654,12 +1245,7 @@
       "id": "penicillin",
       "name": "Penicillin",
       "base": "Scotch",
-      "ingredients": [
-        "Honey Syrup",
-        "Lemon Juice",
-        "Fresh Ginger",
-        "Shaken"
-      ],
+      "ingredients": ["Honey Syrup", "Lemon Juice", "Fresh Ginger", "Shaken"],
       "garnish": "Candied ginger",
       "ice": "On the rocks",
       "glass": "Rocks",
@@ -1670,11 +1256,7 @@
       "id": "bobby-burns",
       "name": "Bobby Burns",
       "base": "Scotch",
-      "ingredients": [
-        "Sweet Vermouth",
-        "Bénédictine",
-        "Stirred"
-      ],
+      "ingredients": ["Sweet Vermouth", "Bénédictine", "Stirred"],
       "garnish": "Lemon twist",
       "ice": "Stirred, served up",
       "glass": "Coupe",
@@ -1685,10 +1267,7 @@
       "id": "godfather",
       "name": "Godfather",
       "base": "Scotch",
-      "ingredients": [
-        "Amaretto",
-        "Stirred"
-      ],
+      "ingredients": ["Amaretto", "Stirred"],
       "garnish": "None",
       "ice": "On the rocks",
       "glass": "Rocks",
@@ -1699,11 +1278,7 @@
       "id": "sidecar",
       "name": "Sidecar",
       "base": "Cognac",
-      "ingredients": [
-        "Triple Sec",
-        "Lemon Juice",
-        "Shaken"
-      ],
+      "ingredients": ["Triple Sec", "Lemon Juice", "Shaken"],
       "garnish": "Sugar rim & lemon",
       "ice": "Shaken, served up",
       "glass": "Coupe",
@@ -1714,11 +1289,7 @@
       "id": "brandy-alexander",
       "name": "Brandy Alexander",
       "base": "Cognac",
-      "ingredients": [
-        "Crème de Cacao",
-        "Cream",
-        "Shaken"
-      ],
+      "ingredients": ["Crème de Cacao", "Cream", "Shaken"],
       "garnish": "Grated nutmeg",
       "ice": "Shaken, served up",
       "glass": "Coupe",
@@ -1729,11 +1300,7 @@
       "id": "brandy-old-fashioned",
       "name": "Brandy Old Fashioned",
       "base": "Brandy",
-      "ingredients": [
-        "Sugar Cube",
-        "Angostura Bitters",
-        "Stirred"
-      ],
+      "ingredients": ["Sugar Cube", "Angostura Bitters", "Stirred"],
       "garnish": "Orange & cherry",
       "ice": "One large cube",
       "glass": "Rocks",
@@ -1744,10 +1311,7 @@
       "id": "french-connection",
       "name": "French Connection",
       "base": "Cognac",
-      "ingredients": [
-        "Amaretto",
-        "Stirred"
-      ],
+      "ingredients": ["Amaretto", "Stirred"],
       "garnish": "None",
       "ice": "On the rocks",
       "glass": "Rocks",
@@ -1758,10 +1322,7 @@
       "id": "stinger",
       "name": "Stinger",
       "base": "Cognac",
-      "ingredients": [
-        "Crème de Menthe",
-        "Stirred"
-      ],
+      "ingredients": ["Crème de Menthe", "Stirred"],
       "garnish": "Mint sprig",
       "ice": "On crushed ice",
       "glass": "Rocks",
@@ -1772,11 +1333,7 @@
       "id": "brandy-sour",
       "name": "Brandy Sour",
       "base": "Brandy",
-      "ingredients": [
-        "Lemon Juice",
-        "Simple Syrup",
-        "Shaken"
-      ],
+      "ingredients": ["Lemon Juice", "Simple Syrup", "Shaken"],
       "garnish": "Lemon & cherry",
       "ice": "Shaken, on the rocks",
       "glass": "Rocks",
@@ -1787,12 +1344,7 @@
       "id": "between-the-sheets",
       "name": "Between the Sheets",
       "base": "Cognac",
-      "ingredients": [
-        "Light Rum",
-        "Triple Sec",
-        "Lemon Juice",
-        "Shaken"
-      ],
+      "ingredients": ["Light Rum", "Triple Sec", "Lemon Juice", "Shaken"],
       "garnish": "Lemon twist",
       "ice": "Shaken, served up",
       "glass": "Coupe",
@@ -1803,11 +1355,7 @@
       "id": "horses-neck",
       "name": "Horse's Neck",
       "base": "Brandy",
-      "ingredients": [
-        "Ginger Ale",
-        "Angostura Bitters",
-        "Built"
-      ],
+      "ingredients": ["Ginger Ale", "Angostura Bitters", "Built"],
       "garnish": "Long lemon spiral",
       "ice": "Cubes",
       "glass": "Highball",
@@ -1818,12 +1366,7 @@
       "id": "mezcal-margarita",
       "name": "Mezcal Margarita",
       "base": "Mezcal",
-      "ingredients": [
-        "Triple Sec",
-        "Lime Juice",
-        "Agave Syrup",
-        "Shaken"
-      ],
+      "ingredients": ["Triple Sec", "Lime Juice", "Agave Syrup", "Shaken"],
       "garnish": "Salt rim & lime",
       "ice": "Shaken, on the rocks",
       "glass": "Rocks",
@@ -1834,12 +1377,7 @@
       "id": "naked-and-famous",
       "name": "Naked & Famous",
       "base": "Mezcal",
-      "ingredients": [
-        "Yellow Chartreuse",
-        "Aperol",
-        "Lime Juice",
-        "Shaken"
-      ],
+      "ingredients": ["Yellow Chartreuse", "Aperol", "Lime Juice", "Shaken"],
       "garnish": "None",
       "ice": "Shaken, served up",
       "glass": "Coupe",
@@ -1850,11 +1388,7 @@
       "id": "mezcal-paloma",
       "name": "Mezcal Paloma",
       "base": "Mezcal",
-      "ingredients": [
-        "Lime Juice",
-        "Grapefruit Soda",
-        "Shaken"
-      ],
+      "ingredients": ["Lime Juice", "Grapefruit Soda", "Shaken"],
       "garnish": "Grapefruit wedge",
       "ice": "Cubes",
       "glass": "Highball",
@@ -1865,11 +1399,7 @@
       "id": "mezcal-negroni",
       "name": "Mezcal Negroni",
       "base": "Mezcal",
-      "ingredients": [
-        "Campari",
-        "Sweet Vermouth",
-        "Stirred"
-      ],
+      "ingredients": ["Campari", "Sweet Vermouth", "Stirred"],
       "garnish": "Orange peel",
       "ice": "One large cube",
       "glass": "Rocks",
@@ -1880,11 +1410,7 @@
       "id": "oaxaca-old-fashioned",
       "name": "Oaxaca Old Fashioned",
       "base": "Mezcal",
-      "ingredients": [
-        "Agave Syrup",
-        "Angostura Bitters",
-        "Stirred"
-      ],
+      "ingredients": ["Agave Syrup", "Angostura Bitters", "Stirred"],
       "garnish": "Flamed orange peel",
       "ice": "One large cube",
       "glass": "Rocks",
@@ -1895,12 +1421,7 @@
       "id": "division-bell",
       "name": "Division Bell",
       "base": "Mezcal",
-      "ingredients": [
-        "Aperol",
-        "Maraschino Liqueur",
-        "Lime Juice",
-        "Shaken"
-      ],
+      "ingredients": ["Aperol", "Maraschino Liqueur", "Lime Juice", "Shaken"],
       "garnish": "Grapefruit twist",
       "ice": "Shaken, served up",
       "glass": "Coupe",
@@ -1911,11 +1432,7 @@
       "id": "caipirinha",
       "name": "Caipirinha",
       "base": "Cachaça",
-      "ingredients": [
-        "Lime Juice",
-        "Sugar Cube",
-        "Shaken"
-      ],
+      "ingredients": ["Lime Juice", "Sugar Cube", "Shaken"],
       "garnish": "Lime wheel",
       "ice": "Crushed",
       "glass": "Rocks",
@@ -1926,11 +1443,7 @@
       "id": "batida",
       "name": "Batida",
       "base": "Cachaça",
-      "ingredients": [
-        "Coconut Cream",
-        "Pineapple Juice",
-        "Blended"
-      ],
+      "ingredients": ["Coconut Cream", "Pineapple Juice", "Blended"],
       "garnish": "Pineapple wedge",
       "ice": "Blended",
       "glass": "Hurricane",
@@ -1941,13 +1454,7 @@
       "id": "pisco-sour",
       "name": "Pisco Sour",
       "base": "Pisco",
-      "ingredients": [
-        "Lime Juice",
-        "Simple Syrup",
-        "Egg White",
-        "Angostura Bitters",
-        "Shaken"
-      ],
+      "ingredients": ["Lime Juice", "Simple Syrup", "Egg White", "Angostura Bitters", "Shaken"],
       "garnish": "Bitters dots",
       "ice": "Shaken, served up",
       "glass": "Coupe",
@@ -1958,12 +1465,7 @@
       "id": "pisco-punch",
       "name": "Pisco Punch",
       "base": "Pisco",
-      "ingredients": [
-        "Pineapple Juice",
-        "Lemon Juice",
-        "Simple Syrup",
-        "Shaken"
-      ],
+      "ingredients": ["Pineapple Juice", "Lemon Juice", "Simple Syrup", "Shaken"],
       "garnish": "Pineapple wedge",
       "ice": "Cubes",
       "glass": "Rocks",
@@ -1974,10 +1476,7 @@
       "id": "mimosa",
       "name": "Mimosa",
       "base": "Champagne",
-      "ingredients": [
-        "Orange Juice",
-        "Shaken"
-      ],
+      "ingredients": ["Orange Juice", "Shaken"],
       "garnish": "Orange twist",
       "ice": "None",
       "glass": "Flute",
@@ -1988,10 +1487,7 @@
       "id": "bellini",
       "name": "Bellini",
       "base": "Champagne",
-      "ingredients": [
-        "Peach Purée",
-        "Shaken"
-      ],
+      "ingredients": ["Peach Purée", "Shaken"],
       "garnish": "None",
       "ice": "None",
       "glass": "Flute",
@@ -2002,10 +1498,7 @@
       "id": "kir-royale",
       "name": "Kir Royale",
       "base": "Champagne",
-      "ingredients": [
-        "Crème de Cassis",
-        "Stirred"
-      ],
+      "ingredients": ["Crème de Cassis", "Stirred"],
       "garnish": "None",
       "ice": "None",
       "glass": "Flute",
@@ -2016,11 +1509,7 @@
       "id": "champagne-cocktail",
       "name": "Champagne Cocktail",
       "base": "Champagne",
-      "ingredients": [
-        "Sugar Cube",
-        "Angostura Bitters",
-        "Stirred"
-      ],
+      "ingredients": ["Sugar Cube", "Angostura Bitters", "Stirred"],
       "garnish": "Lemon twist",
       "ice": "None",
       "glass": "Flute",
@@ -2031,11 +1520,7 @@
       "id": "aperol-spritz",
       "name": "Aperol Spritz",
       "base": "Prosecco",
-      "ingredients": [
-        "Aperol",
-        "Soda Water",
-        "Built"
-      ],
+      "ingredients": ["Aperol", "Soda Water", "Built"],
       "garnish": "Orange slice",
       "ice": "Cubes, plenty",
       "glass": "Wine",
@@ -2046,11 +1531,7 @@
       "id": "negroni-sbagliato",
       "name": "Negroni Sbagliato",
       "base": "Prosecco",
-      "ingredients": [
-        "Campari",
-        "Sweet Vermouth",
-        "Stirred"
-      ],
+      "ingredients": ["Campari", "Sweet Vermouth", "Stirred"],
       "garnish": "Orange slice",
       "ice": "Cubes",
       "glass": "Rocks / wine",
@@ -2061,12 +1542,7 @@
       "id": "hugo-spritz",
       "name": "Hugo Spritz",
       "base": "Prosecco",
-      "ingredients": [
-        "Elderflower Liqueur",
-        "Soda Water",
-        "Mint",
-        "Muddled"
-      ],
+      "ingredients": ["Elderflower Liqueur", "Soda Water", "Mint", "Muddled"],
       "garnish": "Mint & lime",
       "ice": "Cubes, plenty",
       "glass": "Wine",
@@ -2077,12 +1553,7 @@
       "id": "bijou",
       "name": "Bijou",
       "base": "Gin",
-      "ingredients": [
-        "Sweet Vermouth",
-        "Green Chartreuse",
-        "Orange Bitters",
-        "Stirred"
-      ],
+      "ingredients": ["Sweet Vermouth", "Green Chartreuse", "Orange Bitters", "Stirred"],
       "garnish": "Cherry",
       "ice": "Stirred",
       "glass": "Coupe",
@@ -2093,11 +1564,7 @@
       "id": "alaska",
       "name": "Alaska",
       "base": "Gin",
-      "ingredients": [
-        "Yellow Chartreuse",
-        "Orange Bitters",
-        "Stirred"
-      ],
+      "ingredients": ["Yellow Chartreuse", "Orange Bitters", "Stirred"],
       "garnish": "Lemon twist",
       "ice": "Stirred",
       "glass": "Coupe",
@@ -2125,11 +1592,7 @@
       "id": "hanky-panky",
       "name": "Hanky Panky",
       "base": "Gin",
-      "ingredients": [
-        "Sweet Vermouth",
-        "Fernet",
-        "Stirred"
-      ],
+      "ingredients": ["Sweet Vermouth", "Fernet", "Stirred"],
       "garnish": "Orange Twist",
       "ice": "Up",
       "glass": "Coupe",
@@ -2140,11 +1603,7 @@
       "id": "gin-rickey",
       "name": "Gin Rickey",
       "base": "Gin",
-      "ingredients": [
-        "Lime Juice",
-        "Soda Water",
-        "Built"
-      ],
+      "ingredients": ["Lime Juice", "Soda Water", "Built"],
       "garnish": "Lime shell",
       "ice": "Cubes",
       "glass": "Highball",
@@ -2175,12 +1634,7 @@
       "id": "gin-basil-smash",
       "name": "Gin Basil Smash",
       "base": "Gin",
-      "ingredients": [
-        "Lemon Juice",
-        "Simple Syrup",
-        "Basil",
-        "Shaken"
-      ],
+      "ingredients": ["Lemon Juice", "Simple Syrup", "Basil", "Shaken"],
       "garnish": "Basil sprig",
       "ice": "Cubes",
       "glass": "Rocks",
@@ -2191,13 +1645,7 @@
       "id": "eastside",
       "name": "Eastside",
       "base": "Gin",
-      "ingredients": [
-        "Lime Juice",
-        "Simple Syrup",
-        "Mint",
-        "Cucumber",
-        "Shaken"
-      ],
+      "ingredients": ["Lime Juice", "Simple Syrup", "Mint", "Cucumber", "Shaken"],
       "garnish": "Cucumber & mint",
       "ice": "Cubes",
       "glass": "Coupe",
@@ -2208,12 +1656,7 @@
       "id": "jasmine",
       "name": "Jasmine",
       "base": "Gin",
-      "ingredients": [
-        "Campari",
-        "Triple Sec",
-        "Lemon Juice",
-        "Shaken"
-      ],
+      "ingredients": ["Campari", "Triple Sec", "Lemon Juice", "Shaken"],
       "garnish": "Lemon twist",
       "ice": "Up",
       "glass": "Coupe",
@@ -2224,11 +1667,7 @@
       "id": "white-negroni",
       "name": "White Negroni",
       "base": "Gin",
-      "ingredients": [
-        "Suze",
-        "Lillet Blanc",
-        "Stirred"
-      ],
+      "ingredients": ["Suze", "Lillet Blanc", "Stirred"],
       "garnish": "Lemon twist",
       "ice": "One large cube",
       "glass": "Rocks",
@@ -2239,11 +1678,7 @@
       "id": "army-navy",
       "name": "Army & Navy",
       "base": "Gin",
-      "ingredients": [
-        "Lemon Juice",
-        "Orgeat",
-        "Shaken"
-      ],
+      "ingredients": ["Lemon Juice", "Orgeat", "Shaken"],
       "garnish": "Lemon twist",
       "ice": "Up",
       "glass": "Coupe",
@@ -2254,12 +1689,7 @@
       "id": "twentieth-century",
       "name": "Twentieth Century",
       "base": "Gin",
-      "ingredients": [
-        "Lillet Blanc",
-        "Crème de Cacao",
-        "Lemon Juice",
-        "Shaken"
-      ],
+      "ingredients": ["Lillet Blanc", "Crème de Cacao", "Lemon Juice", "Shaken"],
       "garnish": "Lemon twist",
       "ice": "Up",
       "glass": "Coupe",
@@ -2270,12 +1700,7 @@
       "id": "bronx",
       "name": "Bronx",
       "base": "Gin",
-      "ingredients": [
-        "Sweet Vermouth",
-        "Dry Vermouth",
-        "Orange Juice",
-        "Shaken"
-      ],
+      "ingredients": ["Sweet Vermouth", "Dry Vermouth", "Orange Juice", "Shaken"],
       "garnish": "Orange twist",
       "ice": "Up",
       "glass": "Coupe",
@@ -2286,12 +1711,7 @@
       "id": "fitzgerald",
       "name": "Fitzgerald",
       "base": "Gin",
-      "ingredients": [
-        "Lemon Juice",
-        "Simple Syrup",
-        "Angostura Bitters",
-        "Shaken"
-      ],
+      "ingredients": ["Lemon Juice", "Simple Syrup", "Angostura Bitters", "Shaken"],
       "garnish": "Lemon",
       "ice": "Cubes",
       "glass": "Rocks",
@@ -2302,13 +1722,7 @@
       "id": "gin-gimlet-lime",
       "name": "Royal Gin Fizz",
       "base": "Gin",
-      "ingredients": [
-        "Lemon Juice",
-        "Simple Syrup",
-        "Whole Egg",
-        "Soda Water",
-        "Shaken"
-      ],
+      "ingredients": ["Lemon Juice", "Simple Syrup", "Whole Egg", "Soda Water", "Shaken"],
       "garnish": "None",
       "ice": "Up",
       "glass": "Highball",
@@ -2319,13 +1733,7 @@
       "id": "pornstar-martini",
       "name": "Pornstar Martini",
       "base": "Vodka",
-      "ingredients": [
-        "Passion Fruit Purée",
-        "Vanilla Syrup",
-        "Lime Juice",
-        "Prosecco",
-        "Shaken"
-      ],
+      "ingredients": ["Passion Fruit Purée", "Vanilla Syrup", "Lime Juice", "Prosecco", "Shaken"],
       "garnish": "Passion fruit half",
       "ice": "Up",
       "glass": "Coupe",
@@ -2336,11 +1744,7 @@
       "id": "french-martini",
       "name": "French Martini",
       "base": "Vodka",
-      "ingredients": [
-        "Chambord",
-        "Pineapple Juice",
-        "Shaken"
-      ],
+      "ingredients": ["Chambord", "Pineapple Juice", "Shaken"],
       "garnish": "None",
       "ice": "Up",
       "glass": "Coupe",
@@ -2369,11 +1773,7 @@
       "id": "chocolate-martini",
       "name": "Chocolate Martini",
       "base": "Vodka",
-      "ingredients": [
-        "Crème de Cacao",
-        "Chocolate Bitters",
-        "Shaken"
-      ],
+      "ingredients": ["Crème de Cacao", "Chocolate Bitters", "Shaken"],
       "garnish": "Cocoa dust",
       "ice": "Up",
       "glass": "Martini",
@@ -2384,11 +1784,7 @@
       "id": "vodka-gimlet",
       "name": "Vodka Gimlet",
       "base": "Vodka",
-      "ingredients": [
-        "Lime Juice",
-        "Simple Syrup",
-        "Shaken"
-      ],
+      "ingredients": ["Lime Juice", "Simple Syrup", "Shaken"],
       "garnish": "Lime wheel",
       "ice": "Up",
       "glass": "Coupe",
@@ -2399,11 +1795,7 @@
       "id": "woo-woo",
       "name": "Woo Woo",
       "base": "Vodka",
-      "ingredients": [
-        "Peach Schnapps",
-        "Cranberry Juice",
-        "Built"
-      ],
+      "ingredients": ["Peach Schnapps", "Cranberry Juice", "Built"],
       "garnish": "Lime wedge",
       "ice": "Cubes",
       "glass": "Highball",
@@ -2414,11 +1806,7 @@
       "id": "kentucky-mule",
       "name": "Kentucky Mule",
       "base": "Bourbon",
-      "ingredients": [
-        "Lime Juice",
-        "Ginger Beer",
-        "Built"
-      ],
+      "ingredients": ["Lime Juice", "Ginger Beer", "Built"],
       "garnish": "Lime & mint",
       "ice": "Cubes",
       "glass": "Copper mug",
@@ -2429,11 +1817,7 @@
       "id": "revolver",
       "name": "Revolver",
       "base": "Bourbon",
-      "ingredients": [
-        "Coffee Liqueur",
-        "Orange Bitters",
-        "Stirred"
-      ],
+      "ingredients": ["Coffee Liqueur", "Orange Bitters", "Stirred"],
       "garnish": "Flamed Orange",
       "ice": "One large cube",
       "glass": "Rocks",
@@ -2444,13 +1828,7 @@
       "id": "lions-tail",
       "name": "Lion's Tail",
       "base": "Bourbon",
-      "ingredients": [
-        "Allspice Dram",
-        "Lime Juice",
-        "Simple Syrup",
-        "Angostura Bitters",
-        "Shaken"
-      ],
+      "ingredients": ["Allspice Dram", "Lime Juice", "Simple Syrup", "Angostura Bitters", "Shaken"],
       "garnish": "Lime",
       "ice": "Up",
       "glass": "Coupe",
@@ -2461,13 +1839,7 @@
       "id": "whiskey-peach-smash",
       "name": "Bourbon Peach Smash",
       "base": "Bourbon",
-      "ingredients": [
-        "Lemon Juice",
-        "Simple Syrup",
-        "Peach Purée",
-        "Mint",
-        "Shaken"
-      ],
+      "ingredients": ["Lemon Juice", "Simple Syrup", "Peach Purée", "Mint", "Shaken"],
       "garnish": "Mint & peach",
       "ice": "Crushed",
       "glass": "Rocks",
@@ -2478,11 +1850,7 @@
       "id": "derby",
       "name": "Derby",
       "base": "Bourbon",
-      "ingredients": [
-        "Bénédictine",
-        "Lime Juice",
-        "Shaken"
-      ],
+      "ingredients": ["Bénédictine", "Lime Juice", "Shaken"],
       "garnish": "Mint Sprig",
       "ice": "Up",
       "glass": "Coupe",
@@ -2493,12 +1861,7 @@
       "id": "brooklyn",
       "name": "Brooklyn",
       "base": "Rye",
-      "ingredients": [
-        "Dry Vermouth",
-        "Maraschino Liqueur",
-        "Amaro",
-        "Stirred"
-      ],
+      "ingredients": ["Dry Vermouth", "Maraschino Liqueur", "Amaro", "Stirred"],
       "garnish": "Cherry",
       "ice": "Up",
       "glass": "Coupe",
@@ -2509,11 +1872,7 @@
       "id": "red-hook",
       "name": "Red Hook",
       "base": "Rye",
-      "ingredients": [
-        "Sweet Vermouth",
-        "Maraschino Liqueur",
-        "Stirred"
-      ],
+      "ingredients": ["Sweet Vermouth", "Maraschino Liqueur", "Stirred"],
       "garnish": "Cherry",
       "ice": "Up",
       "glass": "Coupe",
@@ -2541,11 +1900,7 @@
       "id": "little-italy",
       "name": "Little Italy",
       "base": "Rye",
-      "ingredients": [
-        "Sweet Vermouth",
-        "Cynar",
-        "Stirred"
-      ],
+      "ingredients": ["Sweet Vermouth", "Cynar", "Stirred"],
       "garnish": "Cherry",
       "ice": "Up",
       "glass": "Coupe",
@@ -2556,11 +1911,7 @@
       "id": "old-pal",
       "name": "Old Pal",
       "base": "Rye",
-      "ingredients": [
-        "Dry Vermouth",
-        "Campari",
-        "Stirred"
-      ],
+      "ingredients": ["Dry Vermouth", "Campari", "Stirred"],
       "garnish": "Lemon twist",
       "ice": "Up",
       "glass": "Coupe",
@@ -2571,13 +1922,7 @@
       "id": "scofflaw",
       "name": "Scofflaw",
       "base": "Rye",
-      "ingredients": [
-        "Dry Vermouth",
-        "Lemon Juice",
-        "Grenadine",
-        "Orange Bitters",
-        "Shaken"
-      ],
+      "ingredients": ["Dry Vermouth", "Lemon Juice", "Grenadine", "Orange Bitters", "Shaken"],
       "garnish": "Lemon twist",
       "ice": "Up",
       "glass": "Coupe",
@@ -2588,13 +1933,7 @@
       "id": "de-la-louisiane",
       "name": "De La Louisiane",
       "base": "Rye",
-      "ingredients": [
-        "Sweet Vermouth",
-        "Bénédictine",
-        "Absinthe",
-        "Peychaud's Bitters",
-        "Stirred"
-      ],
+      "ingredients": ["Sweet Vermouth", "Bénédictine", "Absinthe", "Peychaud's Bitters", "Stirred"],
       "garnish": "Cherry",
       "ice": "Up",
       "glass": "Coupe",
@@ -2605,12 +1944,7 @@
       "id": "affinity",
       "name": "Affinity",
       "base": "Scotch",
-      "ingredients": [
-        "Sweet Vermouth",
-        "Dry Vermouth",
-        "Angostura Bitters",
-        "Stirred"
-      ],
+      "ingredients": ["Sweet Vermouth", "Dry Vermouth", "Angostura Bitters", "Stirred"],
       "garnish": "Lemon twist",
       "ice": "Up",
       "glass": "Coupe",
@@ -2621,12 +1955,7 @@
       "id": "scotch-sour",
       "name": "Scotch Sour",
       "base": "Scotch",
-      "ingredients": [
-        "Lemon Juice",
-        "Simple Syrup",
-        "Egg White",
-        "Shaken"
-      ],
+      "ingredients": ["Lemon Juice", "Simple Syrup", "Egg White", "Shaken"],
       "garnish": "Lemon",
       "ice": "Up",
       "glass": "Rocks",
@@ -2655,11 +1984,7 @@
       "id": "tipperary",
       "name": "Tipperary",
       "base": "Irish Whiskey",
-      "ingredients": [
-        "Sweet Vermouth",
-        "Green Chartreuse",
-        "Stirred"
-      ],
+      "ingredients": ["Sweet Vermouth", "Green Chartreuse", "Stirred"],
       "garnish": "Orange Twist",
       "ice": "Up",
       "glass": "Coupe",
@@ -2670,13 +1995,7 @@
       "id": "irish-maid",
       "name": "Irish Maid",
       "base": "Irish Whiskey",
-      "ingredients": [
-        "Elderflower Liqueur",
-        "Lemon Juice",
-        "Simple Syrup",
-        "Cucumber",
-        "Shaken"
-      ],
+      "ingredients": ["Elderflower Liqueur", "Lemon Juice", "Simple Syrup", "Cucumber", "Shaken"],
       "garnish": "Cucumber",
       "ice": "Cubes",
       "glass": "Rocks",
@@ -2687,11 +2006,7 @@
       "id": "emerald",
       "name": "Emerald",
       "base": "Irish Whiskey",
-      "ingredients": [
-        "Sweet Vermouth",
-        "Orange Bitters",
-        "Stirred"
-      ],
+      "ingredients": ["Sweet Vermouth", "Orange Bitters", "Stirred"],
       "garnish": "Cherry",
       "ice": "Up",
       "glass": "Coupe",
@@ -2702,12 +2017,7 @@
       "id": "el-presidente",
       "name": "El Presidente",
       "base": "White Rum",
-      "ingredients": [
-        "Dry Curaçao",
-        "Bianco Vermouth",
-        "Grenadine",
-        "Stirred"
-      ],
+      "ingredients": ["Dry Curaçao", "Bianco Vermouth", "Grenadine", "Stirred"],
       "garnish": "Orange Twist",
       "ice": "Up",
       "glass": "Coupe",
@@ -2718,12 +2028,7 @@
       "id": "nuclear-daiquiri",
       "name": "Nuclear Daiquiri",
       "base": "White Rum",
-      "ingredients": [
-        "Green Chartreuse",
-        "Falernum",
-        "Lime Juice",
-        "Shaken"
-      ],
+      "ingredients": ["Green Chartreuse", "Falernum", "Lime Juice", "Shaken"],
       "garnish": "Lime",
       "ice": "Up",
       "glass": "Coupe",
@@ -2734,12 +2039,7 @@
       "id": "air-mail",
       "name": "Air Mail",
       "base": "White Rum",
-      "ingredients": [
-        "Lime Juice",
-        "Honey Syrup",
-        "Champagne",
-        "Shaken"
-      ],
+      "ingredients": ["Lime Juice", "Honey Syrup", "Champagne", "Shaken"],
       "garnish": "Mint Sprig",
       "ice": "Up",
       "glass": "Flute",
@@ -2768,12 +2068,7 @@
       "id": "daiquiri-no2",
       "name": "Daiquiri No. 2",
       "base": "White Rum",
-      "ingredients": [
-        "Triple Sec",
-        "Orange Juice",
-        "Lime Juice",
-        "Shaken"
-      ],
+      "ingredients": ["Triple Sec", "Orange Juice", "Lime Juice", "Shaken"],
       "garnish": "Lime",
       "ice": "Up",
       "glass": "Coupe",
@@ -2784,13 +2079,7 @@
       "id": "navy-grog",
       "name": "Navy Grog",
       "base": "Aged Rum",
-      "ingredients": [
-        "Lime Juice",
-        "Grapefruit Juice",
-        "Honey Syrup",
-        "Soda Water",
-        "Swizzled"
-      ],
+      "ingredients": ["Lime Juice", "Grapefruit Juice", "Honey Syrup", "Soda Water", "Swizzled"],
       "garnish": "Ice cone",
       "ice": "Crushed",
       "glass": "Rocks",
@@ -2801,13 +2090,7 @@
       "id": "fog-cutter",
       "name": "Fog Cutter",
       "base": "Aged Rum",
-      "ingredients": [
-        "Cognac",
-        "Lemon Juice",
-        "Orange Juice",
-        "Orgeat",
-        "Shaken"
-      ],
+      "ingredients": ["Cognac", "Lemon Juice", "Orange Juice", "Orgeat", "Shaken"],
       "garnish": "Mint Sprig",
       "ice": "Crushed",
       "glass": "Tiki",
@@ -2837,12 +2120,7 @@
       "id": "corn-and-oil",
       "name": "Corn 'n' Oil",
       "base": "Aged Rum",
-      "ingredients": [
-        "Falernum",
-        "Lime Juice",
-        "Angostura Bitters",
-        "Built"
-      ],
+      "ingredients": ["Falernum", "Lime Juice", "Angostura Bitters", "Built"],
       "garnish": "Lime",
       "ice": "Crushed",
       "glass": "Rocks",
@@ -2889,13 +2167,7 @@
       "id": "rosita",
       "name": "Rosita",
       "base": "Tequila",
-      "ingredients": [
-        "Campari",
-        "Sweet Vermouth",
-        "Dry Vermouth",
-        "Angostura Bitters",
-        "Stirred"
-      ],
+      "ingredients": ["Campari", "Sweet Vermouth", "Dry Vermouth", "Angostura Bitters", "Stirred"],
       "garnish": "Lemon twist",
       "ice": "One large cube",
       "glass": "Rocks",
@@ -2906,11 +2178,7 @@
       "id": "mexican-mule",
       "name": "Mexican Mule",
       "base": "Tequila",
-      "ingredients": [
-        "Lime Juice",
-        "Ginger Beer",
-        "Built"
-      ],
+      "ingredients": ["Lime Juice", "Ginger Beer", "Built"],
       "garnish": "Lime & mint",
       "ice": "Cubes",
       "glass": "Copper mug",
@@ -2921,12 +2189,7 @@
       "id": "juan-collins",
       "name": "Juan Collins",
       "base": "Tequila",
-      "ingredients": [
-        "Lemon Juice",
-        "Agave Syrup",
-        "Soda Water",
-        "Built"
-      ],
+      "ingredients": ["Lemon Juice", "Agave Syrup", "Soda Water", "Built"],
       "garnish": "Lemon & cherry",
       "ice": "Cubes",
       "glass": "Collins",
@@ -2937,12 +2200,7 @@
       "id": "oaxacan-old-pal",
       "name": "Naked Pal",
       "base": "Tequila",
-      "ingredients": [
-        "Mezcal",
-        "Dry Vermouth",
-        "Campari",
-        "Stirred"
-      ],
+      "ingredients": ["Mezcal", "Dry Vermouth", "Campari", "Stirred"],
       "garnish": "Grapefruit twist",
       "ice": "One large cube",
       "glass": "Rocks",
@@ -2953,11 +2211,7 @@
       "id": "mezcal-mule",
       "name": "Mezcal Mule",
       "base": "Mezcal",
-      "ingredients": [
-        "Lime Juice",
-        "Ginger Beer",
-        "Built"
-      ],
+      "ingredients": ["Lime Juice", "Ginger Beer", "Built"],
       "garnish": "Lime",
       "ice": "Cubes",
       "glass": "Copper mug",
@@ -2968,12 +2222,7 @@
       "id": "maximilian-affair",
       "name": "Maximilian Affair",
       "base": "Mezcal",
-      "ingredients": [
-        "Elderflower Liqueur",
-        "Sweet Vermouth",
-        "Lemon Juice",
-        "Shaken"
-      ],
+      "ingredients": ["Elderflower Liqueur", "Sweet Vermouth", "Lemon Juice", "Shaken"],
       "garnish": "Lemon twist",
       "ice": "Up",
       "glass": "Coupe",
@@ -2984,12 +2233,7 @@
       "id": "single-village-fix",
       "name": "Single Village Fix",
       "base": "Mezcal",
-      "ingredients": [
-        "Lime Juice",
-        "Pineapple Juice",
-        "Agave Syrup",
-        "Swizzled"
-      ],
+      "ingredients": ["Lime Juice", "Pineapple Juice", "Agave Syrup", "Swizzled"],
       "garnish": "Pineapple",
       "ice": "Crushed",
       "glass": "Rocks",
@@ -3018,11 +2262,7 @@
       "id": "japanese-cocktail",
       "name": "Japanese Cocktail",
       "base": "Cognac",
-      "ingredients": [
-        "Orgeat",
-        "Angostura Bitters",
-        "Stirred"
-      ],
+      "ingredients": ["Orgeat", "Angostura Bitters", "Stirred"],
       "garnish": "Lemon twist",
       "ice": "Up",
       "glass": "Coupe",
@@ -3033,11 +2273,7 @@
       "id": "metropolitan",
       "name": "Metropolitan",
       "base": "Brandy",
-      "ingredients": [
-        "Sweet Vermouth",
-        "Angostura Bitters",
-        "Stirred"
-      ],
+      "ingredients": ["Sweet Vermouth", "Angostura Bitters", "Stirred"],
       "garnish": "Cherry",
       "ice": "Up",
       "glass": "Coupe",
@@ -3048,11 +2284,7 @@
       "id": "brandy-flip",
       "name": "Brandy Flip",
       "base": "Brandy",
-      "ingredients": [
-        "Simple Syrup",
-        "Whole Egg",
-        "Shaken"
-      ],
+      "ingredients": ["Simple Syrup", "Whole Egg", "Shaken"],
       "garnish": "Nutmeg",
       "ice": "Up",
       "glass": "Coupe",
@@ -3063,11 +2295,7 @@
       "id": "jack-rose",
       "name": "Jack Rose",
       "base": "Apple Brandy",
-      "ingredients": [
-        "Lime Juice",
-        "Grenadine",
-        "Shaken"
-      ],
+      "ingredients": ["Lime Juice", "Grenadine", "Shaken"],
       "garnish": "Apple fan",
       "ice": "Up",
       "glass": "Coupe",
@@ -3078,11 +2306,7 @@
       "id": "corpse-reviver-1",
       "name": "Corpse Reviver No. 1",
       "base": "Apple Brandy",
-      "ingredients": [
-        "Cognac",
-        "Sweet Vermouth",
-        "Stirred"
-      ],
+      "ingredients": ["Cognac", "Sweet Vermouth", "Stirred"],
       "garnish": "Apple slice",
       "ice": "Up",
       "glass": "Coupe",
@@ -3093,12 +2317,7 @@
       "id": "widows-kiss",
       "name": "Widow's Kiss",
       "base": "Apple Brandy",
-      "ingredients": [
-        "Bénédictine",
-        "Yellow Chartreuse",
-        "Angostura Bitters",
-        "Stirred"
-      ],
+      "ingredients": ["Bénédictine", "Yellow Chartreuse", "Angostura Bitters", "Stirred"],
       "garnish": "Cherry",
       "ice": "Up",
       "glass": "Coupe",
@@ -3109,11 +2328,7 @@
       "id": "diamondback",
       "name": "Diamondback",
       "base": "Apple Brandy",
-      "ingredients": [
-        "Rye",
-        "Yellow Chartreuse",
-        "Stirred"
-      ],
+      "ingredients": ["Rye", "Yellow Chartreuse", "Stirred"],
       "garnish": "Lemon twist",
       "ice": "Up",
       "glass": "Coupe",
@@ -3124,11 +2339,7 @@
       "id": "adonis",
       "name": "Adonis",
       "base": "Sherry",
-      "ingredients": [
-        "Sweet Vermouth",
-        "Orange Bitters",
-        "Stirred"
-      ],
+      "ingredients": ["Sweet Vermouth", "Orange Bitters", "Stirred"],
       "garnish": "Orange Twist",
       "ice": "Up",
       "glass": "Coupe",
@@ -3139,12 +2350,7 @@
       "id": "bamboo",
       "name": "Bamboo",
       "base": "Sherry",
-      "ingredients": [
-        "Dry Vermouth",
-        "Angostura Bitters",
-        "Orange Bitters",
-        "Stirred"
-      ],
+      "ingredients": ["Dry Vermouth", "Angostura Bitters", "Orange Bitters", "Stirred"],
       "garnish": "Lemon twist",
       "ice": "Up",
       "glass": "Coupe",
@@ -3155,11 +2361,7 @@
       "id": "sherry-cobbler",
       "name": "Sherry Cobbler",
       "base": "Sherry",
-      "ingredients": [
-        "Orange Juice",
-        "Simple Syrup",
-        "Shaken"
-      ],
+      "ingredients": ["Orange Juice", "Simple Syrup", "Shaken"],
       "garnish": "Berries & mint",
       "ice": "Crushed",
       "glass": "Rocks",
@@ -3170,12 +2372,7 @@
       "id": "coronation",
       "name": "Coronation",
       "base": "Sherry",
-      "ingredients": [
-        "Dry Vermouth",
-        "Maraschino Liqueur",
-        "Orange Bitters",
-        "Stirred"
-      ],
+      "ingredients": ["Dry Vermouth", "Maraschino Liqueur", "Orange Bitters", "Stirred"],
       "garnish": "Lemon twist",
       "ice": "Up",
       "glass": "Coupe",
@@ -3186,10 +2383,7 @@
       "id": "fino-highball",
       "name": "Fino Highball",
       "base": "Sherry",
-      "ingredients": [
-        "Sparkling Water",
-        "Built"
-      ],
+      "ingredients": ["Sparkling Water", "Built"],
       "garnish": "Lemon",
       "ice": "Cubes",
       "glass": "Highball",
@@ -3200,11 +2394,7 @@
       "id": "americano",
       "name": "Americano",
       "base": "Aperitivo",
-      "ingredients": [
-        "Sweet Vermouth",
-        "Soda Water",
-        "Built"
-      ],
+      "ingredients": ["Sweet Vermouth", "Soda Water", "Built"],
       "garnish": "Orange slice",
       "ice": "Cubes",
       "glass": "Highball",
@@ -3215,10 +2405,7 @@
       "id": "garibaldi",
       "name": "Garibaldi",
       "base": "Aperitivo",
-      "ingredients": [
-        "Orange Juice",
-        "Built"
-      ],
+      "ingredients": ["Orange Juice", "Built"],
       "garnish": "Orange slice",
       "ice": "Cubes",
       "glass": "Highball",
@@ -3229,11 +2416,7 @@
       "id": "campari-spritz",
       "name": "Campari Spritz",
       "base": "Aperitivo",
-      "ingredients": [
-        "Prosecco",
-        "Soda Water",
-        "Built"
-      ],
+      "ingredients": ["Prosecco", "Soda Water", "Built"],
       "garnish": "Orange slice",
       "ice": "Cubes",
       "glass": "Wine",
@@ -3244,11 +2427,7 @@
       "id": "cardinale",
       "name": "Cardinale",
       "base": "Aperitivo",
-      "ingredients": [
-        "Gin",
-        "Dry Vermouth",
-        "Stirred"
-      ],
+      "ingredients": ["Gin", "Dry Vermouth", "Stirred"],
       "garnish": "Lemon twist",
       "ice": "One large cube",
       "glass": "Rocks",
@@ -3259,12 +2438,7 @@
       "id": "french-76",
       "name": "French 76",
       "base": "Champagne",
-      "ingredients": [
-        "Vodka",
-        "Lemon Juice",
-        "Simple Syrup",
-        "Shaken"
-      ],
+      "ingredients": ["Vodka", "Lemon Juice", "Simple Syrup", "Shaken"],
       "garnish": "Lemon twist",
       "ice": "Up",
       "glass": "Flute",
@@ -3275,13 +2449,7 @@
       "id": "seelbach",
       "name": "Seelbach",
       "base": "Champagne",
-      "ingredients": [
-        "Bourbon",
-        "Triple Sec",
-        "Angostura Bitters",
-        "Peychaud's Bitters",
-        "Built"
-      ],
+      "ingredients": ["Bourbon", "Triple Sec", "Angostura Bitters", "Peychaud's Bitters", "Built"],
       "garnish": "Orange Twist",
       "ice": "Up",
       "glass": "Flute",
@@ -3292,10 +2460,7 @@
       "id": "death-in-afternoon",
       "name": "Death in the Afternoon",
       "base": "Champagne",
-      "ingredients": [
-        "Absinthe",
-        "Built"
-      ],
+      "ingredients": ["Absinthe", "Built"],
       "garnish": "None",
       "ice": "Up",
       "glass": "Flute",
@@ -3306,12 +2471,7 @@
       "id": "chrysanthemum",
       "name": "Chrysanthemum",
       "base": "Prosecco",
-      "ingredients": [
-        "Dry Vermouth",
-        "Bénédictine",
-        "Absinthe",
-        "Stirred"
-      ],
+      "ingredients": ["Dry Vermouth", "Bénédictine", "Absinthe", "Stirred"],
       "garnish": "Orange Twist",
       "ice": "Up",
       "glass": "Coupe",
@@ -3322,12 +2482,7 @@
       "id": "trident",
       "name": "Trident",
       "base": "Aquavit",
-      "ingredients": [
-        "Dry Sherry",
-        "Cynar",
-        "Peach Schnapps",
-        "Stirred"
-      ],
+      "ingredients": ["Dry Sherry", "Cynar", "Peach Schnapps", "Stirred"],
       "garnish": "Lemon twist",
       "ice": "Up",
       "glass": "Coupe",
@@ -3338,12 +2493,7 @@
       "id": "aquavit-sour",
       "name": "Aquavit Sour",
       "base": "Aquavit",
-      "ingredients": [
-        "Lemon Juice",
-        "Simple Syrup",
-        "Egg White",
-        "Shaken"
-      ],
+      "ingredients": ["Lemon Juice", "Simple Syrup", "Egg White", "Shaken"],
       "garnish": "Caraway",
       "ice": "Up",
       "glass": "Rocks",
@@ -3354,11 +2504,7 @@
       "id": "oslo-mule",
       "name": "Oslo Mule",
       "base": "Aquavit",
-      "ingredients": [
-        "Lime Juice",
-        "Ginger Beer",
-        "Built"
-      ],
+      "ingredients": ["Lime Juice", "Ginger Beer", "Built"],
       "garnish": "Lime & dill",
       "ice": "Cubes",
       "glass": "Copper mug",
@@ -3369,10 +2515,7 @@
       "id": "saketini",
       "name": "Saketini",
       "base": "Sake",
-      "ingredients": [
-        "Vodka",
-        "Stirred"
-      ],
+      "ingredients": ["Vodka", "Stirred"],
       "garnish": "Cucumber Ribbon",
       "ice": "Up",
       "glass": "Martini",
@@ -3383,11 +2526,7 @@
       "id": "nigori-colada",
       "name": "Nigori Colada",
       "base": "Sake",
-      "ingredients": [
-        "Pineapple Juice",
-        "Coconut Cream",
-        "Blended"
-      ],
+      "ingredients": ["Pineapple Juice", "Coconut Cream", "Blended"],
       "garnish": "Pineapple",
       "ice": "Blended",
       "glass": "Hurricane",
@@ -3398,11 +2537,7 @@
       "id": "sakura-martini",
       "name": "Sakura Martini",
       "base": "Sake",
-      "ingredients": [
-        "Gin",
-        "Maraschino Liqueur",
-        "Stirred"
-      ],
+      "ingredients": ["Gin", "Maraschino Liqueur", "Stirred"],
       "garnish": "Cherry",
       "ice": "Up",
       "glass": "Martini",
@@ -3413,13 +2548,7 @@
       "id": "green-beast",
       "name": "Green Beast",
       "base": "Absinthe",
-      "ingredients": [
-        "Lime Juice",
-        "Simple Syrup",
-        "Sparkling Water",
-        "Cucumber",
-        "Built"
-      ],
+      "ingredients": ["Lime Juice", "Simple Syrup", "Sparkling Water", "Cucumber", "Built"],
       "garnish": "Cucumber Ribbon",
       "ice": "Cubes",
       "glass": "Punch",
@@ -3430,12 +2559,7 @@
       "id": "absinthe-frappe",
       "name": "Absinthe Frappé",
       "base": "Absinthe",
-      "ingredients": [
-        "Simple Syrup",
-        "Soda Water",
-        "Mint",
-        "Swizzled"
-      ],
+      "ingredients": ["Simple Syrup", "Soda Water", "Mint", "Swizzled"],
       "garnish": "Mint Sprig",
       "ice": "Crushed",
       "glass": "Rocks",
@@ -3446,13 +2570,7 @@
       "id": "holland-fizz",
       "name": "Holland Gin Fizz",
       "base": "Genever",
-      "ingredients": [
-        "Lemon Juice",
-        "Simple Syrup",
-        "Egg White",
-        "Soda Water",
-        "Shaken"
-      ],
+      "ingredients": ["Lemon Juice", "Simple Syrup", "Egg White", "Soda Water", "Shaken"],
       "garnish": "None",
       "ice": "Up",
       "glass": "Highball",
@@ -3480,12 +2598,7 @@
       "id": "porto-flip",
       "name": "Porto Flip",
       "base": "Port",
-      "ingredients": [
-        "Cognac",
-        "Simple Syrup",
-        "Whole Egg",
-        "Shaken"
-      ],
+      "ingredients": ["Cognac", "Simple Syrup", "Whole Egg", "Shaken"],
       "garnish": "Nutmeg",
       "ice": "Up",
       "glass": "Coupe",
@@ -3496,13 +2609,7 @@
       "id": "nojito",
       "name": "Virgin Mojito",
       "base": "Alcohol-Free",
-      "ingredients": [
-        "Lime Juice",
-        "Simple Syrup",
-        "Mint",
-        "Soda Water",
-        "Muddled"
-      ],
+      "ingredients": ["Lime Juice", "Simple Syrup", "Mint", "Soda Water", "Muddled"],
       "garnish": "Mint Sprig",
       "ice": "Crushed",
       "glass": "Highball",
@@ -3513,11 +2620,7 @@
       "id": "virgin-colada",
       "name": "Virgin Piña Colada",
       "base": "Alcohol-Free",
-      "ingredients": [
-        "Pineapple Juice",
-        "Coconut Cream",
-        "Blended"
-      ],
+      "ingredients": ["Pineapple Juice", "Coconut Cream", "Blended"],
       "garnish": "Pineapple & cherry",
       "ice": "Blended",
       "glass": "Hurricane",
@@ -3528,11 +2631,7 @@
       "id": "shirley-temple",
       "name": "Shirley Temple",
       "base": "Alcohol-Free",
-      "ingredients": [
-        "Grenadine",
-        "Bitter Lemon",
-        "Built"
-      ],
+      "ingredients": ["Grenadine", "Bitter Lemon", "Built"],
       "garnish": "Cherry",
       "ice": "Cubes",
       "glass": "Highball",
@@ -3543,12 +2642,7 @@
       "id": "nogroni",
       "name": "Nogroni",
       "base": "Alcohol-Free",
-      "ingredients": [
-        "Grapefruit Juice",
-        "Soda Water",
-        "Orange Bitters",
-        "Stirred"
-      ],
+      "ingredients": ["Grapefruit Juice", "Soda Water", "Orange Bitters", "Stirred"],
       "garnish": "Orange slice",
       "ice": "One large cube",
       "glass": "Rocks",
@@ -3577,12 +2671,7 @@
       "id": "coconut-cooler",
       "name": "Coconut Cooler",
       "base": "Alcohol-Free",
-      "ingredients": [
-        "Pineapple Juice",
-        "Coconut Water",
-        "Lime Juice",
-        "Built"
-      ],
+      "ingredients": ["Pineapple Juice", "Coconut Water", "Lime Juice", "Built"],
       "garnish": "Lime",
       "ice": "Cubes",
       "glass": "Highball",
@@ -3593,12 +2682,7 @@
       "id": "cinderella",
       "name": "Cinderella",
       "base": "Alcohol-Free",
-      "ingredients": [
-        "Orange Juice",
-        "Pineapple Juice",
-        "Lemon Juice",
-        "Shaken"
-      ],
+      "ingredients": ["Orange Juice", "Pineapple Juice", "Lemon Juice", "Shaken"],
       "garnish": "Cherry",
       "ice": "Cubes",
       "glass": "Highball",
@@ -3609,13 +2693,7 @@
       "id": "ginger-fizz-na",
       "name": "Ginger Fizz",
       "base": "Alcohol-Free",
-      "ingredients": [
-        "Lemon Juice",
-        "Honey Syrup",
-        "Ginger Beer",
-        "Fresh Ginger",
-        "Built"
-      ],
+      "ingredients": ["Lemon Juice", "Honey Syrup", "Ginger Beer", "Fresh Ginger", "Built"],
       "garnish": "Candied ginger",
       "ice": "Cubes",
       "glass": "Highball",
@@ -3626,13 +2704,7 @@
       "id": "pegu-club",
       "name": "Pegu Club",
       "base": "Gin",
-      "ingredients": [
-        "Dry Curaçao",
-        "Lime Juice",
-        "Angostura Bitters",
-        "Orange Bitters",
-        "Shaken"
-      ],
+      "ingredients": ["Dry Curaçao", "Lime Juice", "Angostura Bitters", "Orange Bitters", "Shaken"],
       "garnish": "Lime",
       "ice": "Up",
       "glass": "Coupe",
@@ -3643,12 +2715,7 @@
       "id": "casino",
       "name": "Casino",
       "base": "Gin",
-      "ingredients": [
-        "Maraschino Liqueur",
-        "Lemon Juice",
-        "Orange Bitters",
-        "Shaken"
-      ],
+      "ingredients": ["Maraschino Liqueur", "Lemon Juice", "Orange Bitters", "Shaken"],
       "garnish": "Cherry",
       "ice": "Up",
       "glass": "Coupe",
@@ -3676,13 +2743,7 @@
       "id": "pink-lady",
       "name": "Pink Lady",
       "base": "Gin",
-      "ingredients": [
-        "Apple Brandy",
-        "Lemon Juice",
-        "Grenadine",
-        "Egg White",
-        "Shaken"
-      ],
+      "ingredients": ["Apple Brandy", "Lemon Juice", "Grenadine", "Egg White", "Shaken"],
       "garnish": "Cherry",
       "ice": "Up",
       "glass": "Coupe",
@@ -3693,12 +2754,7 @@
       "id": "monkey-gland",
       "name": "Monkey Gland",
       "base": "Gin",
-      "ingredients": [
-        "Orange Juice",
-        "Grenadine",
-        "Absinthe",
-        "Shaken"
-      ],
+      "ingredients": ["Orange Juice", "Grenadine", "Absinthe", "Shaken"],
       "garnish": "Orange Twist",
       "ice": "Up",
       "glass": "Coupe",
@@ -3727,12 +2783,7 @@
       "id": "fallen-angel",
       "name": "Fallen Angel",
       "base": "Gin",
-      "ingredients": [
-        "Lemon Juice",
-        "Crème de Menthe",
-        "Angostura Bitters",
-        "Shaken"
-      ],
+      "ingredients": ["Lemon Juice", "Crème de Menthe", "Angostura Bitters", "Shaken"],
       "garnish": "Mint Sprig",
       "ice": "Up",
       "glass": "Coupe",
@@ -3743,15 +2794,7 @@
       "id": "long-island",
       "name": "Long Island Iced Tea",
       "base": "Vodka",
-      "ingredients": [
-        "Gin",
-        "Light Rum",
-        "Tequila",
-        "Triple Sec",
-        "Lemon Juice",
-        "Cola",
-        "Built"
-      ],
+      "ingredients": ["Gin", "Light Rum", "Tequila", "Triple Sec", "Lemon Juice", "Cola", "Built"],
       "garnish": "Lemon",
       "ice": "Cubes",
       "glass": "Highball",
@@ -3762,12 +2805,7 @@
       "id": "sex-on-beach",
       "name": "Sex on the Beach",
       "base": "Vodka",
-      "ingredients": [
-        "Peach Schnapps",
-        "Cranberry Juice",
-        "Orange Juice",
-        "Built"
-      ],
+      "ingredients": ["Peach Schnapps", "Cranberry Juice", "Orange Juice", "Built"],
       "garnish": "Orange & cherry",
       "ice": "Cubes",
       "glass": "Highball",
@@ -3778,11 +2816,7 @@
       "id": "blue-lagoon",
       "name": "Blue Lagoon",
       "base": "Vodka",
-      "ingredients": [
-        "Blue Curaçao",
-        "Lemonade",
-        "Built"
-      ],
+      "ingredients": ["Blue Curaçao", "Lemonade", "Built"],
       "garnish": "Lemon",
       "ice": "Cubes",
       "glass": "Highball",
@@ -3793,12 +2827,7 @@
       "id": "appletini",
       "name": "Appletini",
       "base": "Vodka",
-      "ingredients": [
-        "Apple Liqueur",
-        "Apple Juice",
-        "Lemon Juice",
-        "Shaken"
-      ],
+      "ingredients": ["Apple Liqueur", "Apple Juice", "Lemon Juice", "Shaken"],
       "garnish": "Apple slice",
       "ice": "Up",
       "glass": "Martini",
@@ -3809,12 +2838,7 @@
       "id": "vodka-sour",
       "name": "Vodka Sour",
       "base": "Vodka",
-      "ingredients": [
-        "Lemon Juice",
-        "Simple Syrup",
-        "Egg White",
-        "Shaken"
-      ],
+      "ingredients": ["Lemon Juice", "Simple Syrup", "Egg White", "Shaken"],
       "garnish": "Lemon",
       "ice": "Up",
       "glass": "Rocks",
@@ -3825,12 +2849,7 @@
       "id": "mexican-firing-squad",
       "name": "Mexican Firing Squad",
       "base": "Tequila",
-      "ingredients": [
-        "Lime Juice",
-        "Grenadine",
-        "Angostura Bitters",
-        "Shaken"
-      ],
+      "ingredients": ["Lime Juice", "Grenadine", "Angostura Bitters", "Shaken"],
       "garnish": "Lime",
       "ice": "Cubes",
       "glass": "Rocks",
@@ -3859,13 +2878,7 @@
       "id": "cantarito",
       "name": "Cantarito",
       "base": "Tequila",
-      "ingredients": [
-        "Lime Juice",
-        "Orange Juice",
-        "Grapefruit Juice",
-        "Soda Water",
-        "Built"
-      ],
+      "ingredients": ["Lime Juice", "Orange Juice", "Grapefruit Juice", "Soda Water", "Built"],
       "garnish": "Salt Rim",
       "ice": "Cubes",
       "glass": "Highball",
@@ -3876,11 +2889,7 @@
       "id": "toreador",
       "name": "Toreador",
       "base": "Tequila",
-      "ingredients": [
-        "Apricot Liqueur",
-        "Lime Juice",
-        "Shaken"
-      ],
+      "ingredients": ["Apricot Liqueur", "Lime Juice", "Shaken"],
       "garnish": "Lime",
       "ice": "Up",
       "glass": "Coupe",
@@ -3891,12 +2900,7 @@
       "id": "oaxacan-negroni",
       "name": "Sotol Negroni",
       "base": "Mezcal",
-      "ingredients": [
-        "Campari",
-        "Sweet Vermouth",
-        "Mole Bitters",
-        "Stirred"
-      ],
+      "ingredients": ["Campari", "Sweet Vermouth", "Mole Bitters", "Stirred"],
       "garnish": "Orange Twist",
       "ice": "One large cube",
       "glass": "Rocks",
@@ -3907,12 +2911,7 @@
       "id": "horsefeather",
       "name": "Horsefeather",
       "base": "Bourbon",
-      "ingredients": [
-        "Lemon Juice",
-        "Angostura Bitters",
-        "Ginger Beer",
-        "Built"
-      ],
+      "ingredients": ["Lemon Juice", "Angostura Bitters", "Ginger Beer", "Built"],
       "garnish": "Lemon",
       "ice": "Cubes",
       "glass": "Highball",
@@ -3923,12 +2922,7 @@
       "id": "ward-8",
       "name": "Ward Eight",
       "base": "Bourbon",
-      "ingredients": [
-        "Lemon Juice",
-        "Orange Juice",
-        "Grenadine",
-        "Shaken"
-      ],
+      "ingredients": ["Lemon Juice", "Orange Juice", "Grenadine", "Shaken"],
       "garnish": "Cherry & orange",
       "ice": "Up",
       "glass": "Coupe",
@@ -3939,12 +2933,7 @@
       "id": "fancy-free",
       "name": "Fancy Free",
       "base": "Rye",
-      "ingredients": [
-        "Maraschino Liqueur",
-        "Angostura Bitters",
-        "Orange Bitters",
-        "Stirred"
-      ],
+      "ingredients": ["Maraschino Liqueur", "Angostura Bitters", "Orange Bitters", "Stirred"],
       "garnish": "Lemon twist",
       "ice": "One large cube",
       "glass": "Coupe",
@@ -3955,11 +2944,7 @@
       "id": "frisco",
       "name": "Frisco",
       "base": "Rye",
-      "ingredients": [
-        "Bénédictine",
-        "Lemon Juice",
-        "Shaken"
-      ],
+      "ingredients": ["Bénédictine", "Lemon Juice", "Shaken"],
       "garnish": "Lemon twist",
       "ice": "Up",
       "glass": "Coupe",
@@ -3970,11 +2955,7 @@
       "id": "algonquin",
       "name": "Algonquin",
       "base": "Rye",
-      "ingredients": [
-        "Dry Vermouth",
-        "Pineapple Juice",
-        "Shaken"
-      ],
+      "ingredients": ["Dry Vermouth", "Pineapple Juice", "Shaken"],
       "garnish": "None",
       "ice": "Up",
       "glass": "Coupe",
@@ -3985,12 +2966,7 @@
       "id": "remember-the-maine",
       "name": "Remember the Maine",
       "base": "Rye",
-      "ingredients": [
-        "Sweet Vermouth",
-        "Cherry Heering",
-        "Absinthe",
-        "Stirred"
-      ],
+      "ingredients": ["Sweet Vermouth", "Cherry Heering", "Absinthe", "Stirred"],
       "garnish": "Cherry",
       "ice": "Up",
       "glass": "Coupe",
@@ -4001,12 +2977,7 @@
       "id": "commodore",
       "name": "Commodore",
       "base": "Rye",
-      "ingredients": [
-        "Crème de Cacao",
-        "Lemon Juice",
-        "Grenadine",
-        "Shaken"
-      ],
+      "ingredients": ["Crème de Cacao", "Lemon Juice", "Grenadine", "Shaken"],
       "garnish": "None",
       "ice": "Up",
       "glass": "Coupe",
@@ -4017,10 +2988,7 @@
       "id": "whisky-mac",
       "name": "Whisky Mac",
       "base": "Scotch",
-      "ingredients": [
-        "Ginger Wine",
-        "Built"
-      ],
+      "ingredients": ["Ginger Wine", "Built"],
       "garnish": "None",
       "ice": "Cubes",
       "glass": "Rocks",
@@ -4031,11 +2999,7 @@
       "id": "hot-toddy",
       "name": "Hot Toddy",
       "base": "Scotch",
-      "ingredients": [
-        "Lemon Juice",
-        "Honey Syrup",
-        "Built"
-      ],
+      "ingredients": ["Lemon Juice", "Honey Syrup", "Built"],
       "garnish": "Lemon & clove",
       "ice": "None",
       "glass": "Mug",
@@ -4046,12 +3010,7 @@
       "id": "flying-scotsman",
       "name": "Flying Scotsman",
       "base": "Scotch",
-      "ingredients": [
-        "Sweet Vermouth",
-        "Angostura Bitters",
-        "Simple Syrup",
-        "Stirred"
-      ],
+      "ingredients": ["Sweet Vermouth", "Angostura Bitters", "Simple Syrup", "Stirred"],
       "garnish": "None",
       "ice": "Up",
       "glass": "Coupe",
@@ -4079,12 +3038,7 @@
       "id": "saratoga",
       "name": "Saratoga",
       "base": "Cognac",
-      "ingredients": [
-        "Rye",
-        "Sweet Vermouth",
-        "Angostura Bitters",
-        "Stirred"
-      ],
+      "ingredients": ["Rye", "Sweet Vermouth", "Angostura Bitters", "Stirred"],
       "garnish": "Cherry",
       "ice": "Up",
       "glass": "Coupe",
@@ -4095,12 +3049,7 @@
       "id": "harvard",
       "name": "Harvard",
       "base": "Cognac",
-      "ingredients": [
-        "Sweet Vermouth",
-        "Angostura Bitters",
-        "Soda Water",
-        "Stirred"
-      ],
+      "ingredients": ["Sweet Vermouth", "Angostura Bitters", "Soda Water", "Stirred"],
       "garnish": "Lemon twist",
       "ice": "Up",
       "glass": "Coupe",
@@ -4111,12 +3060,7 @@
       "id": "honeymoon",
       "name": "Honeymoon",
       "base": "Apple Brandy",
-      "ingredients": [
-        "Bénédictine",
-        "Triple Sec",
-        "Lemon Juice",
-        "Shaken"
-      ],
+      "ingredients": ["Bénédictine", "Triple Sec", "Lemon Juice", "Shaken"],
       "garnish": "Lemon twist",
       "ice": "Up",
       "glass": "Coupe",
@@ -4127,11 +3071,7 @@
       "id": "star-cocktail",
       "name": "Star Cocktail",
       "base": "Apple Brandy",
-      "ingredients": [
-        "Sweet Vermouth",
-        "Grapefruit Bitters",
-        "Stirred"
-      ],
+      "ingredients": ["Sweet Vermouth", "Grapefruit Bitters", "Stirred"],
       "garnish": "Lemon twist",
       "ice": "Up",
       "glass": "Coupe",
@@ -4142,11 +3082,7 @@
       "id": "ti-punch",
       "name": "Ti' Punch",
       "base": "Aged Rum",
-      "ingredients": [
-        "Lime Juice",
-        "Cane Syrup",
-        "Built"
-      ],
+      "ingredients": ["Lime Juice", "Cane Syrup", "Built"],
       "garnish": "Lime disc",
       "ice": "None",
       "glass": "Rocks",
@@ -4157,13 +3093,7 @@
       "id": "queens-park-swizzle",
       "name": "Queen's Park Swizzle",
       "base": "Aged Rum",
-      "ingredients": [
-        "Lime Juice",
-        "Simple Syrup",
-        "Angostura Bitters",
-        "Mint",
-        "Swizzled"
-      ],
+      "ingredients": ["Lime Juice", "Simple Syrup", "Angostura Bitters", "Mint", "Swizzled"],
       "garnish": "Mint Sprig",
       "ice": "Crushed",
       "glass": "Highball",
@@ -4174,12 +3104,7 @@
       "id": "hotel-nacional",
       "name": "Hotel Nacional",
       "base": "White Rum",
-      "ingredients": [
-        "Apricot Liqueur",
-        "Pineapple Juice",
-        "Lime Juice",
-        "Shaken"
-      ],
+      "ingredients": ["Apricot Liqueur", "Pineapple Juice", "Lime Juice", "Shaken"],
       "garnish": "Pineapple",
       "ice": "Up",
       "glass": "Coupe",
@@ -4190,12 +3115,7 @@
       "id": "knickerbocker",
       "name": "Knickerbocker",
       "base": "Aged Rum",
-      "ingredients": [
-        "Dry Curaçao",
-        "Raspberry Purée",
-        "Lime Juice",
-        "Shaken"
-      ],
+      "ingredients": ["Dry Curaçao", "Raspberry Purée", "Lime Juice", "Shaken"],
       "garnish": "Berries",
       "ice": "Crushed",
       "glass": "Coupe",
@@ -4206,13 +3126,7 @@
       "id": "chartreuse-swizzle",
       "name": "Chartreuse Swizzle",
       "base": "White Rum",
-      "ingredients": [
-        "Green Chartreuse",
-        "Pineapple Juice",
-        "Lime Juice",
-        "Falernum",
-        "Swizzled"
-      ],
+      "ingredients": ["Green Chartreuse", "Pineapple Juice", "Lime Juice", "Falernum", "Swizzled"],
       "garnish": "Mint Sprig",
       "ice": "Crushed",
       "glass": "Highball",
@@ -4223,10 +3137,7 @@
       "id": "black-velvet",
       "name": "Black Velvet",
       "base": "Champagne",
-      "ingredients": [
-        "Stout",
-        "Built"
-      ],
+      "ingredients": ["Stout", "Built"],
       "garnish": "None",
       "ice": "None",
       "glass": "Flute",
@@ -4237,10 +3148,7 @@
       "id": "rossini",
       "name": "Rossini",
       "base": "Prosecco",
-      "ingredients": [
-        "Raspberry Purée",
-        "Built"
-      ],
+      "ingredients": ["Raspberry Purée", "Built"],
       "garnish": "None",
       "ice": "None",
       "glass": "Flute",
@@ -4251,11 +3159,7 @@
       "id": "sherry-flip",
       "name": "Sherry Flip",
       "base": "Sherry",
-      "ingredients": [
-        "Simple Syrup",
-        "Whole Egg",
-        "Shaken"
-      ],
+      "ingredients": ["Simple Syrup", "Whole Egg", "Shaken"],
       "garnish": "Nutmeg",
       "ice": "Up",
       "glass": "Coupe",
@@ -4266,10 +3170,7 @@
       "id": "port-tonic",
       "name": "Port Tonic",
       "base": "Port",
-      "ingredients": [
-        "Tonic Water",
-        "Built"
-      ],
+      "ingredients": ["Tonic Water", "Built"],
       "garnish": "Orange Twist",
       "ice": "Cubes",
       "glass": "Wine",
@@ -4280,12 +3181,7 @@
       "id": "skagen-mule",
       "name": "Skål Mule",
       "base": "Aquavit",
-      "ingredients": [
-        "Lime Juice",
-        "Apple Juice",
-        "Ginger Beer",
-        "Built"
-      ],
+      "ingredients": ["Lime Juice", "Apple Juice", "Ginger Beer", "Built"],
       "garnish": "Apple & dill",
       "ice": "Cubes",
       "glass": "Copper mug",
@@ -4296,13 +3192,7 @@
       "id": "tokyo-collins",
       "name": "Tokyo Collins",
       "base": "Sake",
-      "ingredients": [
-        "Gin",
-        "Lemon Juice",
-        "Simple Syrup",
-        "Soda Water",
-        "Built"
-      ],
+      "ingredients": ["Gin", "Lemon Juice", "Simple Syrup", "Soda Water", "Built"],
       "garnish": "Lemon",
       "ice": "Cubes",
       "glass": "Collins",
@@ -4313,12 +3203,7 @@
       "id": "absinthe-suissesse",
       "name": "Absinthe Suissesse",
       "base": "Absinthe",
-      "ingredients": [
-        "Orgeat",
-        "Egg White",
-        "Cream",
-        "Shaken"
-      ],
+      "ingredients": ["Orgeat", "Egg White", "Cream", "Shaken"],
       "garnish": "Mint Sprig",
       "ice": "Cubes",
       "glass": "Rocks",
@@ -4329,11 +3214,7 @@
       "id": "genever-old-fashioned",
       "name": "Genever Old Fashioned",
       "base": "Genever",
-      "ingredients": [
-        "Simple Syrup",
-        "Angostura Bitters",
-        "Stirred"
-      ],
+      "ingredients": ["Simple Syrup", "Angostura Bitters", "Stirred"],
       "garnish": "Orange Twist",
       "ice": "One large cube",
       "glass": "Rocks",
@@ -4344,11 +3225,7 @@
       "id": "contessa",
       "name": "Contessa",
       "base": "Aperitivo",
-      "ingredients": [
-        "Gin",
-        "Bianco Vermouth",
-        "Stirred"
-      ],
+      "ingredients": ["Gin", "Bianco Vermouth", "Stirred"],
       "garnish": "Grapefruit twist",
       "ice": "One large cube",
       "glass": "Rocks",
@@ -4359,12 +3236,7 @@
       "id": "sundowner",
       "name": "Sundowner",
       "base": "Aperitivo",
-      "ingredients": [
-        "Orange Juice",
-        "Grapefruit Juice",
-        "Soda Water",
-        "Built"
-      ],
+      "ingredients": ["Orange Juice", "Grapefruit Juice", "Soda Water", "Built"],
       "garnish": "Orange slice",
       "ice": "Cubes",
       "glass": "Highball",
@@ -4375,11 +3247,7 @@
       "id": "arnold-palmer",
       "name": "Arnold Palmer",
       "base": "Alcohol-Free",
-      "ingredients": [
-        "Iced Tea",
-        "Lemonade",
-        "Built"
-      ],
+      "ingredients": ["Iced Tea", "Lemonade", "Built"],
       "garnish": "Lemon",
       "ice": "Cubes",
       "glass": "Highball",
@@ -4390,11 +3258,7 @@
       "id": "roy-rogers",
       "name": "Roy Rogers",
       "base": "Alcohol-Free",
-      "ingredients": [
-        "Grenadine",
-        "Cola",
-        "Built"
-      ],
+      "ingredients": ["Grenadine", "Cola", "Built"],
       "garnish": "Cherry",
       "ice": "Cubes",
       "glass": "Highball",
@@ -4405,12 +3269,7 @@
       "id": "virgin-paloma",
       "name": "Virgin Paloma",
       "base": "Alcohol-Free",
-      "ingredients": [
-        "Grapefruit Juice",
-        "Lime Juice",
-        "Soda Water",
-        "Built"
-      ],
+      "ingredients": ["Grapefruit Juice", "Lime Juice", "Soda Water", "Built"],
       "garnish": "Salt Rim",
       "ice": "Cubes",
       "glass": "Highball",
@@ -4421,13 +3280,7 @@
       "id": "cucumber-cooler-na",
       "name": "Cucumber Lemonade",
       "base": "Alcohol-Free",
-      "ingredients": [
-        "Lemon Juice",
-        "Simple Syrup",
-        "Cucumber",
-        "Soda Water",
-        "Built"
-      ],
+      "ingredients": ["Lemon Juice", "Simple Syrup", "Cucumber", "Soda Water", "Built"],
       "garnish": "Cucumber Ribbon",
       "ice": "Cubes",
       "glass": "Highball",
@@ -4438,13 +3291,7 @@
       "id": "berry-smash-na",
       "name": "Berry Smash",
       "base": "Alcohol-Free",
-      "ingredients": [
-        "Lemon Juice",
-        "Raspberry Purée",
-        "Mint",
-        "Soda Water",
-        "Muddled"
-      ],
+      "ingredients": ["Lemon Juice", "Raspberry Purée", "Mint", "Soda Water", "Muddled"],
       "garnish": "Berries & mint",
       "ice": "Crushed",
       "glass": "Rocks",

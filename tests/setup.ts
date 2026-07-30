@@ -28,12 +28,24 @@ process.env.DB_PATH ??= ':memory:';
 
 const hasDom = typeof window !== 'undefined';
 
+/**
+ * Not just "does localStorage exist".
+ *
+ * Node 25 added its own `localStorage` global, which shadows jsdom's and has no
+ * `clear()` unless `--localstorage-file` points somewhere real. Every DOM test then
+ * failed in `beforeEach`, before running a line of its own — 296 of them, on a
+ * machine where `brew install node` happened to give 25 rather than the 24 that
+ * `package.json` asks for. The engines range now says so; this stays defensive
+ * because the failure was so far from its cause.
+ */
+const canClearStorage = hasDom && typeof globalThis.localStorage?.clear === 'function';
+
 beforeEach(() => {
-  if (hasDom) localStorage.clear();
+  if (canClearStorage) localStorage.clear();
 });
 
 afterEach(() => {
   if (!hasDom) return;
   cleanup(); // unmount anything still rendered, so effects stop running
-  localStorage.clear();
+  if (canClearStorage) localStorage.clear();
 });
