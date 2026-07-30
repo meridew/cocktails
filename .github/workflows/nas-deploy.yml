@@ -104,3 +104,9 @@ jobs:
           docker image prune -f --filter "label=com.docker.compose.project=cocktails"
         env:
           TUNNEL_TOKEN: ${{ secrets.TUNNEL_TOKEN }}
+          # Legacy builder, not BuildKit. BuildKit spawns a frontend container per
+          # Dockerfile and they were dying on this box ("frontend grpc server closed
+          # unexpectedly") regardless of what was being built. These images are now
+          # three FROM/COPY files with nothing BuildKit is needed for.
+          DOCKER_BUILDKIT: '0'
+          COMPOSE_DOCKER_CLI_BUILD: '0'

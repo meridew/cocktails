@@ -1,4 +1,3 @@
-# syntax=docker/dockerfile:1
 # Cocktails web — serve the pre-built PWA via nginx.
 #
 # This image deliberately does NOT build the client. It used to: an `npm ci` +
@@ -10,6 +9,10 @@
 #
 # The build now happens wherever there's memory (CI's cloud runner, or a dev
 # machine) and `dist/` is shipped in. This image is a file copy.
+# No `# syntax=` directive on purpose: it makes BuildKit pull and run an external
+# frontend container for every Dockerfile, and on the NAS those were dying with
+# "frontend grpc server closed unexpectedly" — even for this file, which only
+# copies a config in. Nothing here needs a newer frontend than the built-in one.
 FROM nginx:alpine
 COPY apps/web/nginx.conf /etc/nginx/conf.d/default.conf
 COPY apps/web/dist /usr/share/nginx/html

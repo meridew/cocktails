@@ -1,5 +1,8 @@
-# syntax=docker/dockerfile:1
 # Cocktails API — Hono on Node 24 with built-in node:sqlite.
+# No `# syntax=` directive on purpose: it makes BuildKit pull and run an external
+# frontend container for every Dockerfile, and on the NAS those were dying with
+# "frontend grpc server closed unexpectedly" — even for this file, which only
+# copies a config in. Nothing here needs a newer frontend than the built-in one.
 FROM node:24-alpine
 WORKDIR /app
 
