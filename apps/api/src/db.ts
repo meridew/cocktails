@@ -122,7 +122,10 @@ export function createDb(dbPath: string) {
       transport    TEXT NOT NULL DEFAULT 'webpush',
       platform     TEXT NOT NULL DEFAULT 'web',
       created_at   INTEGER NOT NULL,
-      PRIMARY KEY (device_id, endpoint)
+      -- role is part of the key: one device legitimately holds BOTH roles (the
+      -- host runs the bar and orders drinks). With (device_id, endpoint) alone,
+      -- registering one role overwrote the other and silently killed its pushes.
+      PRIMARY KEY (device_id, endpoint, role)
     );
     CREATE TABLE IF NOT EXISTS staff (
       id            TEXT PRIMARY KEY,
@@ -154,6 +157,43 @@ export function createDb(dbPath: string) {
   addColumn('subscriptions', 'transport', "transport TEXT NOT NULL DEFAULT 'webpush'");
   addColumn('subscriptions', 'platform', "platform TEXT NOT NULL DEFAULT 'web'");
 
+  /**
+   * Widen the subscriptions primary key to include `role`.
+   *
+   * SQLite can't ALTER a primary key, so this rebuilds the table — but only when
+   * the old key is still in place, which keeps it idempotent in the same
+   * detect-then-act style as addColumn. Runs after the column migrations above so
+   * transport/platform are guaranteed to exist by the time we copy.
+   */
+  const primaryKeyColumns = (table: string): string[] =>
+    (db.prepare(`PRAGMA table_info(${table})`).all() as { name: string; pk: number }[])
+      .filter((r) => r.pk > 0)
+      .sort((a, b) => a.pk - b.pk)
+      .map((r) => r.name);
+
+  if (!primaryKeyColumns('subscriptions').includes('role')) {
+    db.exec(`
+      BEGIN IMMEDIATE;
+      CREATE TABLE subscriptions_migrated (
+        device_id    TEXT NOT NULL,
+        role         TEXT NOT NULL,
+        subscription TEXT NOT NULL,
+        endpoint     TEXT NOT NULL,
+        transport    TEXT NOT NULL DEFAULT 'webpush',
+        platform     TEXT NOT NULL DEFAULT 'web',
+        created_at   INTEGER NOT NULL,
+        PRIMARY KEY (device_id, endpoint, role)
+      );
+      INSERT INTO subscriptions_migrated
+        (device_id, role, subscription, endpoint, transport, platform, created_at)
+        SELECT device_id, role, subscription, endpoint, transport, platform, created_at
+        FROM subscriptions;
+      DROP TABLE subscriptions;
+      ALTER TABLE subscriptions_migrated RENAME TO subscriptions;
+      COMMIT;
+    `);
+  }
+
   // ---- orders ----
   const stInsertOrder = db.prepare(
     `INSERT INTO orders (id, name, items, note, status, device_id, created_at, updated_at)
@@ -180,8 +220,7 @@ export function createDb(dbPath: string) {
   const stUpsertSub = db.prepare(
     `INSERT INTO subscriptions (device_id, role, subscription, endpoint, transport, platform, created_at)
      VALUES (?, ?, ?, ?, ?, ?, ?)
-     ON CONFLICT(device_id, endpoint) DO UPDATE SET
-       role = excluded.role,
+     ON CONFLICT(device_id, endpoint, role) DO UPDATE SET
        subscription = excluded.subscription,
        transport = excluded.transport,
        platform = excluded.platform`,

@@ -83,11 +83,15 @@ self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   const target = (event.notification.data as { url?: string } | null)?.url ?? '/';
   event.waitUntil(
-    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(async (clients) => {
+      // Focus an existing window AND send it to the target — focusing alone
+      // ignored the payload's url, so the deep link never actually navigated.
       for (const client of clients) {
-        if ('focus' in client) return client.focus();
+        await client.focus();
+        if ('navigate' in client) await client.navigate(target).catch(() => {});
+        return;
       }
-      return self.clients.openWindow(target);
+      await self.clients.openWindow(target);
     }),
   );
 });

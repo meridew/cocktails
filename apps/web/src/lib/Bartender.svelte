@@ -12,7 +12,7 @@
   } from './api';
   import { dialog } from './dialog';
   import { storage } from './storage';
-  import { enablePush, pushSupported, pushPermission } from './push';
+  import { enablePush, pushSupported, pushState, refreshPushState } from './push.svelte';
   import { SvelteSet } from 'svelte/reactivity';
   import { STATUS_META } from '@cocktails/shared';
   import type { Order, OrderStatus } from '@cocktails/shared';
@@ -175,22 +175,21 @@
     return m < 60 ? `${m}m` : `${Math.round(m / 60)}h`;
   }
 
-  // push: alert the bar when a new order lands (device-keyed, role=bartender)
-  let notify = $state<'idle' | 'working' | 'on' | 'off'>(
-    pushPermission() === 'granted' ? 'on' : 'idle',
-  );
-  async function notifyOrders() {
-    notify = 'working';
-    const r = await enablePush('bartender', token);
-    notify = r.ok ? 'on' : 'off';
-  }
+  // push: alert the bar when a new order lands (device-keyed, role=bartender).
+  // The store resolves this from the real subscription, so the chip can't claim
+  // "On" while nothing is registered — and holding the bartender role no longer
+  // cancels this device's guest notifications.
+  let notify = $derived(pushState('bartender'));
 
   onMount(() => {
     if (token) {
       // validate the stored session; a 401 drops us back to the sign-in form
       void (async () => {
         await fetchOrders();
-        if (unlocked) start();
+        if (unlocked) {
+          start();
+          void refreshPushState('bartender', token);
+        }
       })();
     }
     return () => stop();
@@ -221,15 +220,21 @@
           Show done
         </button>
         <button type="button" class="bt-chip" onclick={clearDone}>Clear done</button>
-        {#if pushSupported()}
+        {#if pushSupported() && notify !== 'unsupported' && notify !== 'disabled'}
           <button
             type="button"
             class="bt-chip"
             aria-pressed={notify === 'on'}
-            disabled={notify === 'working'}
-            onclick={notifyOrders}
+            disabled={notify === 'working' || notify === 'on'}
+            onclick={() => enablePush('bartender', token)}
           >
-            {notify === 'on' ? '🔔 On' : notify === 'working' ? '…' : '🔔 Alerts'}
+            {notify === 'on'
+              ? '🔔 On'
+              : notify === 'working'
+                ? '…'
+                : notify === 'denied'
+                  ? '🔔 Blocked'
+                  : '🔔 Alerts'}
           </button>
         {/if}
         <button type="button" class="bt-chip" onclick={doLogout}>Log out</button>

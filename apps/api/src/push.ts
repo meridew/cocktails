@@ -86,11 +86,21 @@ async function deliver(rec: SubscriptionRecord, payload: PushPayload): Promise<v
   }
 }
 
-/** Fire-and-forget: notify every subscription for an anonymous device id. */
+/**
+ * Fire-and-forget: notify a device once.
+ *
+ * A device can hold several rows for one endpoint (one per role), so dedupe by
+ * endpoint — otherwise the host, who is both guest and bartender, would get every
+ * "your drink" notification twice.
+ */
 export async function pushToDevice(deviceId: string, payload: PushPayload): Promise<void> {
   if (!enabled || !deviceId) return;
   try {
-    await Promise.all(subscriptionsForDevice(deviceId).map((s) => deliver(s, payload)));
+    const byEndpoint = new Map<string, SubscriptionRecord>();
+    for (const record of subscriptionsForDevice(deviceId)) {
+      byEndpoint.set(record.subscription.endpoint, record);
+    }
+    await Promise.all([...byEndpoint.values()].map((s) => deliver(s, payload)));
   } catch {
     /* fire-and-forget: never reject (a DB hiccup here must not crash the request) */
   }

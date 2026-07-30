@@ -55,9 +55,15 @@ function guestStatusPush(order: Order): PushPayload | null {
         title: '👩‍🍳 On it!',
         body: `${order.name}, your order is being made.`,
         tag: order.id,
+        url: '/',
       };
     case 'serving':
-      return { title: '🍹 INCOMING!', body: `${order.name}, come grab your drink!`, tag: order.id };
+      return {
+        title: '🍹 INCOMING!',
+        body: `${order.name}, come grab your drink!`,
+        tag: order.id,
+        url: '/',
+      };
     default:
       return null; // pending/done: no push (done → "how was it?" comes later)
   }
@@ -66,7 +72,13 @@ function guestStatusPush(order: Order): PushPayload | null {
 /** Bartender push when a new order lands. */
 function newOrderPush(order: Order): PushPayload {
   const summary = order.items.map((i) => `${i.qty}× ${i.name}`).join(', ');
-  return { title: '🔔 New order', body: `${order.name}: ${summary}`, tag: order.id };
+  // Deep-link straight into bartender mode — that's where the bar acts on it.
+  return {
+    title: '🔔 New order',
+    body: `${order.name}: ${summary}`,
+    tag: order.id,
+    url: '/?bartender',
+  };
 }
 
 /**

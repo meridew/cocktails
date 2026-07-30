@@ -5,7 +5,7 @@
   import { getDeviceId, getSavedName, saveName } from './lib/device';
   import { storage } from './lib/storage';
   import { SvelteSet } from 'svelte/reactivity';
-  import { enablePush, pushSupported, pushPermission } from './lib/push';
+  import { enablePush, pushSupported, pushState, refreshPushState } from './lib/push.svelte';
   import Configurator from './lib/Configurator.svelte';
   import Bartender from './lib/Bartender.svelte';
   import InstallButton from './lib/InstallButton.svelte';
@@ -70,15 +70,10 @@
     selected = DRINKS[Math.floor(Math.random() * DRINKS.length)]!;
   }
 
-  // push: "notify me when my drink is ready" (anonymous, device-keyed)
-  let notify = $state<'idle' | 'working' | 'on' | 'denied' | 'unavailable'>(
-    pushPermission() === 'granted' ? 'on' : 'idle',
-  );
-  async function notifyMe() {
-    notify = 'working';
-    const r = await enablePush('guest');
-    notify = r.ok ? 'on' : r.reason === 'denied' ? 'denied' : 'unavailable';
-  }
+  // push: "notify me when my drink is ready" (anonymous, device-keyed).
+  // State comes from the store, which resolves it from the real subscription.
+  let notify = $derived(pushState('guest'));
+  void refreshPushState('guest'); // reconcile a previous visit's registration
 
   async function send() {
     if (!name.trim() || basket.items.length === 0) return;
@@ -285,23 +280,27 @@
     <div class="celebrate-card">
       <h2>Cheers! 🥂</h2>
       <p class="celebrate-msg">Your drinks are <strong>on the way</strong>. 🍹</p>
-      {#if pushSupported()}
+      {#if pushSupported() && notify !== 'unsupported'}
         {#if notify === 'on'}
           <p class="notify-on">🔔 You'll get a buzz when it's ready.</p>
         {:else if notify === 'denied'}
           <p class="notify-note">
             Notifications are blocked — enable them in your browser settings.
           </p>
-        {:else if notify === 'unavailable'}
-          <p class="notify-note">Notifications aren't available right now.</p>
+        {:else if notify === 'disabled'}
+          <p class="notify-note">Notifications aren't switched on at the bar tonight.</p>
         {:else}
           <button
             type="button"
             class="notify-btn"
-            onclick={notifyMe}
+            onclick={() => enablePush('guest')}
             disabled={notify === 'working'}
           >
-            {notify === 'working' ? 'Enabling…' : '🔔 Notify me when ready'}
+            {notify === 'working'
+              ? 'Enabling…'
+              : notify === 'error'
+                ? '🔔 Try again'
+                : '🔔 Notify me when ready'}
           </button>
         {/if}
       {/if}

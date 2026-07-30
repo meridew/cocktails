@@ -135,6 +135,49 @@ describe('schema + migrations', () => {
     openTempDb(path);
     assert.doesNotThrow(() => openTempDb(path), 'a second migration pass must not throw');
   });
+
+  test('rebuilds the subscriptions primary key to include role, keeping rows', () => {
+    const path = tempDbPath();
+
+    // The old key was (device_id, endpoint), which made a device's role exclusive.
+    const old = new DatabaseSync(path);
+    old.exec(`
+      CREATE TABLE subscriptions (
+        device_id TEXT NOT NULL, role TEXT NOT NULL, subscription TEXT NOT NULL,
+        endpoint TEXT NOT NULL, created_at INTEGER NOT NULL,
+        PRIMARY KEY (device_id, endpoint)
+      );
+    `);
+    const endpoint = 'https://fcm.googleapis.com/fcm/send/legacy';
+    old
+      .prepare(
+        `INSERT INTO subscriptions (device_id,role,subscription,endpoint,created_at)
+         VALUES (?,?,?,?,?)`,
+      )
+      .run('dev-legacy', 'guest', JSON.stringify(sub(endpoint)), endpoint, 1000);
+    old.close();
+
+    const migrated = openTempDb(path);
+    const pk = (
+      migrated.raw.prepare(`PRAGMA table_info(subscriptions)`).all() as {
+        name: string;
+        pk: number;
+      }[]
+    )
+      .filter((r) => r.pk > 0)
+      .map((r) => r.name);
+    assert.ok(pk.includes('role'), `role should be part of the key, got ${pk.join(',')}`);
+
+    // The existing row survived the table rebuild...
+    const rows = migrated.subscriptionsForDevice('dev-legacy');
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0]?.role, 'guest');
+    assert.equal(rows[0]?.transport, 'webpush');
+
+    // ...and the device can now hold the other role too.
+    migrated.saveSubscription('dev-legacy', 'bartender', sub(endpoint));
+    assert.equal(migrated.subscriptionsForDevice('dev-legacy').length, 2);
+  });
 });
 
 describe('orders', () => {
@@ -248,12 +291,25 @@ describe('orders', () => {
 });
 
 describe('subscriptions', () => {
-  test('re-subscribing the same device+endpoint updates in place', () => {
-    db.saveSubscription('dev-1', 'guest', sub('https://fcm.googleapis.com/fcm/send/a'));
-    db.saveSubscription('dev-1', 'bartender', sub('https://fcm.googleapis.com/fcm/send/a'));
+  test('re-subscribing the same device+endpoint+role updates in place', () => {
+    const endpoint = sub('https://fcm.googleapis.com/fcm/send/a');
+    db.saveSubscription('dev-1', 'guest', endpoint);
+    db.saveSubscription('dev-1', 'guest', endpoint);
     const rows = db.subscriptionsForDevice('dev-1');
     assert.equal(rows.length, 1, 'the composite key should have collapsed these');
-    assert.equal(rows[0]?.role, 'bartender');
+    assert.equal(rows[0]?.role, 'guest');
+  });
+
+  test('one device holds both roles on the same endpoint', () => {
+    // The host runs the bar AND orders drinks. With role outside the primary key,
+    // enabling one silently deleted the other's subscription.
+    const endpoint = sub('https://fcm.googleapis.com/fcm/send/a');
+    db.saveSubscription('dev-host', 'guest', endpoint);
+    db.saveSubscription('dev-host', 'bartender', endpoint);
+
+    assert.equal(db.subscriptionsForDevice('dev-host').length, 2);
+    assert.equal(db.subscriptionsForRole('guest').length, 1, 'guest push must survive');
+    assert.equal(db.subscriptionsForRole('bartender').length, 1, 'bar alerts must survive');
   });
 
   test('a second endpoint for the same device is a separate row', () => {
