@@ -3,14 +3,15 @@ name: deploy (NAS)
 # Push -> GitHub cloud runner gates (fast, and costs the NAS nothing) -> if green,
 # the self-hosted NAS runner builds + deploys. Nothing inbound; no GHCR.
 #
-# The two jobs look like duplication — two checkouts, two `npm ci` — and merging
-# them onto the NAS runner was tried. It was much worse. The NAS is a 4-core
-# Synology with almost no free RAM that is also serving the live site; running
-# `npm ci` + typecheck + 235 tests there (the auth suite alone is scrypt at
-# N=65536, 96 MiB a hash) drove load average past 70 and the job failed. The cloud
-# runner does the same gate in ~35s on idle hardware, in parallel with the NAS
-# doing nothing. The ~15s of VM provisioning that merging saves is not the cost
-# worth optimising; the NAS's Docker build is.
+# The split is deliberate and load-bearing, not duplication. The NAS is a 4-core
+# Synology sharing memory with two long-lived VMs, SQL Server and Plex; it often has
+# under 1 GB available. Merging the gate onto it was tried and failed outright —
+# `npm ci` + typecheck + 235 tests (the auth suite is scrypt at 96 MiB a hash) on a
+# box already at load 70. And BuildKit was being OOM-killed compiling the client.
+#
+# So the cloud runner does everything that needs CPU or memory — gate, and building
+# the client bundle — and hands `dist/` to the NAS as an artifact. The NAS job only
+# copies files into images and restarts containers.
 on:
   push:
     branches: [modernise, main]
@@ -48,11 +49,25 @@ jobs:
       - name: Build web
         run: npm -w @cocktails/web run build
 
+      # Hand the bundle to the NAS rather than making it compile one.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: web-dist
+          path: apps/web/dist
+          retention-days: 1
+          if-no-files-found: error
+
   deploy:
     needs: check
     runs-on: [self-hosted, nas]
     steps:
       - uses: actions/checkout@v4
+
+      # apps/web/Dockerfile copies this in; it never builds it.
+      - uses: actions/download-artifact@v4
+        with:
+          name: web-dist
+          path: apps/web/dist
 
       - name: Write infra/.env
         run: |

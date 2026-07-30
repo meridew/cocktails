@@ -2,6 +2,12 @@
 .git
 **/dist
 **/build
+
+# ...except the client bundle, which is built off-box and copied in. The NAS runs
+# out of memory compiling it (see apps/web/Dockerfile), so the artifact ships in
+# rather than being produced here.
+!apps/web/dist
+!apps/web/dist/**
 data
 **/data
 *.sqlite
