@@ -5,6 +5,7 @@
 > Architecture: **Cloudflare edge (TLS) → `cloudflared` (NAS container) → `caddy:80` → web + api.**
 
 ## Status
+
 - ✅ Nameservers moved to Cloudflare (`*.ns.cloudflare.com`) — zone active.
 - ✅ NAS side wired: `cloudflared` service in `infra/docker-compose.yml` (dormant behind the `tunnel`
   compose profile), CI writes `TUNNEL_TOKEN` and auto-enables the profile when the secret exists.
@@ -16,9 +17,9 @@
 1. **Cloudflare dashboard → Zero Trust → Networks → Tunnels → _Create a tunnel_.**
    - Connector type: **Cloudflared**. Name it e.g. `cocktails-nas`. Save.
 2. On the "Install connector" page, **copy the token** — the long string after `--token` in the shown
-   command (starts `ey…`). *Don't* install anything; we run it via Docker.
+   command (starts `ey…`). _Don't_ install anything; we run it via Docker.
 3. Open the tunnel → **Public Hostname** tab → **Add a public hostname**:
-   - **Subdomain** `cock` · **Domain** `meridew.com`  (→ `cock.meridew.com`)
+   - **Subdomain** `cock` · **Domain** `meridew.com` (→ `cock.meridew.com`)
    - **Service**: Type **HTTP**, URL **`caddy:80`**
    - Save. (Cloudflare auto-creates the proxied DNS record, replacing the old GitHub-Pages one.)
 4. **Store the token as a secret** (paste it when prompted — keeps it out of the repo/logs):
@@ -33,6 +34,7 @@
 6. Visit **https://cock.meridew.com** — the new app, over HTTPS. 🎉
 
 ## Right after it's live
+
 - **Turn on Web Push** (now that we have HTTPS):
   ```sh
   npm -w @cocktails/api run gen-vapid           # prints VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY
@@ -44,31 +46,38 @@
   → redeploy (the seed upserts it). Login stays `bar@meridew.com`.
 
 ## Ruthless follow-ups (optional, anytime)
+
 - Drop the legacy flat app + GitHub Pages (`CNAME`, root `index.html`/`app.js`/…) — the tunnel now owns
   the domain, so Pages is redundant.
 - Make the repo **private** (kills Pages — fine, since the tunnel replaced it).
 - Cloudflare **Access** policy on the tunnel if you ever want to gate the whole site behind a login.
 
 ## ⚠️ Known LAN gotcha — split-DNS on the AD domain controller
+
 `cock.meridew.com` works from **anywhere except inside the home LAN**, because the AD domain
-controller (`DC00`, 192.168.1.200) cached the *old* `cock → meridew.github.io` record and keeps
+controller (`DC00`, 192.168.1.200) cached the _old_ `cock → meridew.github.io` record and keeps
 serving it, so LAN clients hit GitHub Pages (404) instead of the Cloudflare tunnel. Confirmed: forcing
 the Cloudflare IP (`curl --resolve cock.meridew.com:443:104.21.41.29 …`) returns the live app; the
 authoritative Cloudflare record is correct.
+
 - **Fix on the LAN:** clear the DC's DNS cache — on `DC00`, PowerShell `Clear-DnsServerCache -Force`
-  (or DNS Manager → right-click the server → *Clear Cache*). Then `ipconfig /flushdns` on clients.
+  (or DNS Manager → right-click the server → _Clear Cache_). Then `ipconfig /flushdns` on clients.
 - **Off-LAN (phone on cellular, etc.) it already works** — this is purely an internal-resolver cache.
 
 ## ⚠️ Set a real staff password
+
 The live staff account is locked behind a random password until you set one (the `cocktails`
 placeholder is closed). To use the live bartender:
+
 ```sh
 gh secret set STAFF_PASSWORD -R meridew/cocktails   # type your chosen password
 gh workflow run "deploy (NAS)" -R meridew/cocktails --ref modernise
 ```
+
 Login stays `bar@meridew.com`; the seed upserts the new password on deploy.
 
 ## Notes
+
 - No router port-forward needed anymore (the tunnel dials out). The `:8088` host port stays for LAN.
 - Caddy is unchanged — it still path-routes `/api`→api, everything else→web. The tunnel just feeds it.
 - The web app calls `/api` same-origin, so it works at `cock.meridew.com` with no rebuild. The native

@@ -84,7 +84,13 @@ const MARGBASE_OPT: Axis = {
   label: 'Flavour',
   choices: [
     { value: 'Classic', label: 'Classic' },
-    { value: 'Watermelon', label: 'Watermelon', emoji: '🍉', tag: 'Watermelon', adds: ['Watermelon'] },
+    {
+      value: 'Watermelon',
+      label: 'Watermelon',
+      emoji: '🍉',
+      tag: 'Watermelon',
+      adds: ['Watermelon'],
+    },
   ],
 };
 

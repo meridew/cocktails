@@ -17,7 +17,8 @@ export function lockBackground(keep?: HTMLElement): () => void {
   const app = document.getElementById('app');
   if (!app) return () => {};
   const locked = Array.from(app.children).filter(
-    (el): el is HTMLElement => el instanceof HTMLElement && el !== keep && !el.hasAttribute('inert'),
+    (el): el is HTMLElement =>
+      el instanceof HTMLElement && el !== keep && !el.hasAttribute('inert'),
   );
   for (const el of locked) el.setAttribute('inert', '');
   return () => {
@@ -34,7 +35,9 @@ export const dialog: Action<HTMLElement, { onclose?: () => void } | undefined> =
   const release = lockBackground(node);
 
   const focusables = () =>
-    Array.from(node.querySelectorAll<HTMLElement>(FOCUSABLE)).filter((el) => el.offsetParent !== null);
+    Array.from(node.querySelectorAll<HTMLElement>(FOCUSABLE)).filter(
+      (el) => el.offsetParent !== null,
+    );
 
   queueMicrotask(() => (focusables()[0] ?? node).focus());
 

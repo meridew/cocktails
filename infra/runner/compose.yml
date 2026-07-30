@@ -13,9 +13,9 @@ services:
       RUNNER_NAME: nas
       RUNNER_SCOPE: repo
       LABELS: nas
-      DISABLE_AUTO_UPDATE: "true"
-      RUN_AS_ROOT: "true"
-      RUNNER_ALLOW_RUNASROOT: "1"
+      DISABLE_AUTO_UPDATE: 'true'
+      RUN_AS_ROOT: 'true'
+      RUNNER_ALLOW_RUNASROOT: '1'
       # Short-lived registration token (NOT a PAT). Regenerate with:
       #   gh api -X POST repos/meridew/cocktails/actions/runners/registration-token --jq .token
       # Set in this folder's .env. Note: after a NAS reboot, refresh it.

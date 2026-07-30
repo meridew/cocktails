@@ -118,7 +118,12 @@
     <nav class="topnav" aria-label="Sections">
       <span class="nav-btn" aria-current="true">Menu</span>
     </nav>
-    <button type="button" class="appbar-bartender" onclick={() => (showBartender = true)} aria-label="Bartender mode">
+    <button
+      type="button"
+      class="appbar-bartender"
+      onclick={() => (showBartender = true)}
+      aria-label="Bartender mode"
+    >
       <span class="emoji">🍸</span>
     </button>
   </header>
@@ -127,7 +132,12 @@
     <section class="view view-menu" aria-label="Menu">
       <div class="menubar">
         {#if favs.size}
-          <button type="button" class="chip chip-fav" aria-pressed={favesOnly} onclick={() => (favesOnly = !favesOnly)}>⭐ Faves</button>
+          <button
+            type="button"
+            class="chip chip-fav"
+            aria-pressed={favesOnly}
+            onclick={() => (favesOnly = !favesOnly)}>⭐ Faves</button
+          >
         {/if}
         <button type="button" class="chip chip-surprise" onclick={surprise}>🎲 Surprise</button>
         <InstallButton />
@@ -176,9 +186,19 @@
             <li class="basket-item">
               <span class="basket-item-name">{item.name}</span>
               <div class="qty">
-                <button type="button" class="qty-btn" onclick={() => setQty(item.name, item.qty - 1)} aria-label="Less">−</button>
+                <button
+                  type="button"
+                  class="qty-btn"
+                  onclick={() => setQty(item.name, item.qty - 1)}
+                  aria-label="Less">−</button
+                >
                 <span class="qty-n">{item.qty}</span>
-                <button type="button" class="qty-btn" onclick={() => setQty(item.name, item.qty + 1)} aria-label="More">+</button>
+                <button
+                  type="button"
+                  class="qty-btn"
+                  onclick={() => setQty(item.name, item.qty + 1)}
+                  aria-label="More">+</button
+                >
               </div>
             </li>
           {/each}
@@ -188,16 +208,33 @@
     </div>
 
     <label for="name">Your name</label>
-    <input id="name" bind:value={name} placeholder="DANIEL" autocomplete="name" autocapitalize="words" />
+    <input
+      id="name"
+      bind:value={name}
+      placeholder="DANIEL"
+      autocomplete="name"
+      autocapitalize="words"
+    />
     <label for="note">Note (optional)</label>
-    <textarea id="note" bind:value={note} placeholder="No ice! Extra lime! Make it spicy!"></textarea>
+    <textarea id="note" bind:value={note} placeholder="No ice! Extra lime! Make it spicy!"
+    ></textarea>
     {#if errMsg}<p class="status err" role="alert">{errMsg}</p>{/if}
 
     <div class="flowbar">
-      <button type="button" class="send flowbar-primary" disabled={!name.trim() || count === 0 || sending} onclick={send}>
+      <button
+        type="button"
+        class="send flowbar-primary"
+        disabled={!name.trim() || count === 0 || sending}
+        onclick={send}
+      >
         {sending ? 'Sending…' : count === 0 ? 'Add something first' : 'Send order'}
       </button>
-      <button type="button" class="flowbar-back" onclick={() => (orderOpen = false)} aria-label="Close order">✕</button>
+      <button
+        type="button"
+        class="flowbar-back"
+        onclick={() => (orderOpen = false)}
+        aria-label="Close order">✕</button
+      >
     </div>
   </section>
 </aside>
@@ -237,16 +274,25 @@
         {#if notify === 'on'}
           <p class="notify-on">🔔 You'll get a buzz when it's ready.</p>
         {:else if notify === 'denied'}
-          <p class="notify-note">Notifications are blocked — enable them in your browser settings.</p>
+          <p class="notify-note">
+            Notifications are blocked — enable them in your browser settings.
+          </p>
         {:else if notify === 'unavailable'}
           <p class="notify-note">Notifications aren't available right now.</p>
         {:else}
-          <button type="button" class="notify-btn" onclick={notifyMe} disabled={notify === 'working'}>
+          <button
+            type="button"
+            class="notify-btn"
+            onclick={notifyMe}
+            disabled={notify === 'working'}
+          >
             {notify === 'working' ? 'Enabling…' : '🔔 Notify me when ready'}
           </button>
         {/if}
       {/if}
-      <button type="button" class="send" onclick={() => (celebrate = false)}>Start another 🍸</button>
+      <button type="button" class="send" onclick={() => (celebrate = false)}
+        >Start another 🍸</button
+      >
     </div>
   </div>
 {/if}

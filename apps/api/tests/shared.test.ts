@@ -31,7 +31,11 @@ describe('STATUS_META', () => {
 
   test('ranks are unique and ascend in declaration order', () => {
     const ranks = ORDER_STATUSES.map((s) => STATUS_META[s].rank);
-    assert.deepEqual(ranks, [...ranks].sort((a, b) => a - b), 'ranks are not ascending');
+    assert.deepEqual(
+      ranks,
+      [...ranks].sort((a, b) => a - b),
+      'ranks are not ascending',
+    );
     assert.equal(new Set(ranks).size, ranks.length, 'ranks are not unique');
   });
 
@@ -51,7 +55,8 @@ describe('STATUS_META', () => {
     for (const s of ORDER_STATUSES) {
       const { next, nextLabel } = STATUS_META[s];
       assert.equal(next === null, nextLabel === null, `${s}: next/nextLabel disagree`);
-      if (next !== null) assert.equal(isOrderStatus(next), true, `${s}: next is not a valid status`);
+      if (next !== null)
+        assert.equal(isOrderStatus(next), true, `${s}: next is not a valid status`);
     }
   });
 

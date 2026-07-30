@@ -40,7 +40,11 @@ import { login, logout, loginBlocked, noteLoginAttempt, sessionStaff } from './a
 function guestStatusPush(order: Order): PushPayload | null {
   switch (order.status) {
     case 'making':
-      return { title: '👩‍🍳 On it!', body: `${order.name}, your order is being made.`, tag: order.id };
+      return {
+        title: '👩‍🍳 On it!',
+        body: `${order.name}, your order is being made.`,
+        tag: order.id,
+      };
     case 'serving':
       return { title: '🍹 INCOMING!', body: `${order.name}, come grab your drink!`, tag: order.id };
     default:
@@ -126,7 +130,9 @@ const requireStaff: MiddlewareHandler<AppEnv> = async (c, next) => {
 app.get('/api/health', (c) => c.json({ ok: true, now: now() }));
 
 // ---- public: VAPID key so a client can subscribe to Web Push ----
-app.get('/api/push/key', (c) => c.json({ ok: true, enabled: pushEnabled(), key: vapidPublicKey() }));
+app.get('/api/push/key', (c) =>
+  c.json({ ok: true, enabled: pushEnabled(), key: vapidPublicKey() }),
+);
 
 // ---- staff auth ----
 app.post('/api/auth/login', async (c) => {

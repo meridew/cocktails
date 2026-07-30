@@ -45,7 +45,9 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
   if (request.mode === 'navigate') {
-    event.respondWith(fetch(request).catch(() => caches.match('/index.html').then((r) => r ?? Response.error())));
+    event.respondWith(
+      fetch(request).catch(() => caches.match('/index.html').then((r) => r ?? Response.error())),
+    );
     return;
   }
   event.respondWith(caches.match(request).then((r) => r ?? fetch(request)));

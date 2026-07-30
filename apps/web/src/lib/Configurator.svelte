@@ -2,7 +2,11 @@
   import { visibleAxes, buildLine, defaultConfig, type Drink, type Config } from './data';
   import { dialog } from './dialog';
 
-  let { drink, onadd, onclose }: {
+  let {
+    drink,
+    onadd,
+    onclose,
+  }: {
     drink: Drink;
     onadd: (name: string) => void;
     onclose: () => void;
@@ -47,7 +51,8 @@
               aria-pressed={config[axis.key] === choice.value}
               onclick={() => pick(axis.key, choice.value)}
             >
-              {#if choice.emoji}<span class="emoji">{choice.emoji}</span> {/if}{choice.label}
+              {#if choice.emoji}<span class="emoji">{choice.emoji}</span>
+              {/if}{choice.label}
             </button>
           {/each}
         </div>
@@ -57,7 +62,14 @@
     <p class="sheet-recipe">{line.recipe.join(' · ')}</p>
 
     <div class="flowbar">
-      <button type="button" class="send flowbar-primary" onclick={() => { onadd(line.name); onclose(); }}>
+      <button
+        type="button"
+        class="send flowbar-primary"
+        onclick={() => {
+          onadd(line.name);
+          onclose();
+        }}
+      >
         Add to order
       </button>
       <button type="button" class="flowbar-back" onclick={onclose}>✕ Back</button>

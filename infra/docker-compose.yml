@@ -7,7 +7,7 @@ services:
     image: ${API_IMAGE:-ghcr.io/meridew/cocktails-api:latest}
     restart: unless-stopped
     environment:
-      PORT: "8787"
+      PORT: '8787'
       ALLOWED_ORIGIN: ${ALLOWED_ORIGIN:-https://cock.meridew.com}
       STAFF_EMAIL: ${STAFF_EMAIL:-bar@local}
       # No default password: unset → the API generates a random one in prod, so a
@@ -22,7 +22,12 @@ services:
       - cocktails-data:/data
     healthcheck:
       test:
-        ["CMD", "node", "-e", "fetch('http://127.0.0.1:8787/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:8787/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
       interval: 10s
       timeout: 3s
       retries: 5
@@ -44,7 +49,7 @@ services:
         condition: service_started
     # Host port → Caddy. LAN access + the router port-forward target.
     ports:
-      - "${PUBLIC_PORT:-8088}:80"
+      - '${PUBLIC_PORT:-8088}:80'
     volumes:
       - caddy-data:/data
       - caddy-config:/config
@@ -56,7 +61,7 @@ services:
   # Cloudflare dashboard: cock.meridew.com → service http://caddy:80.
   cloudflared:
     image: cloudflare/cloudflared:latest
-    profiles: ["tunnel"]
+    profiles: ['tunnel']
     restart: unless-stopped
     command: tunnel --no-autoupdate run
     environment:

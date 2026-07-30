@@ -9,8 +9,7 @@ import { getDeviceId } from './device';
 import { pushKey, subscribePush } from './api';
 
 export type EnableResult =
-  | { ok: true }
-  | { ok: false; reason: 'unsupported' | 'disabled' | 'denied' | 'error' };
+  { ok: true } | { ok: false; reason: 'unsupported' | 'disabled' | 'denied' | 'error' };
 
 export function pushSupported(): boolean {
   return (
@@ -41,7 +40,10 @@ function urlBase64ToUint8Array(base64: string): Uint8Array<ArrayBuffer> {
  * A `token` (staff session) is required for the 'bartender' role — the server
  * downgrades unauthenticated bartender requests to 'guest'.
  */
-export async function enablePush(role: SubscriberRole = 'guest', token?: string): Promise<EnableResult> {
+export async function enablePush(
+  role: SubscriberRole = 'guest',
+  token?: string,
+): Promise<EnableResult> {
   if (!pushSupported()) return { ok: false, reason: 'unsupported' };
   try {
     const info = await pushKey();
@@ -58,7 +60,10 @@ export async function enablePush(role: SubscriberRole = 'guest', token?: string)
         applicationServerKey: urlBase64ToUint8Array(info.key),
       }));
 
-    await subscribePush({ deviceId: getDeviceId(), role, subscription: subscription.toJSON() }, token);
+    await subscribePush(
+      { deviceId: getDeviceId(), role, subscription: subscription.toJSON() },
+      token,
+    );
     return { ok: true };
   } catch {
     return { ok: false, reason: 'error' };

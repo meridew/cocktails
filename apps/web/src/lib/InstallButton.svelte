@@ -70,7 +70,10 @@
   >
     <div class="install-tip-card" role="document">
       <h3>Install Cocktails 🍸</h3>
-      <p>In Safari, tap <strong>Share</strong> <span aria-hidden="true">⬆︎</span>, then <strong>Add to Home Screen</strong>.</p>
+      <p>
+        In Safari, tap <strong>Share</strong> <span aria-hidden="true">⬆︎</span>, then
+        <strong>Add to Home Screen</strong>.
+      </p>
       <button type="button" class="send" onclick={() => (showTip = false)}>Got it</button>
     </div>
   </div>

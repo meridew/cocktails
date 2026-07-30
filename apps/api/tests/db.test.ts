@@ -84,13 +84,28 @@ describe('schema + migrations', () => {
         `INSERT INTO orders (id,name,items,note,status,device_id,created_at,updated_at)
          VALUES (?,?,?,?,?,?,?,?)`,
       )
-      .run('keep1', 'Dan', '[{"name":"Margarita","qty":2}]', 'no salt', 'making', 'dev-1', 1000, 1000);
+      .run(
+        'keep1',
+        'Dan',
+        '[{"name":"Margarita","qty":2}]',
+        'no salt',
+        'making',
+        'dev-1',
+        1000,
+        1000,
+      );
     old
       .prepare(
         `INSERT INTO subscriptions (device_id,role,subscription,endpoint,created_at)
          VALUES (?,?,?,?,?)`,
       )
-      .run('dev-1', 'guest', JSON.stringify(sub('https://push.example/a')), 'https://push.example/a', 1000);
+      .run(
+        'dev-1',
+        'guest',
+        JSON.stringify(sub('https://push.example/a')),
+        'https://push.example/a',
+        1000,
+      );
     old.close();
 
     const migrated = openTempDb(path);
@@ -199,7 +214,10 @@ describe('orders', () => {
     const fresh = db.createOrder({ name: 'Latest', items: [{ name: 'Wine', qty: 1 }], note: '' });
     const after = db.listOrders();
     assert.equal(after.length, LIMITS.maxOrders, 'must not exceed the cap');
-    assert.ok(after.some((o) => o.id === fresh.id), 'the new order must be present');
+    assert.ok(
+      after.some((o) => o.id === fresh.id),
+      'the new order must be present',
+    );
     assert.equal(
       before.filter((o) => !after.some((a) => a.id === o.id)).length,
       1,

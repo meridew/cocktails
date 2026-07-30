@@ -1,6 +1,14 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { listOrders, setStatus, deleteOrder, clearOrders, login, logout, Unauthorized } from './api';
+  import {
+    listOrders,
+    setStatus,
+    deleteOrder,
+    clearOrders,
+    login,
+    logout,
+    Unauthorized,
+  } from './api';
   import { dialog } from './dialog';
   import { storage } from './storage';
   import { enablePush, pushSupported, pushPermission } from './push';
@@ -34,7 +42,10 @@
 
   let sorted = $derived(
     [...orders]
-      .sort((a, b) => STATUS_META[a.status].rank - STATUS_META[b.status].rank || a.createdAt - b.createdAt)
+      .sort(
+        (a, b) =>
+          STATUS_META[a.status].rank - STATUS_META[b.status].rank || a.createdAt - b.createdAt,
+      )
       .filter((o) => showDone || o.status !== 'done'),
   );
   let waiting = $derived(orders.filter((o) => o.status !== 'done').length);
@@ -166,7 +177,14 @@
   });
 </script>
 
-<div class="bartender" role="dialog" aria-modal="true" aria-label="Bartender" tabindex="-1" use:dialog={{ onclose }}>
+<div
+  class="bartender"
+  role="dialog"
+  aria-modal="true"
+  aria-label="Bartender"
+  tabindex="-1"
+  use:dialog={{ onclose }}
+>
   <header class="bt-top">
     <div class="bt-title">
       <h2>🍸 Bar</h2>
@@ -174,7 +192,12 @@
     </div>
     <div class="bt-tools">
       {#if unlocked}
-        <button type="button" class="bt-chip" aria-pressed={showDone} onclick={() => (showDone = !showDone)}>
+        <button
+          type="button"
+          class="bt-chip"
+          aria-pressed={showDone}
+          onclick={() => (showDone = !showDone)}
+        >
           Show done
         </button>
         <button type="button" class="bt-chip" onclick={clearDone}>Clear done</button>
@@ -191,7 +214,9 @@
         {/if}
         <button type="button" class="bt-chip" onclick={doLogout}>Log out</button>
       {/if}
-      <button type="button" class="bt-x" onclick={onclose} aria-label="Close bartender mode">✕</button>
+      <button type="button" class="bt-x" onclick={onclose} aria-label="Close bartender mode"
+        >✕</button
+      >
     </div>
   </header>
 
@@ -245,11 +270,22 @@
                   {STATUS_META[o.status].nextLabel}
                 </button>
               {:else}
-                <button type="button" class="bt-act" disabled={busy.has(o.id)} onclick={() => act(o, 'pending')}>
+                <button
+                  type="button"
+                  class="bt-act"
+                  disabled={busy.has(o.id)}
+                  onclick={() => act(o, 'pending')}
+                >
                   ↺ Reopen
                 </button>
               {/if}
-              <button type="button" class="bt-act del" disabled={busy.has(o.id)} onclick={() => del(o)} aria-label="Delete">
+              <button
+                type="button"
+                class="bt-act del"
+                disabled={busy.has(o.id)}
+                onclick={() => del(o)}
+                aria-label="Delete"
+              >
                 🗑
               </button>
             </div>

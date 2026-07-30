@@ -4,30 +4,33 @@
 > codebase; UI/UX changes are normal `apps/web` edits. This doc is everything
 > needed to build, run, and publish — plus the deferred native enhancements.
 
-- **App id:** `com.meridew.cocktails`  ·  **Name:** Cocktails
+- **App id:** `com.meridew.cocktails` · **Name:** Cocktails
 - **What's bundled:** the `dist` build, configured at `apps/web/capacitor.config.ts`
 - **API:** the native build points at **`https://cock.meridew.com/api`** (`apps/web/.env.native`),
   served by the Cloudflare Tunnel — so the app works on any network.
 - **Scripts** (run from `apps/web/`):
-  | script | does |
-  |---|---|
+  | script                 | does                                                                |
+  | ---------------------- | ------------------------------------------------------------------- |
   | `npm run build:native` | `vite build --mode native` (no service worker; public API baked in) |
-  | `npm run cap:sync` | build:native → `cap sync` (copy web + update native deps) |
-  | `npm run cap:android` | sync → open Android Studio |
-  | `npm run cap:ios` | sync → open Xcode (macOS only) |
-  | `npm run cap:assets` | generate icons + splash from source art |
+  | `npm run cap:sync`     | build:native → `cap sync` (copy web + update native deps)           |
+  | `npm run cap:android`  | sync → open Android Studio                                          |
+  | `npm run cap:ios`      | sync → open Xcode (macOS only)                                      |
+  | `npm run cap:assets`   | generate icons + splash from source art                             |
 
 ## Prerequisites (what you provide)
-| For | Need | Cost |
-|---|---|---|
-| **Android** (works on Windows) | Android Studio (incl. SDK + an emulator or a USB device) | free |
-| **iOS** (needs macOS) | A Mac with Xcode, **or** a cloud-mac CI (Codemagic / GitHub macOS runner / Ionic Appflow) | — |
-| **Publish — Google Play** | Google Play Console account | $25 once |
-| **Publish — App Store** | Apple Developer Program | $99/yr |
-| **Icon / splash** | one **1024×1024** PNG (logo on a solid bg) at `apps/web/assets/icon.png` (+ optional `splash.png` 2732×2732) | — |
+
+| For                            | Need                                                                                                         | Cost     |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------ | -------- |
+| **Android** (works on Windows) | Android Studio (incl. SDK + an emulator or a USB device)                                                     | free     |
+| **iOS** (needs macOS)          | A Mac with Xcode, **or** a cloud-mac CI (Codemagic / GitHub macOS runner / Ionic Appflow)                    | —        |
+| **Publish — Google Play**      | Google Play Console account                                                                                  | $25 once |
+| **Publish — App Store**        | Apple Developer Program                                                                                      | $99/yr   |
+| **Icon / splash**              | one **1024×1024** PNG (logo on a solid bg) at `apps/web/assets/icon.png` (+ optional `splash.png` 2732×2732) | —        |
 
 ## One-time setup
+
 From `apps/web/`:
+
 ```sh
 # 1. add the native platforms (creates apps/web/android and apps/web/ios — commit them)
 npx cap add android
@@ -38,6 +41,7 @@ npm run cap:assets
 ```
 
 ## Build & run
+
 ```sh
 # Android (Windows/Mac/Linux) — opens Android Studio; press ▶ to run on a device/emulator
 npm run cap:android
@@ -45,26 +49,32 @@ npm run cap:android
 # iOS (macOS only) — opens Xcode; pick a simulator/device and press ▶
 npm run cap:ios
 ```
+
 Each run rebuilds the web (`build:native`) and `cap sync`s it into the native shell.
 
 ## Updating the app after a UI/UX change
+
 1. Edit `apps/web` as usual (Svelte/CSS).
 2. `npm run cap:sync` (rebuilds + copies into the native projects).
 3. Re-run from Android Studio / Xcode, or ship a new store build.
+
 - **Content** (drinks, prices, copy from the API) updates live — no rebuild.
 - For pushing **UI** changes to already-installed apps without a store review, add an
   **OTA live-update** later (Capgo or `@capacitor/live-updates`).
 
 ## Publishing
-- **Android:** Android Studio → *Build → Generate Signed Bundle (.aab)* → upload to Play Console.
+
+- **Android:** Android Studio → _Build → Generate Signed Bundle (.aab)_ → upload to Play Console.
   Keep the signing keystore safe (or use Play App Signing).
-- **iOS:** Xcode → *Archive* → upload to App Store Connect (needs the Apple Developer account +
+- **iOS:** Xcode → _Archive_ → upload to App Store Connect (needs the Apple Developer account +
   signing certs/profiles). No Mac? Use Codemagic/Appflow to archive in the cloud.
 - ⚠️ **Apple guideline 4.2:** a pure web wrapper can be rejected. Our native push + installable,
   offline-capable bundle generally satisfy "native value," but lean on those in the listing.
 
 ## Deferred native enhancements (do when the accounts/devices exist)
+
 These are **not needed for a first build** — the installable PWA already covers notifications today.
+
 1. **Native push (APNs/FCM)** — the iOS WebView can't do Web Push, so in-app notifications need
    native push. Set up a Firebase project (FCM) + an APNs key, add `@capacitor/push-notifications`,
    register on launch, and POST the device token to `/api/subscriptions` with
@@ -79,6 +89,7 @@ These are **not needed for a first build** — the installable PWA already cover
    splash screen to dismiss on ready.
 
 ## Notes
+
 - `apps/web/android` + `apps/web/ios` are generated by `cap add` and committed to the repo.
 - The web/PWA deploy is unaffected: the default `vite build` still emits the service worker; only
   `--mode native` drops it.

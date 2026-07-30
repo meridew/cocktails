@@ -201,7 +201,12 @@ export function createDb(dbPath: string) {
     /** Escape hatch for tests (PRAGMA inspection). Not for application use. */
     raw: db,
 
-    createOrder(input: { name: string; items: OrderItem[]; note: string; deviceId?: string }): Order {
+    createOrder(input: {
+      name: string;
+      items: OrderItem[];
+      note: string;
+      deviceId?: string;
+    }): Order {
       const count = (stCountOrders.get() as { n: number }).n;
       if (count >= LIMITS.maxOrders) {
         const oldest = stOldestId.get() as { id: string } | undefined;

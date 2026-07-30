@@ -38,7 +38,9 @@ async function req<T>(path: string, init: RequestInit = {}, token?: string): Pro
   if (res.status === 401) throw new Unauthorized();
   const data = (await res.json().catch(() => ({}))) as T & { ok?: boolean; error?: string };
   if (!res.ok || data?.ok === false) {
-    throw new Error((data as { error?: string })?.error ?? `Something went wrong (HTTP ${res.status}).`);
+    throw new Error(
+      (data as { error?: string })?.error ?? `Something went wrong (HTTP ${res.status}).`,
+    );
   }
   return data;
 }
@@ -54,19 +56,27 @@ export const createOrder = (input: NewOrderInput) =>
 export const listOrders = (token: string) => req<OrderListResponse>('/orders', {}, token);
 
 export const setStatus = (id: string, status: OrderStatus, token: string) =>
-  req<{ ok: true; order: Order }>(`/orders/${id}`, {
-    method: 'PATCH',
-    body: JSON.stringify({ status }),
-  }, token);
+  req<{ ok: true; order: Order }>(
+    `/orders/${id}`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify({ status }),
+    },
+    token,
+  );
 
 export const deleteOrder = (id: string, token: string) =>
   req<{ ok: boolean }>(`/orders/${id}`, { method: 'DELETE' }, token);
 
 export const clearOrders = (which: ClearWhich, token: string) =>
-  req<OkResponse>('/orders/clear', {
-    method: 'POST',
-    body: JSON.stringify({ which }),
-  }, token);
+  req<OkResponse>(
+    '/orders/clear',
+    {
+      method: 'POST',
+      body: JSON.stringify({ which }),
+    },
+    token,
+  );
 
 // ---- staff auth ----
 
