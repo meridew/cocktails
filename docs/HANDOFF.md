@@ -21,11 +21,13 @@ now-public API, a shared validation module, ~10 correctness fixes, the push subs
 worker rewritten, and a store/component refactor. `npm run check` is at **0 errors, 0 warnings** and
 CI runs format → typecheck → tests → build as the gate.
 
-⚠️ **The self-hosted NAS runner is offline** (its registration token expires after a NAS reboot — see
-§3), so the newest commits are pushed and CI-green but **not yet deployed**; the live site still
-serves the previous build. Refresh the runner to deploy.
 ⚠️ **`STAFF_PASSWORD` is not set**, so the live staff account is locked behind a random password.
 Set the secret and redeploy to sign in to the live bar (see `CUTOVER.md`).
+⚠️ **The runner drops out after a NAS reboot** — it authenticates with a short-lived _registration_
+token, so once that expires the container can't re-register and silently vanishes from GitHub
+(`total_count: 0`), leaving pushes CI-green but undeployed. §3 has the two-command fix. The durable
+fix is to swap it for a fine-grained repo-scoped PAT, which lets the container mint its own
+registration tokens and survive reboots.
 
 ---
 
@@ -94,13 +96,31 @@ docs/      PLAN.md, OUTSTANDING.md, APP-READINESS.md, MOBILE.md, CUTOVER.md,
 - **Live at:** **http://192.168.1.1:8088** (LAN only; deliberately not public yet). Bartender: 🍸 → PIN `1337`.
 - **Self-hosted runner:** `/volume1/docker/cocktails-runner/` — container `cocktails-runner-runner-1`
   (`myoung34/github-runner`, label **`nas`**), mounts the docker socket + the host `docker-compose` binary.
-  ⚠️ It registered with a **short-lived registration token**; after a **NAS reboot** it must be refreshed:
+  ⚠️ It authenticates with a **short-lived registration token**, so after a **NAS reboot** it can't
+  re-register and disappears from GitHub entirely. Symptom: pushes are CI-green but never deploy, and
+  `gh api repos/meridew/cocktails/actions/runners` reports `total_count: 0` (the app stack keeps
+  running — only deploys stop). Fix, and confirm it came back:
+
   ```sh
+  # 1. mint a fresh registration token straight into the runner's .env (never printed)
   echo "RUNNER_TOKEN=$(gh api -X POST repos/meridew/cocktails/actions/runners/registration-token --jq .token)" \
     | ssh -i ~/.ssh/nas_cocktails dan@192.168.1.1 'cat > /volume1/docker/cocktails-runner/.env'
-  ssh -i ~/.ssh/nas_cocktails dan@192.168.1.1 'cd /volume1/docker/cocktails-runner && sudo -n /usr/local/bin/docker-compose up -d'
+  # 2. recreate the container so it picks the token up (--force-recreate matters: a
+  #    plain `up -d` sees no config change and leaves the old container running)
+  ssh -i ~/.ssh/nas_cocktails dan@192.168.1.1 \
+    'cd /volume1/docker/cocktails-runner && sudo -n /usr/local/bin/docker-compose up -d --force-recreate'
+  # 3. verify — expect 1 runner, status "online" (it may already be busy on a queued job)
+  gh api repos/meridew/cocktails/actions/runners --jq '.runners[] | "\(.name): \(.status)"'
   ```
-  (Long-term: swap for a fine-grained repo-scoped PAT. Do NOT write a full account PAT to the NAS.)
+
+  If a deploy sat queued while the runner was away it will start on its own once it registers. A run
+  stuck in the `nas-deploy` concurrency group blocks later pushes from even reaching `check`, so
+  cancel it (`gh run cancel <id> -R meridew/cocktails`) if you don't want it.
+
+  **Durable fix (recommended):** give the container a **fine-grained, repo-scoped PAT** with
+  _Administration: read & write_ on `meridew/cocktails` as `ACCESS_TOKEN` instead of `RUNNER_TOKEN` —
+  `myoung34/github-runner` then mints its own registration tokens and survives reboots unattended.
+  Do **NOT** write a classic/full-account PAT to the NAS.
 
 ## 4. CI/CD — how deploys work
 
