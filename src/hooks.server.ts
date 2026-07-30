@@ -7,8 +7,29 @@
  * on the first line of each protected handler, so the guard sits in the file it
  * protects rather than in a route table several directories away.
  */
-import type { Handle, HandleServerError } from '@sveltejs/kit';
+import type { Handle, HandleServerError, ServerInit } from '@sveltejs/kit';
 import { config } from '$lib/server/config';
+import { seedStaff } from '$lib/server/auth';
+
+/**
+ * Boot: make sure the env-configured admin exists.
+ *
+ * The old standalone server did this in its entry point. Nothing replaced it in
+ * the first pass of the migration, so the database came up with no admin at all
+ * and the PIN had no account to sign into — the `init` hook is where that belongs,
+ * because it runs once before the first request rather than per request.
+ *
+ * Env is the source of truth, so changing STAFF_PASSWORD and redeploying just
+ * applies. Failure is logged rather than thrown: a bad seed shouldn't stop the app
+ * booting, and guests ordering drinks don't need an admin to exist.
+ */
+export const init: ServerInit = async () => {
+  try {
+    await seedStaff();
+  } catch (err) {
+    console.error('staff seed failed:', err);
+  }
+};
 
 /** Every endpoint takes small JSON; anything larger is a DoS attempt, not a client. */
 const MAX_BODY_BYTES = 256 * 1024;
