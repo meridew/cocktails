@@ -33,7 +33,8 @@ registration tokens and survive reboots.
 
 ## 1. Where things live
 
-- **Repo:** `github.com/meridew/cocktails`. Working branch **`modernise`** (well ahead of `main`).
+- **Repo:** `github.com/meridew/cocktails`. Single branch: **`main`**. The old `modernise` and `claude/*` branches were fully
+  contained in it and have been deleted.
 - **One SvelteKit app**, no workspaces. Everything is under `src/`, `tests/`, `infra/`,
   `.github/`, `docs/`, `scripts/`, `static/`.
 
@@ -158,7 +159,7 @@ Commands: `npm run dev` · `npm test` · `npm run check` · `npm run build` ·
 > `npm run preview`), push freely, and deploy when it needs to be on a phone:
 >
 > ```sh
-> gh workflow run "gate + deploy (NAS)" --ref modernise -f deploy=true
+> gh workflow run "gate + deploy (NAS)" --ref main -f deploy=true
 > ```
 
 - `gh` CLI is authed as **meridew** (scopes: repo, workflow) and can mint runner registration tokens.
@@ -167,7 +168,7 @@ Commands: `npm run dev` · `npm test` · `npm run check` · `npm run build` ·
   credential secret is ever _unset_, production does not fall back to anything guessable: the password
   becomes a random string and the PIN door switches off entirely. That's a lockout, not a weakness —
   set the secret and redeploy.
-- Workflow **`.github/workflows/nas-deploy.yml`**: on push to `modernise`/`main` (paths-ignore docs/*.md):
+- Workflow **`.github/workflows/nas-deploy.yml`**: on push to `main` (paths-ignore docs/*.md):
   1. **`check`** job on `ubuntu-latest` (free cloud): `npm ci` → `format:check` → `npm run check`
      → `npm test` → `npm run build`, then uploads `build/` as an artifact. **Gates prod.**
   2. **`deploy`** job on `[self-hosted, nas]`: checkout → download the `build/` artifact → write
@@ -176,7 +177,7 @@ Commands: `npm run dev` · `npm test` · `npm run check` · `npm run build` ·
   - The NAS **compiles nothing** — the Dockerfile copies the prebuilt `build/` in. It shares a
     4-core box with two VMs, SQL Server and Plex, and BuildKit was being OOM-killed mid-compile;
     that is also why `DOCKER_BUILDKIT=0` is set. Deploys land in ~**110s**.
-- **Watch a run:** `gh run list -R meridew/cocktails -b modernise -L1 --json databaseId --jq '.[0].databaseId'`
+- **Watch a run:** `gh run list -R meridew/cocktails -b main -L1 --json databaseId --jq '.[0].databaseId'`
   then `gh run watch <id> -R meridew/cocktails --exit-status --interval 6`.
 - Deploys are **non-destructive on failure** (compose only recreates on a successful build).
 
@@ -185,6 +186,7 @@ Commands: `npm run dev` · `npm test` · `npm run check` · `npm run build` ·
 ```
 npm install
 npm run dev            # one server: the app AND /api, on :5173 (honours PORT)
+npm run dev:lan        # same, exposed on the network (a phone can reach it)
 npm run check          # svelte-check + typecheck
 npm test               # Vitest — 237 tests
 npm run preview        # build, then run the real production artifact
@@ -192,6 +194,12 @@ npm run db:reset       # empty the database
 npm run db:seed busy   # a queue mid-service ('helper' = a pending request)
 npm run format         # Prettier (format:check is what CI runs)
 ```
+
+**Faking platform states.** `?permission=`, `?platform=`, `?installed=` and `?push=`
+override capability detection in dev only — see the README. That's how the opt-in
+modal gets tested in a browser whose real permission is permanently denied, and how
+the iOS "install first" path is checked without an iPhone. Inert in production, and
+a test asserts it.
 
 There is no dev hub page and no proxy any more — one origin serves everything, so
 `http://localhost:5173/bar` is the bar and `/api/health` is the API. `npm run preview` runs the

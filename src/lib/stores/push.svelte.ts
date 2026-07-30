@@ -15,6 +15,7 @@ import type { SubscriberRole } from '$lib/shared';
 import { getDeviceId } from '$lib/device';
 import { storage } from '$lib/storage';
 import { pushKey, subscribePush, unsubscribePush } from '$lib/api';
+import { overrides } from '$lib/devOverrides';
 
 export type PushState =
   /** not registered yet, but could be */
@@ -40,6 +41,8 @@ const states = $state<Record<SubscriberRole, PushState>>({ guest: 'idle', barten
 export const pushState = (role: SubscriberRole): PushState => states[role];
 
 export function pushSupported(): boolean {
+  const forced = overrides().push;
+  if (forced) return forced === 'supported';
   return (
     typeof navigator !== 'undefined' &&
     'serviceWorker' in navigator &&
@@ -51,6 +54,8 @@ export function pushSupported(): boolean {
 
 /** Running as an installed app rather than in a browser tab. */
 function isInstalled(): boolean {
+  const forced = overrides().installed;
+  if (forced !== undefined) return forced;
   if (typeof window === 'undefined') return false;
   return (
     window.matchMedia?.('(display-mode: standalone)').matches === true ||
@@ -66,12 +71,14 @@ function isInstalled(): boolean {
  * look broken.
  */
 export function needsInstallFirst(): boolean {
-  if (typeof navigator === 'undefined') return false;
-  const ua = navigator.userAgent;
-  const isIOS =
-    /iPad|iPhone|iPod/.test(ua) ||
-    // iPadOS reports itself as a Mac; the touch points give it away.
-    (/Macintosh/.test(ua) && (navigator.maxTouchPoints ?? 0) > 1);
+  const platform = overrides().platform;
+  if (typeof navigator === 'undefined' && !platform) return false;
+  const ua = typeof navigator === 'undefined' ? '' : navigator.userAgent;
+  const isIOS = platform
+    ? platform === 'ios'
+    : /iPad|iPhone|iPod/.test(ua) ||
+      // iPadOS reports itself as a Mac; the touch points give it away.
+      (/Macintosh/.test(ua) && (navigator.maxTouchPoints ?? 0) > 1);
   return isIOS && !isInstalled() && !pushSupported();
 }
 
@@ -83,6 +90,8 @@ export function needsInstallFirst(): boolean {
  * speculatively; see the opt-in card.
  */
 export function permissionState(): NotificationPermission | 'unavailable' {
+  const forced = overrides().permission;
+  if (forced) return forced;
   if (typeof Notification === 'undefined') return 'unavailable';
   return Notification.permission;
 }

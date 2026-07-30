@@ -8,6 +8,7 @@
   },
   "scripts": {
     "dev": "vite dev",
+    "dev:lan": "vite dev --host",
     "build": "vite build",
     "preview": "npm run build && node build/index.js",
     "start": "node build/index.js",

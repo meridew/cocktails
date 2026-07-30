@@ -69,13 +69,40 @@ Two things to know before changing anything:
   it means editing that and running `npm run db:reset`. Add a forward-only runner
   before there's data worth keeping.
 
+## Testing platform states you don't have
+
+Notification permission is one-shot: once a browser profile has denied it, the
+opt-in flow can never render there again. And "what does an iPhone that hasn't
+installed the app see?" normally means finding an iPhone. Dev-only query params
+fake both — they are read **only** under `import.meta.env.DEV`, so they are dead
+code in a production build (asserted by `tests/devOverrides.test.ts`):
+
+|                                        |                                        |
+| -------------------------------------- | -------------------------------------- |
+| `?permission=default\|granted\|denied` | what `Notification.permission` reports |
+| `?platform=ios\|android\|desktop`      | what the UA sniffing concludes         |
+| `?installed=1\|0`                      | standalone app vs browser tab          |
+| `?push=unsupported\|supported`         | whether the Push API exists            |
+| `?reset-overrides`                     | back to reality                        |
+
+They stick in `sessionStorage`, so the URL can go back to being clean. An iPhone
+that hasn't added the app to its Home Screen:
+
+```
+http://localhost:5173/?permission=default&platform=ios&installed=0&push=unsupported
+```
+
+`npm run dev:lan` serves on the network so a phone can reach it — good for layout
+and flows, but **not** PWA install or push: those need a secure context, and a LAN
+IP over plain HTTP isn't one.
+
 ## Deploying
 
 Pushing gates but does **not** deploy — CI typechecks, tests and builds on a cloud
 runner, and stops there. Deploy when you actually want it live:
 
 ```bash
-gh workflow run "gate + deploy (NAS)" --ref modernise -f deploy=true
+gh workflow run "gate + deploy (NAS)" --ref main -f deploy=true
 ```
 
 A self-hosted runner on the NAS then assembles the image and restarts the

@@ -8,7 +8,7 @@ name: gate + deploy (NAS)
 # regression is caught immediately; the deploy waits until someone actually wants
 # the change on a phone:
 #
-#     gh workflow run "gate + deploy (NAS)" --ref modernise -f deploy=true
+#     gh workflow run "gate + deploy (NAS)" --ref main -f deploy=true
 #
 # The split is deliberate and load-bearing, not duplication. The NAS is a 4-core
 # Synology sharing memory with two long-lived VMs, SQL Server and Plex; it often has
@@ -20,7 +20,7 @@ name: gate + deploy (NAS)
 # assembles an image from the result and restarts one container.
 on:
   push:
-    branches: [modernise, main]
+    branches: [main]
     paths-ignore:
       - 'docs/**'
       - '**/*.md'
