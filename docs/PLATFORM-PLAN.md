@@ -32,16 +32,62 @@ and say so in a comment.
 
 Researched July 2026. Sources at the bottom.
 
-| Area            | Decision                                 | Why                                                                                                                                                                                                                                                                                                                   |
-| --------------- | ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Auth library    | **Better Auth**                          | Lucia was deprecated (Mar 2025, now a learning resource) and the Auth.js team joined Better Auth (Sep 2025). It's the SvelteKit-native choice, keeps every row in our own database, and makes Google/Apple sign-in configuration rather than a project.                                                               |
-| DB driver       | **stay on `node:sqlite`**                | Better Auth supports it (RC status; needs Node ≥22.5, we run 24). Their default `better-sqlite3` is a native module needing build tooling in an Alpine image, for no gain.                                                                                                                                            |
-| Auth schema     | **Better Auth CLI**                      | `generate` emits SQL; `migrate` applies it and works specifically with the built-in Kysely adapter that SQLite uses.                                                                                                                                                                                                  |
-| Our schema      | **hand-rolled forward-only runner**      | ~50 lines. `db.ts` is 640 lines of tested prepared statements; moving it to an ORM is a big change with no functional gain. Drizzle stays an option if the SQL gets painful — revisit, don't assume.                                                                                                                  |
-| Hosting         | **stay on the NAS, SQLite**              | Dan's call, with the availability risk stated and accepted (§7).                                                                                                                                                                                                                                                      |
-| Backups         | **Litestream → Cloudflare R2**           | Streams the WAL continuously, so the recovery point is seconds. Separate process, no code changes. R2's free tier covers this and the Cloudflare account already exists.                                                                                                                                              |
-| Email           | **Microsoft Graph `sendMail`, app-only** | The M365 tenant is already on `meridew.com` with SPF/DKIM/DMARC configured and warm. Zero new vendors, zero new DNS, **zero new npm packages** (it's a `fetch` POST). At a few dozen emails a year, the "don't use Exchange for transactional mail" guidance doesn't apply — that's a volume and reputation argument. |
-| Email transport | **Graph, NOT SMTP AUTH**                 | SMTP AUTH basic auth is disabled by default from end of December 2026, unavailable for new tenants after, removal announced H2 2027. Building on it would have a five-month shelf life.                                                                                                                               |
+| Area            | Decision                                                                        | Why                                                                                                                                                                                                                                                                                                                   |
+| --------------- | ------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Auth library    | **Better Auth**                                                                 | Lucia was deprecated (Mar 2025, now a learning resource) and the Auth.js team joined Better Auth (Sep 2025). It's the SvelteKit-native choice, keeps every row in our own database, and makes Google/Apple sign-in configuration rather than a project.                                                               |
+| DB driver       | **stay on `node:sqlite`**                                                       | Better Auth supports it (RC status; needs Node ≥22.5, we run 24). Their default `better-sqlite3` is a native module needing build tooling in an Alpine image, for no gain.                                                                                                                                            |
+| Auth schema     | **Better Auth CLI**                                                             | `generate` emits SQL; `migrate` applies it and works specifically with the built-in Kysely adapter that SQLite uses.                                                                                                                                                                                                  |
+| Our schema      | **hand-rolled forward-only runner**                                             | ~50 lines. `db.ts` is 640 lines of tested prepared statements; moving it to an ORM is a big change with no functional gain. Drizzle stays an option if the SQL gets painful — revisit, don't assume.                                                                                                                  |
+| Hosting         | **self-hosted SQLite, moving NAS → the spare Mac mini M4 (macOS, _not_ Asahi)** | Free, zero code change, and it removes the contention that made a CI gate take 472s at load average 74. See §2a for the platform survey and why Asahi is not an option.                                                                                                                                               |
+| Backups         | **Litestream → Cloudflare R2**                                                  | Streams the WAL continuously, so the recovery point is seconds. Separate process, no code changes. R2's free tier covers this and the Cloudflare account already exists.                                                                                                                                              |
+| Email           | **Microsoft Graph `sendMail`, app-only**                                        | The M365 tenant is already on `meridew.com` with SPF/DKIM/DMARC configured and warm. Zero new vendors, zero new DNS, **zero new npm packages** (it's a `fetch` POST). At a few dozen emails a year, the "don't use Exchange for transactional mail" guidance doesn't apply — that's a volume and reputation argument. |
+| Email transport | **Graph, NOT SMTP AUTH**                                                        | SMTP AUTH basic auth is disabled by default from end of December 2026, unavailable for new tenants after, removal announced H2 2027. Building on it would have a five-month shelf life.                                                                                                                               |
+
+## 2a. The "one stop shop" question — settled July 2026
+
+Asked whether one platform could cover compute + database + email and stay free at
+this scale, rather than hanging off a box at home. **Only Cloudflare comes close, and
+it is ~$5/month, not free.** Recorded in full so nobody re-runs this survey.
+
+**Cloudflare** — Workers + D1 (genuine SQLite) + R2 + Email Service (first-party
+outbound, public beta April 2026, after MailChannels died in Aug 2024), on the account
+that already holds the DNS and the tunnel. Three separate free-tier walls, each of
+which this app hits specifically:
+
+- Mail to **arbitrary** recipients needs Workers Paid; the free plan only sends to
+  addresses already verified in your own account, so host signup verification is
+  impossible by construction.
+- Free caps CPU at **10 ms per request**. `auth.ts` runs scrypt at N=65536, which is
+  ~100 ms _on purpose_. Password hashing simply cannot run there.
+- Time Travel keeps 7 days on free vs 30 on paid.
+
+**Cost in code, if it's ever done:** all **96 synchronous prepared-statement call
+sites** in `db.ts` become async, plus every caller; the in-memory rate limiter in
+`ratelimit.ts` stops meaning anything across ephemeral isolates; the `init` boot seed
+has no equivalent (Workers don't boot); and `web-push` needs a Web Crypto path.
+**If it happens, it must happen _before_ phase 2** — that phase already rewrites every
+query to add the tenancy scope, so the sync→async conversion rides along for almost
+nothing. Afterwards means touching all 96 sites twice.
+
+Rejected, with reasons:
+
+| Option                 | Why not                                                                                                                      |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| **Supabase**           | Pauses free projects after 7 days idle — monthly parties means paused _every time_ — and free tier retains no backups at all |
+| **Render**             | Free Postgres is **deleted** 30 days after creation; services cold-start ~1 min after 15 min idle                            |
+| **Fly.io**             | Free tier gone (7-day trial), ~$2/mo — but **zero code change**. The fallback if self-hosting stops being fun                |
+| **Oracle Always Free** | Genuinely free, but halved to 2 OCPU/12 GB on 15 June 2026 unannounced, reclaims idle instances, and is still a VM to manage |
+| **Azure**              | Container Apps and SQL "free" are 12-month promos that roll silently to pay-as-you-go; the M365 tenant shares only billing   |
+
+**Asahi Linux on the Mac mini M4: no.** Apple's SPTM must be addressed from EL2 with
+the MMU already enabled, which breaks both Linux and the hypervisor Asahi uses to
+reverse-engineer the hardware. No timetable. M3 only began booting in Jan 2026 and
+still runs software rendering. **Run macOS instead** — Node 24 runs `node:sqlite`
+natively on arm64, and `cloudflared`, Litestream and the GitHub Actions runner all
+ship first-class macOS arm64 builds. Docker becomes optional rather than required.
+
+Email and offsite backup stay separate wherever this runs (Graph `sendMail`,
+Litestream → R2). Both are free at this volume, so "one bill" was never worth buying.
 
 ## 3. What this overturns
 
@@ -169,10 +215,11 @@ _Needs a human for the R2 bucket and credentials (§8)._
 ## 7. Accepted risks
 
 - **Availability.** Once a host has signed up and their event is tonight, Dan's home
-  internet and a NAS shared with two VMs, SQL Server and Plex are in someone else's
-  critical path. Litestream protects the _data_, not the _uptime_. Dan chose this
-  knowingly. The app is a standard Node server, so moving later is a deploy-target
-  change, not a rewrite.
+  internet is in someone else's critical path. Moving to a dedicated Mac mini removes
+  the _contention_ half of this risk — no more sharing four cores with two VMs, SQL
+  Server and Plex — but not the connectivity half. Litestream protects the _data_, not
+  the _uptime_. Dan chose this knowingly. The app is a standard Node server, so moving
+  to Fly or Cloudflare later is a deploy-target change, not a rewrite (§2a).
 - **`Mail.Send` is tenant-wide by default.** A leaked client secret could send as any
   mailbox. Mitigated with an Application Access Policy scoping it to one mailbox —
   see §8, and don't skip it.
@@ -189,6 +236,16 @@ Flag these and stop; don't guess around them.
    (`bar@meridew.com`). Exchange Online PowerShell, `New-ApplicationAccessPolicy`.
 3. **Cloudflare R2 bucket** + an API token for Litestream.
 4. **OAuth client IDs** for Google and Apple, if that sign-in path is wanted.
+5. **Mac mini as the host** — physical setup, and three settings that are easy to miss
+   and each silently break unattended operation:
+   - **FileVault off.** With it on, the disk stays locked after a reboot until someone
+     logs in physically, so the app never comes back on its own.
+   - **Never sleep** — `sudo pmset -a sleep 0 disablesleep 1`.
+   - **Start up automatically after a power failure**, in Energy Saver.
+
+   Then: Node 24, `cloudflared`, and the GitHub Actions runner, each as a launchd
+   service with `RunAtLoad` + `KeepAlive`. The runner belongs here rather than on the
+   NAS — that is the whole point of the move.
 
 Secrets go to `gh secret set` piped, never echoed, and reach the container through
 `infra/.env` like `STAFF_PIN` and the VAPID keys.
