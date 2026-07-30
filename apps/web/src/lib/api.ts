@@ -97,6 +97,20 @@ export const clearOrders = (which: ClearWhich) =>
     body: JSON.stringify({ which }),
   });
 
+/** Push an order to the front of the queue, or put it back in normal order. */
+export const bumpOrder = (id: string, bumped: boolean) =>
+  req<{ ok: true; order: Order }>(`/orders/${id}/bump`, {
+    method: 'POST',
+    body: JSON.stringify({ bumped }),
+  });
+
+/** Record how many of one line have been poured (the server clamps to the qty). */
+export const setItemProgress = (id: string, index: number, made: number) =>
+  req<{ ok: true; order: Order }>(`/orders/${id}/progress`, {
+    method: 'PATCH',
+    body: JSON.stringify({ index, made }),
+  });
+
 // ---- staff auth ----
 
 export const login = (email: string, password: string) =>

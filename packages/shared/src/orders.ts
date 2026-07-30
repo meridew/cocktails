@@ -21,6 +21,8 @@ export interface StatusMeta {
   label: string;
   next: OrderStatus | null;
   nextLabel: string | null;
+  /** One step backwards, to undo a mis-tap. null at the start of the chain. */
+  prev: OrderStatus | null;
   /** CSS modifier for the forward-action button (see neo.css / app.css). */
   actionClass: string;
 }
@@ -32,6 +34,7 @@ export const STATUS_META: Record<OrderStatus, StatusMeta> = {
     label: 'New',
     next: 'making',
     nextLabel: '▶ Start',
+    prev: null,
     actionClass: 'start',
   },
   making: {
@@ -40,6 +43,7 @@ export const STATUS_META: Record<OrderStatus, StatusMeta> = {
     label: 'Making',
     next: 'serving',
     nextLabel: '🍹 Serve',
+    prev: 'pending',
     actionClass: 'serve',
   },
   serving: {
@@ -48,6 +52,7 @@ export const STATUS_META: Record<OrderStatus, StatusMeta> = {
     label: 'Serving',
     next: 'done',
     nextLabel: '✓ Done',
+    prev: 'making',
     actionClass: 'done',
   },
   done: {
@@ -56,6 +61,7 @@ export const STATUS_META: Record<OrderStatus, StatusMeta> = {
     label: 'Done',
     next: null,
     nextLabel: null,
+    prev: 'serving',
     actionClass: '',
   },
 };
@@ -63,6 +69,11 @@ export const STATUS_META: Record<OrderStatus, StatusMeta> = {
 export interface OrderItem {
   name: string;
   qty: number;
+  /**
+   * How many of this line have actually been poured. Optional and defaulted to 0
+   * so every order written before per-drink tracking existed stays valid.
+   */
+  made?: number;
 }
 
 export interface Order {
@@ -75,6 +86,22 @@ export interface Order {
   createdAt: number;
   /** epoch ms */
   updatedAt: number;
+  /**
+   * When this order was pushed to the front of the queue, or null. Bumped orders
+   * sort ahead of everything else, most-recently-bumped first.
+   */
+  bumpedAt?: number | null;
+}
+
+/** Drinks poured vs ordered, for a progress readout on a multi-drink order. */
+export function orderProgress(order: Order): { made: number; total: number; complete: boolean } {
+  let made = 0;
+  let total = 0;
+  for (const item of order.items) {
+    total += item.qty;
+    made += Math.min(item.made ?? 0, item.qty);
+  }
+  return { made, total, complete: total > 0 && made >= total };
 }
 
 /** What a guest sends to place an order. */

@@ -39,6 +39,7 @@ interface OrderRow {
   note: string;
   status: string;
   device_id: string | null;
+  bumped_at: number | null;
   created_at: number;
   updated_at: number;
 }
@@ -91,6 +92,7 @@ function rowToOrder(r: OrderRow): Order {
     status: r.status as OrderStatus,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
+    bumpedAt: r.bumped_at,
   };
 }
 
@@ -118,6 +120,7 @@ export function createDb(dbPath: string) {
       status     TEXT NOT NULL DEFAULT 'pending',
       device_id  TEXT,
       user_id    TEXT,
+      bumped_at  INTEGER,
       created_at INTEGER NOT NULL,
       updated_at INTEGER NOT NULL
     );
@@ -171,6 +174,7 @@ export function createDb(dbPath: string) {
     if (!tableColumns(table).has(column)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${ddl}`);
   };
   addColumn('orders', 'user_id', 'user_id TEXT'); // nullable → anonymous orders stay valid
+  addColumn('orders', 'bumped_at', 'bumped_at INTEGER'); // null = never bumped
   addColumn('subscriptions', 'transport', "transport TEXT NOT NULL DEFAULT 'webpush'");
   addColumn('subscriptions', 'platform', "platform TEXT NOT NULL DEFAULT 'web'");
   addColumn('staff', 'display_name', "display_name TEXT NOT NULL DEFAULT ''");
@@ -271,7 +275,12 @@ export function createDb(dbPath: string) {
     `INSERT INTO orders (id, name, items, note, status, device_id, created_at, updated_at)
      VALUES (?, ?, ?, ?, 'pending', ?, ?, ?)`,
   );
-  const stListOrders = db.prepare(`SELECT * FROM orders ORDER BY created_at ASC, rowid ASC`);
+  // Bumped orders come first (most recently bumped wins), then oldest. The client
+  // can re-sort for display, but this keeps the wire order meaningful on its own.
+  const stListOrders = db.prepare(
+    `SELECT * FROM orders
+      ORDER BY (bumped_at IS NOT NULL) DESC, bumped_at DESC, created_at ASC, rowid ASC`,
+  );
   const stGetOrder = db.prepare(`SELECT * FROM orders WHERE id = ?`);
   const stCountOrders = db.prepare(`SELECT COUNT(*) AS n FROM orders`);
   // Eviction candidate: finished orders first, then the oldest. Without the status
@@ -283,6 +292,8 @@ export function createDb(dbPath: string) {
      LIMIT 1`,
   );
   const stSetStatus = db.prepare(`UPDATE orders SET status = ?, updated_at = ? WHERE id = ?`);
+  const stBumpOrder = db.prepare(`UPDATE orders SET bumped_at = ?, updated_at = ? WHERE id = ?`);
+  const stSetItems = db.prepare(`UPDATE orders SET items = ?, updated_at = ? WHERE id = ?`);
   const stDeleteOrder = db.prepare(`DELETE FROM orders WHERE id = ?`);
   const stClearDone = db.prepare(`DELETE FROM orders WHERE status = 'done'`);
   const stClearAll = db.prepare(`DELETE FROM orders`);
@@ -387,6 +398,31 @@ export function createDb(dbPath: string) {
     setOrderStatus(id: string, status: OrderStatus): Order | null {
       const res = stSetStatus.run(status, now(), id);
       if (res.changes === 0) return null;
+      return rowToOrder(stGetOrder.get(id) as unknown as OrderRow);
+    },
+
+    /** Push an order to the front of the queue (or clear that, with null). */
+    bumpOrder(id: string, bumped: boolean): Order | null {
+      const res = stBumpOrder.run(bumped ? now() : null, now(), id);
+      if (res.changes === 0) return null;
+      return rowToOrder(stGetOrder.get(id) as unknown as OrderRow);
+    },
+
+    /**
+     * Record how many of one line have been poured. Clamped to 0..qty here rather
+     * than trusted from the client, and the item name/qty are never taken from the
+     * request — only the count changes.
+     */
+    setItemProgress(id: string, index: number, made: number): Order | null {
+      const row = stGetOrder.get(id) as unknown as OrderRow | undefined;
+      if (!row) return null;
+      const order = rowToOrder(row);
+      const item = order.items[index];
+      if (!item) return null;
+      const next = order.items.map((it, i) =>
+        i === index ? { ...it, made: Math.max(0, Math.min(Math.floor(made), it.qty)) } : it,
+      );
+      stSetItems.run(JSON.stringify(next), now(), id);
       return rowToOrder(stGetOrder.get(id) as unknown as OrderRow);
     },
 
@@ -571,6 +607,9 @@ const d = (): Db => (singleton ??= createDb(config.dbPath));
 export const createOrder: Db['createOrder'] = (input) => d().createOrder(input);
 export const listOrders: Db['listOrders'] = () => d().listOrders();
 export const setOrderStatus: Db['setOrderStatus'] = (id, status) => d().setOrderStatus(id, status);
+export const bumpOrder: Db['bumpOrder'] = (id, bumped) => d().bumpOrder(id, bumped);
+export const setItemProgress: Db['setItemProgress'] = (id, index, made) =>
+  d().setItemProgress(id, index, made);
 export const deleteOrder: Db['deleteOrder'] = (id) => d().deleteOrder(id);
 export const clearOrders: Db['clearOrders'] = (which) => d().clearOrders(which);
 export const orderDeviceId: Db['orderDeviceId'] = (id) => d().orderDeviceId(id);

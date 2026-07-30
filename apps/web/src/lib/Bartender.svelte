@@ -1,8 +1,12 @@
 <script lang="ts">
   /**
-   * Bartender mode: the live order queue. Sign-in lives in StaffGate and the
-   * token lives in the session store, so this component only has to poll and
-   * mutate — it never sees a credential.
+   * Bar mode: the live order queue. Sign-in lives in StaffGate and the token lives
+   * in the session store, so this component only polls and mutates — it never sees
+   * a credential.
+   *
+   * Layout priority is "how many orders can a bartender see at once": a one-line
+   * header, status tabs that double as the queue overview, and compact cards that
+   * only reveal their extra controls when opened.
    */
   import { onMount } from 'svelte';
   import {
@@ -11,6 +15,8 @@
     deleteOrder,
     clearOrders,
     listStaff,
+    bumpOrder,
+    setItemProgress,
     Unauthorized,
     NotFound,
   } from './api.ts';
@@ -19,9 +25,10 @@
   import { hydrateSession, session, signOut } from './session.svelte';
   import StaffGate from './StaffGate.svelte';
   import StaffAdmin from './StaffAdmin.svelte';
+  import BarMenu from './BarMenu.svelte';
   import OrderCard from './OrderCard.svelte';
   import { SvelteSet } from 'svelte/reactivity';
-  import { canApproveStaff, STATUS_META } from '@cocktails/shared';
+  import { canApproveStaff, ORDER_STATUSES, STATUS_META } from '@cocktails/shared';
   import type { Order, OrderStatus, Staff } from '@cocktails/shared';
 
   let { onclose }: { onclose: () => void } = $props();
@@ -30,10 +37,15 @@
   /** Scopes the in-flight guard for actions that aren't tied to one order. */
   const BULK = '__bulk';
 
+  type Filter = 'active' | OrderStatus;
+
   let loaded = $state(false); // first successful fetch completed
   let connErr = $state(''); // transient "reconnecting / action failed" banner
   let orders = $state<Order[]>([]);
-  let showDone = $state(false);
+  let filter = $state<Filter>('active');
+  let sort = $state<'oldest' | 'newest'>('oldest');
+  let openId = $state<string | null>(null); // at most one card expanded
+  let menuOpen = $state(false);
   let busy = new SvelteSet<string>(); // order ids with an in-flight mutation
   let timer: ReturnType<typeof setInterval> | undefined;
 
@@ -47,15 +59,27 @@
   let staffLoaded = $state(false);
   let pendingCount = $derived(staff.filter((s) => s.status === 'pending').length);
 
-  let sorted = $derived(
-    [...orders]
-      .sort(
-        (a, b) =>
-          STATUS_META[a.status].rank - STATUS_META[b.status].rank || a.createdAt - b.createdAt,
-      )
-      .filter((o) => showDone || o.status !== 'done'),
+  /** Per-status counts, so the tabs double as the at-a-glance queue overview. */
+  let counts = $derived(
+    Object.fromEntries(
+      ORDER_STATUSES.map((s) => [s, orders.filter((o) => o.status === s).length]),
+    ) as Record<OrderStatus, number>,
   );
-  let waiting = $derived(orders.filter((o) => o.status !== 'done').length);
+  let activeCount = $derived(orders.filter((o) => o.status !== 'done').length);
+
+  let visible = $derived(
+    orders
+      .filter((o) => (filter === 'active' ? o.status !== 'done' : o.status === filter))
+      .sort((a, b) => {
+        // Bumped orders always lead, most recently bumped first — that's the point
+        // of bumping, so it outranks the chosen sort.
+        if ((a.bumpedAt ?? 0) !== (b.bumpedAt ?? 0)) return (b.bumpedAt ?? 0) - (a.bumpedAt ?? 0);
+        if (filter === 'active' && a.status !== b.status) {
+          return STATUS_META[a.status].rank - STATUS_META[b.status].rank;
+        }
+        return sort === 'oldest' ? a.createdAt - b.createdAt : b.createdAt - a.createdAt;
+      }),
+  );
 
   async function fetchOrders() {
     // Yield while a mutation is in flight: replacing the whole array with a
@@ -132,12 +156,19 @@
     }
   }
 
+  /** Replace one order with the authoritative row, so the next poll can't flicker. */
+  const merge = (updated: Order) => {
+    orders = orders.map((o) => (o.id === updated.id ? updated : o));
+  };
+
   const act = (o: Order, status: OrderStatus) =>
-    mutate(o.id, async () => {
-      const r = await setStatus(o.id, status);
-      // Merge the authoritative row so the next poll doesn't flicker.
-      orders = orders.map((x) => (x.id === o.id ? r.order : x));
-    });
+    mutate(o.id, async () => merge((await setStatus(o.id, status)).order));
+
+  const bump = (o: Order, bumped: boolean) =>
+    mutate(o.id, async () => merge((await bumpOrder(o.id, bumped)).order));
+
+  const progress = (o: Order, index: number, made: number) =>
+    mutate(o.id, async () => merge((await setItemProgress(o.id, index, made)).order));
 
   const del = (o: Order) =>
     mutate(o.id, async () => {
@@ -148,6 +179,7 @@
         if (!(e instanceof NotFound)) throw e;
       }
       orders = orders.filter((x) => x.id !== o.id);
+      if (openId === o.id) openId = null;
     });
 
   const clearDone = () =>
@@ -163,8 +195,22 @@
     loaded = false;
     staffLoaded = false;
     showStaff = false;
+    openId = null;
     await signOut();
   }
+
+  /** Label for the alerts row in the overflow menu; null when it can't be offered. */
+  let pushLabel = $derived(
+    !pushSupported() || notify === 'unsupported' || notify === 'disabled'
+      ? null
+      : notify === 'on'
+        ? 'On'
+        : notify === 'denied'
+          ? 'Blocked'
+          : notify === 'working'
+            ? 'Enabling…'
+            : 'Off',
+  );
 
   onMount(() => {
     // A stored token might be expired; the first fetch decides, and a 401 drops
@@ -178,63 +224,27 @@
   class="bartender"
   role="dialog"
   aria-modal="true"
-  aria-label="Bartender"
+  aria-label="Bar"
   tabindex="-1"
   use:dialog={{ onclose }}
 >
-  <header class="bt-top">
-    <div class="bt-title">
-      <h2>🍸 Bar</h2>
-      {#if signedIn}<span class="bt-count" class:zero={waiting === 0}>{waiting} WAITING</span>{/if}
-    </div>
-    <div class="bt-tools">
-      {#if signedIn}
-        {#if isAdmin}
-          <!-- The badge is why an admin doesn't have to keep checking. -->
-          <button
-            type="button"
-            class="bt-chip"
-            aria-pressed={showStaff}
-            aria-label={pendingCount
-              ? `Bar staff — ${pendingCount} request${pendingCount === 1 ? '' : 's'} waiting`
-              : 'Bar staff'}
-            onclick={() => (showStaff = !showStaff)}
-          >
-            Staff{#if pendingCount}<b class="bt-chip-badge">{pendingCount}</b>{/if}
-          </button>
-        {/if}
-        <button
-          type="button"
-          class="bt-chip"
-          aria-pressed={showDone}
-          onclick={() => (showDone = !showDone)}
-        >
-          Show done
-        </button>
-        <button type="button" class="bt-chip" onclick={clearDone}>Clear done</button>
-        {#if pushSupported() && notify !== 'unsupported' && notify !== 'disabled'}
-          <button
-            type="button"
-            class="bt-chip"
-            aria-pressed={notify === 'on'}
-            disabled={notify === 'working' || notify === 'on'}
-            onclick={() => enablePush('bartender')}
-          >
-            {notify === 'on'
-              ? '🔔 On'
-              : notify === 'working'
-                ? '…'
-                : notify === 'denied'
-                  ? '🔔 Blocked'
-                  : '🔔 Alerts'}
-          </button>
-        {/if}
-        <button type="button" class="bt-chip" onclick={handleSignOut}>Log out</button>
-      {/if}
-      <button type="button" class="bt-x" onclick={onclose} aria-label="Close bartender mode"
-        >✕</button
+  <header class="bar-top">
+    <h2>🍸 Bar</h2>
+    {#if signedIn}
+      <span class="bar-count" class:zero={activeCount === 0}>{activeCount}</span>
+    {/if}
+    <span class="bar-spacer"></span>
+    {#if signedIn}
+      <button
+        type="button"
+        class="bar-icon"
+        aria-label={pendingCount ? `Bar options — ${pendingCount} staff waiting` : 'Bar options'}
+        onclick={() => (menuOpen = true)}
       >
-    </div>
+        ⋯{#if isAdmin && pendingCount}<b class="bar-dot"></b>{/if}
+      </button>
+    {/if}
+    <button type="button" class="bar-icon" onclick={onclose} aria-label="Close bar mode">✕</button>
   </header>
 
   {#if connErr}<p class="bt-conn" role="status">{connErr}</p>{/if}
@@ -249,17 +259,63 @@
       onclose={() => (showStaff = false)}
     />
   {:else}
-    <div class="bartender-list">
-      {#each sorted as o (o.id)}
+    <!-- Tabs are both the filter and the queue overview, which is why there's no
+         separate "show done" control any more: Done is simply a tab. -->
+    <nav class="bar-tabs" aria-label="Filter orders">
+      <button
+        type="button"
+        class="bar-tab"
+        aria-current={filter === 'active'}
+        onclick={() => (filter = 'active')}
+      >
+        Active <b>{activeCount}</b>
+      </button>
+      {#each ORDER_STATUSES as status (status)}
+        <button
+          type="button"
+          class="bar-tab"
+          aria-current={filter === status}
+          onclick={() => (filter = status)}
+        >
+          {STATUS_META[status].label} <b>{counts[status]}</b>
+        </button>
+      {/each}
+    </nav>
+
+    <div class="bar-list">
+      {#each visible as order (order.id)}
         <OrderCard
-          order={o}
-          busy={busy.has(o.id)}
-          onact={(status) => act(o, status)}
-          ondelete={() => del(o)}
+          {order}
+          busy={busy.has(order.id)}
+          expanded={openId === order.id}
+          ontoggle={() => (openId = openId === order.id ? null : order.id)}
+          onact={(status) => act(order, status)}
+          onbump={(bumped) => bump(order, bumped)}
+          onprogress={(index, made) => progress(order, index, made)}
+          ondelete={() => del(order)}
         />
       {/each}
-      {#if loaded && sorted.length === 0}<p class="bt-empty">No orders yet.</p>{/if}
+      {#if loaded && visible.length === 0}
+        <p class="bt-empty">
+          {filter === 'active' ? 'Nothing waiting. 🎉' : `No ${filter} orders.`}
+        </p>
+      {/if}
       {#if !loaded}<p class="bt-empty">Loading…</p>{/if}
     </div>
   {/if}
 </div>
+
+{#if menuOpen}
+  <BarMenu
+    {isAdmin}
+    pendingStaff={pendingCount}
+    {sort}
+    {pushLabel}
+    onstaff={() => (showStaff = true)}
+    onsort={() => (sort = sort === 'oldest' ? 'newest' : 'oldest')}
+    onpush={() => void enablePush('bartender')}
+    onclearDone={clearDone}
+    onsignout={handleSignOut}
+    onclose={() => (menuOpen = false)}
+  />
+{/if}

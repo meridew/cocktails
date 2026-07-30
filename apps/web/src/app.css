@@ -54,20 +54,434 @@
   height: 44px;
 }
 
-/* ---- staff approval (bar panel) ------------------------------------------ */
+/* ---- bar screen ----------------------------------------------------------
+   Rebuilt for density. The old header spent ~150px (18% of a phone screen) on
+   five always-visible chips, leaving only 3 of 6 orders on screen. Now: one-line
+   header, tabs that double as the queue overview, and compact cards that reveal
+   their extra controls only when opened. */
 
-/* The bar header gained a 5th chip (Staff). neo.css sets `.bt-tools { flex: none }`,
-   so the row couldn't shrink and overflowed across the title on narrow screens.
-   Let it wrap instead — on desktop there's room, so nothing changes there. */
-.bt-top {
-  flex-wrap: wrap;
+.bar-top {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: calc(10px + env(safe-area-inset-top)) 14px 10px;
+  background: var(--panel-bg, #12121a);
+  border-bottom: 2px solid rgba(255, 255, 255, 0.12);
 }
-.bt-tools {
+.bar-top h2 {
+  margin: 0;
+  font-family: 'Bungee', system-ui, sans-serif;
+  font-size: 1.05rem;
+  line-height: 1;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.bar-spacer {
   flex: 1 1 auto;
-  flex-wrap: wrap;
-  justify-content: flex-end;
+}
+/* Live count of everything still to make. */
+.bar-count {
+  min-width: 30px;
+  padding: 4px 9px;
+  background: #ff2e88;
+  color: #fff;
+  border-radius: 999px;
+  font-family: 'Bungee', system-ui, sans-serif;
+  font-size: 0.72rem;
+  text-align: center;
+}
+.bar-count.zero {
+  background: rgba(255, 255, 255, 0.16);
+  color: inherit;
+}
+.bar-icon {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  flex: none;
+  position: relative;
+  background: transparent;
+  color: inherit;
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  border-radius: 10px;
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+/* Unread marker for waiting staff requests, so the menu is worth opening. */
+.bar-dot {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 9px;
+  height: 9px;
+  background: #ff2e88;
+  border-radius: 50%;
+}
+
+/* Filter tabs = the at-a-glance queue overview. */
+.bar-tabs {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding: 10px 14px;
+  position: sticky;
+  top: 0;
+  background: var(--panel-bg, #12121a);
+}
+.bar-tabs::-webkit-scrollbar {
+  display: none;
+}
+.bar-tab {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 6px 12px;
+  background: transparent;
+  color: inherit;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-radius: 999px;
+  font-family: 'Bungee', system-ui, sans-serif;
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.bar-tab b {
+  opacity: 0.65;
+}
+.bar-tab[aria-current='true'] {
+  background: #ffe600;
+  color: #0a0a12;
+  border-color: #ffe600;
+}
+.bar-tab[aria-current='true'] b {
+  opacity: 1;
+}
+
+.bar-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 4px 14px calc(24px + env(safe-area-inset-bottom));
+  max-width: 760px;
+  margin: 0 auto;
+}
+
+/* ---- one order ---- */
+.ord {
+  border-left: 6px solid rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  overflow: hidden;
+}
+/* Status is carried by the stripe, which frees the row of a coloured badge. */
+.ord.s-pending {
+  border-left-color: #ff2e88;
+}
+.ord.s-making {
+  border-left-color: #00e5ff;
+}
+.ord.s-serving {
+  border-left-color: #ffe600;
+}
+.ord.s-done {
+  border-left-color: rgba(255, 255, 255, 0.25);
+  opacity: 0.6;
+}
+.ord.is-open {
+  background: rgba(255, 255, 255, 0.09);
+}
+.ord.is-bumped {
+  box-shadow: inset 0 0 0 2px rgba(255, 230, 0, 0.5);
+}
+
+.ord-main {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  padding: 8px 10px;
+}
+/* The whole summary is the expand target; the action button sits outside it so
+   advancing never costs an extra tap. */
+.ord-summary {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding: 2px;
+  background: none;
+  border: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.ord-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
   min-width: 0;
 }
+.ord-who {
+  font-family: 'Archivo Black', system-ui, sans-serif;
+  font-size: 1rem;
+  text-transform: uppercase;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ord-meta,
+.ord-progress,
+.ord-note-peek {
+  font-size: 0.7rem;
+  opacity: 0.65;
+}
+.ord-meta {
+  flex: none;
+  font-family: 'Bungee', system-ui, sans-serif;
+  letter-spacing: 0.5px;
+}
+.ord-flag {
+  flex: none;
+  color: #ffe600;
+}
+.ord-drinks {
+  display: flex;
+  flex-direction: column;
+  font-size: 0.88rem;
+  line-height: 1.35;
+}
+.ord-drink.is-poured {
+  opacity: 0.5;
+  text-decoration: line-through;
+}
+.ord-progress.is-complete {
+  color: #acff00;
+  opacity: 1;
+}
+.ord-note-peek {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-style: italic;
+}
+
+/* The single forward action — full-height so it's easy to hit. */
+.ord-go {
+  flex: none;
+  align-self: stretch;
+  min-width: 92px;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.12);
+  color: inherit;
+  border: 2px solid #0a0a12;
+  border-radius: 8px;
+  font-family: 'Bungee', system-ui, sans-serif;
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.ord-go.start {
+  background: #00e5ff;
+  color: #0a0a12;
+}
+.ord-go.serve {
+  background: #ffe600;
+  color: #0a0a12;
+}
+.ord-go.done {
+  background: #acff00;
+  color: #0a0a12;
+}
+.ord-go:disabled {
+  opacity: 0.5;
+}
+
+/* ---- the expanded half: costs no height until it's opened ---- */
+.ord-more {
+  padding: 0 10px 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.ord-note {
+  margin: 0;
+  padding: 8px 10px;
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-style: italic;
+}
+.ord-pour h5 {
+  margin: 0 0 4px;
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  opacity: 0.6;
+}
+.ord-pour-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 3px 0;
+}
+.ord-pour-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.85rem;
+}
+.ord-pour-count {
+  flex: none;
+  font-family: 'Bungee', system-ui, sans-serif;
+  font-size: 0.7rem;
+  opacity: 0.8;
+}
+.ord-pour-btns {
+  display: flex;
+  gap: 6px;
+  flex: none;
+}
+.ord-step {
+  width: 44px;
+  height: 44px;
+  background: rgba(255, 255, 255, 0.12);
+  color: inherit;
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  border-radius: 8px;
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.ord-step:disabled {
+  opacity: 0.35;
+}
+
+.ord-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.ord-tool {
+  min-height: 40px;
+  padding: 6px 11px;
+  background: transparent;
+  color: inherit;
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  border-radius: 8px;
+  font-family: 'Bungee', system-ui, sans-serif;
+  font-size: 0.58rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.ord-tool[aria-pressed='true'] {
+  background: #ffe600;
+  color: #0a0a12;
+  border-color: #ffe600;
+}
+.ord-tool.is-danger {
+  border-color: rgba(255, 46, 136, 0.6);
+}
+.ord-tool:disabled {
+  opacity: 0.45;
+}
+
+/* ---- overflow menu ---- */
+.barmenu {
+  position: fixed;
+  inset: 0;
+  z-index: 1300;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.6);
+}
+.barmenu-sheet {
+  width: 100%;
+  max-width: 460px;
+  padding: 18px 16px calc(18px + env(safe-area-inset-bottom));
+  background: #14141d;
+  color: #fff;
+  border: 3px solid #0a0a12;
+  border-radius: 16px 16px 0 0;
+  box-shadow: 0 -8px 0 rgba(0, 0, 0, 0.35);
+}
+.barmenu-sheet h3 {
+  margin: 0 0 12px;
+  font-family: 'Bungee', system-ui, sans-serif;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  opacity: 0.7;
+}
+.barmenu-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-height: 52px;
+  padding: 10px 12px;
+  margin-bottom: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  color: inherit;
+  border: 2px solid rgba(255, 255, 255, 0.14);
+  border-radius: 10px;
+  font: inherit;
+  font-size: 0.95rem;
+  text-align: left;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.barmenu-item em {
+  font-style: normal;
+  opacity: 0.65;
+  font-size: 0.85rem;
+}
+.barmenu-item.is-danger {
+  border-color: rgba(255, 46, 136, 0.5);
+}
+.barmenu-badge {
+  padding: 2px 8px;
+  background: #ff2e88;
+  color: #fff;
+  border-radius: 999px;
+  font-size: 0.72rem;
+}
+.barmenu-close {
+  width: 100%;
+  min-height: 48px;
+  margin-top: 6px;
+  background: #ffe600;
+  color: #0a0a12;
+  border: 3px solid #0a0a12;
+  border-radius: 10px;
+  font-family: 'Bungee', system-ui, sans-serif;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+/* ---- staff approval (bar panel) ------------------------------------------ */
 
 /* count of waiting requests, on the Staff chip */
 .bt-chip-badge {

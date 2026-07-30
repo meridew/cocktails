@@ -27,9 +27,11 @@ import type {
 } from '@cocktails/shared';
 import { config } from './config.ts';
 import {
+  bumpOrder,
   clearOrders,
   createOrder,
   deleteOrder,
+  setItemProgress,
   deleteStaff,
   listOrders,
   listStaff,
@@ -323,6 +325,29 @@ app.patch('/api/orders/:id', requireStaff, async (c) => {
     const dev = orderDeviceId(updated.id);
     if (dev) void pushToDevice(dev, payload); // fire-and-forget
   }
+  return c.json({ ok: true, order: updated });
+});
+
+// ---- bartender: push an order to the front of the queue ----
+app.post('/api/orders/:id/bump', requireStaff, async (c) => {
+  const body = await c.req.json().catch(() => ({}) as Record<string, unknown>);
+  // Default to bumping; `{ bumped: false }` puts it back in normal order.
+  const bumped = body?.bumped !== false;
+  const updated = bumpOrder(c.req.param('id'), bumped);
+  if (!updated) return c.json({ ok: false, error: 'not found' }, 404);
+  return c.json({ ok: true, order: updated });
+});
+
+// ---- bartender: record how many of one line have been poured ----
+app.patch('/api/orders/:id/progress', requireStaff, async (c) => {
+  const body = await c.req.json().catch(() => ({}) as Record<string, unknown>);
+  const index = Number(body?.index);
+  const made = Number(body?.made);
+  if (!Number.isInteger(index) || index < 0 || !Number.isFinite(made)) {
+    return c.json({ ok: false, error: 'index and made required' }, 422);
+  }
+  const updated = setItemProgress(c.req.param('id'), index, made);
+  if (!updated) return c.json({ ok: false, error: 'not found' }, 404);
   return c.json({ ok: true, order: updated });
 });
 
