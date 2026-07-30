@@ -1,20 +1,10 @@
 node_modules
-dist
-dev-dist
 build
+.svelte-kit
 package-lock.json
-# Generated native projects
-apps/web/android
-apps/web/ios
-# Generated icon assets
-apps/web/assets
-# neo.css is a VERBATIM copy of the root styles.css (the original hand-made design).
-# Reformatting would break the ability to diff the two, so leave it byte-identical.
-apps/web/src/neo.css
-# The legacy flat app at the repo root — a verbatim historical artifact, left as-is
-/index.html
-/app.js
-/styles.css
-/cocktails.json
-/config.js
-/favicon.svg
+
+# neo.css is a VERBATIM copy of the original hand-made design (the pre-rewrite
+# styles.css). Reformatting it destroys the ability to diff the two, which is the
+# only check that the port hasn't drifted — Prettier reflowed it once already,
+# 767 lines to 2007, when the file moved and lost this exemption.
+src/lib/neo.css

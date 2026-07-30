@@ -10,8 +10,6 @@ data
 *.local
 tests
 docs
-apps
-packages
 static
 src
 

@@ -1,8 +1,17 @@
 # 📱 Mobile app (Capacitor) — build & ship runbook
 
-> The iOS/Android app **is the web build** (`apps/web`) wrapped by Capacitor. One
-> codebase; UI/UX changes are normal `apps/web` edits. This doc is everything
-> needed to build, run, and publish — plus the deferred native enhancements.
+> ⚠️ **Never started, and every path below is stale.** The SvelteKit migration
+> deleted `apps/web` along with `capacitor.config.ts`, the generated `android/`
+> project and the `cap:*` scripts; the Capacitor packages were then uninstalled,
+> since nothing imported them and there was no project left to build.
+>
+> Kept for the parts that don't rot: the app id, the store requirements, the icon
+> and splash sizes, and the deferred native enhancements (§ near the end).
+>
+> Restarting means: reinstall `@capacitor/{core,cli,android}`, add
+> `@sveltejs/adapter-static` behind an env switch in `svelte.config.js` (the app
+> already sets `ssr = false`), and point `VITE_API_BASE` at the public origin.
+> Read paths below as "the old two-app layout".
 
 - **App id:** `com.meridew.cocktails` · **Name:** Cocktails
 - **What's bundled:** the `dist` build, configured at `apps/web/capacitor.config.ts`

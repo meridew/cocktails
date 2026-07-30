@@ -2,10 +2,10 @@
  * The one storage seam. Single home for all persisted client state.
  *
  * Synchronous and localStorage-backed today — which also works inside the
- * Capacitor WebView. The native build later hardens the *durable* keys (device
- * id, auth token) to `@capacitor/preferences` by hydrating them into this
- * module at boot, so call sites never change. Swap the driver here, not in a
- * dozen components.
+ * Capacitor WebView. If the native build ever wants the *durable* keys (device id,
+ * auth token) in platform storage instead, that driver is hydrated into this
+ * module at boot and no call site changes. Swap it here, not in a dozen
+ * components.
  *
  * Keys are namespaced with `cocktail_` so they don't collide on the origin and
  * match the keys the app has always used (existing device ids/favourites survive).

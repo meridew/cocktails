@@ -1,6 +1,5 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { Capacitor } from '@capacitor/core';
   import { dialog } from '$lib/dialog';
 
   // The Chrome/Android "you can install this PWA" event.
@@ -15,7 +14,18 @@
 
   const ua = typeof navigator !== 'undefined' ? navigator.userAgent : '';
   const isIos = /iphone|ipad|ipod/i.test(ua);
-  const isNative = Capacitor.isNativePlatform();
+  // Inside a Capacitor WebView the page is served from capacitor:// or
+  // https://localhost, never the real origin. Checking that costs nothing and
+  // means the app doesn't depend on @capacitor/core just to hide one button —
+  // there is no native project to build against yet, and it's the only thing that
+  // was still importing it.
+  const isNative =
+    typeof location !== 'undefined' &&
+    (location.protocol === 'capacitor:' ||
+      // Capacitor on iOS serves from https://localhost. The dev server is *http*
+      // on localhost, so the scheme is what keeps them apart — matching on the
+      // hostname alone would hide the button while developing.
+      (location.protocol === 'https:' && location.hostname === 'localhost'));
   const standalone =
     (typeof window !== 'undefined' && window.matchMedia('(display-mode: standalone)').matches) ||
     (typeof navigator !== 'undefined' &&

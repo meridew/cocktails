@@ -18,17 +18,6 @@
   }
 }
 
-/* the 'serving / INCOMING' status — a 4th state the original 3-state CSS lacks */
-.bt-order.s-serving {
-  border-left-color: #ffe600;
-}
-.bt-badge.b-serving {
-  background: #c08a00;
-}
-.bt-act.serve {
-  background: #ffe600;
-}
-
 /* transient "reconnecting / action failed" banner in bartender mode */
 .bt-conn {
   max-width: 760px;
@@ -482,17 +471,6 @@
 }
 
 /* ---- staff approval (bar panel) ------------------------------------------ */
-
-/* count of waiting requests, on the Staff chip */
-.bt-chip-badge {
-  display: inline-block;
-  margin-left: 6px;
-  padding: 0 6px;
-  background: #ff2e88;
-  color: #fff;
-  border-radius: 999px;
-  font-size: 0.72rem;
-}
 
 /* secondary action in the sign-in gate ("ask to join" / "back") */
 .bt-gate-alt {
