@@ -63,6 +63,11 @@ const GOVERNED: Record<string, Requirement> = {
 
   'POST /api/subscriptions': 'public', // keyed to an anonymous device id
   'DELETE /api/subscriptions': 'public',
+
+  // Better Auth's catch-all: these are how someone *becomes* authenticated, so a
+  // capability gate would be circular. Its own guards are inside the library.
+  'GET /api/account/[...all]': 'public',
+  'POST /api/account/[...all]': 'public',
 };
 
 const VERBS = ['GET', 'POST', 'PATCH', 'PUT', 'DELETE'] as const;
@@ -79,7 +84,8 @@ function declared(): string[] {
 }
 
 /** A concrete path for a route id, so parameterised routes can be called. */
-const concrete = (id: string): string => id.replace(/\[\w+\]/g, 'some-id');
+const concrete = (id: string): string =>
+  id.replace(/\[\.\.\.\w+\]/g, 'anything').replace(/\[\w+\]/g, 'some-id');
 
 const ADMIN = { email: 'caps-admin@local', password: 'caps-admin-pw' };
 let adminToken = '';

@@ -303,7 +303,7 @@ it applies at first query and round-trips an order._
   `__drizzle_migrations` row, so the baseline collides with "table orders already
   exists". Deliberately not solved with adoption code — see `OUTSTANDING.md`.
 
-### Phase 1 — accounts
+### ~~Phase 1 — accounts~~ ✅ done, 30 Jul 2026
 
 Better Auth on the Drizzle handle; email + password with verification; Google/Apple
 OAuth as configuration.
@@ -316,7 +316,22 @@ Wiring Graph `sendMail` behind it is then a small, separate task.
 the misery the keypad removed. Accounts are for hosts and for signing in from a new
 device; the PIN and join codes stay as the fast door into an event.
 
-_Gate: sign up → verify → sign in → reset, end to end, against the logging sender._
+_Gate: **met** — 270 tests green, 1360 files 0 type errors. `tests/accounts.test.ts`
+drives sign up → verify → sign in → reset through the real HTTP surface, reading the
+verification link out of the captured message the way a person reads their inbox._
+
+**Worth knowing:**
+
+- Mounted at **`/api/account`**, not Better Auth's default `/api/auth` — that path is
+  already the staff PIN/session routes, which survive.
+- Better Auth's tables live in `schema.auth.ts`, apart from ours, because their shape
+  is the library's to dictate: it looks properties up by name, so a rename breaks at
+  runtime rather than at compile time.
+- `tests/accounts.test.ts` runs under **node, not jsdom**: Better Auth signs tokens
+  with `jose`, which checks `instanceof Uint8Array`, and jsdom's is a different realm.
+  `tests/setup.ts` now guards its DOM cleanup so node-environment files can exist.
+- Real email needs the Entra registration — see `OUTSTANDING.md`. It is _not_ blocking:
+  the sender is an interface and the dev implementation logs.
 
 ### Phase 2 — tenancy
 

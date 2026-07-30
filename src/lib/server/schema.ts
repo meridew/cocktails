@@ -11,6 +11,10 @@
  */
 import { sqliteTable, text, integer, primaryKey } from 'drizzle-orm/sqlite-core';
 
+// Better Auth's own tables, re-exported so drizzle-kit sees one schema and the
+// migrations cover both. Their shape is the library's, not ours — see the file.
+export * from './schema.auth';
+
 export const orders = sqliteTable('orders', {
   id: text('id').primaryKey(),
   name: text('name').notNull(),

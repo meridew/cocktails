@@ -1,0 +1,77 @@
+/**
+ * Sending email, behind an interface.
+ *
+ * The production sender is Microsoft Graph `sendMail` against the existing M365
+ * tenant on `meridew.com` — no new vendor, no new DNS, and no new npm package
+ * because it is a `fetch` POST. It needs an Entra app registration that only a
+ * human at a browser can create (`docs/PLATFORM-PLAN.md` §8.1), so it is not
+ * wired yet.
+ *
+ * Rather than let that block accounts, this is an interface with a development
+ * implementation that writes the message to the log. Verification links are then
+ * readable in the dev server output, the whole sign-up flow is testable end to
+ * end, and swapping in Graph later is one new object and one line in `pick()`.
+ *
+ * **Not SMTP.** Exchange Online disables basic auth for SMTP AUTH by default from
+ * the end of December 2026, with removal announced for H2 2027 — building on it
+ * would have had a five-month shelf life.
+ */
+
+export interface Email {
+  to: string;
+  subject: string;
+  /** Plain text is required; HTML is optional and mail clients fall back to this. */
+  text: string;
+  html?: string;
+}
+
+export interface EmailSender {
+  send(email: Email): Promise<void>;
+}
+
+/**
+ * Writes the message to the log instead of sending it.
+ *
+ * Deliberately prints the whole body: the point is that a verification link is
+ * usable from the terminal during development, which is what makes the sign-up
+ * flow testable without a mailbox.
+ */
+export const loggingSender: EmailSender = {
+  async send(email: Email): Promise<void> {
+    console.info(
+      [
+        '',
+        '📧 ─────────────────────────────',
+        `to:      ${email.to}`,
+        `subject: ${email.subject}`,
+        '',
+        email.text,
+        '───────────────────────────────',
+        '',
+      ].join('\n'),
+    );
+  },
+};
+
+/**
+ * Collects messages instead of sending them, so a test can assert on what would
+ * have gone out — particularly the verification link, which it then follows.
+ */
+export function memorySender(): EmailSender & { sent: Email[] } {
+  const sent: Email[] = [];
+  return {
+    sent,
+    async send(email: Email): Promise<void> {
+      sent.push(email);
+    },
+  };
+}
+
+let sender: EmailSender = loggingSender;
+
+/** Swap the sender. Tests use this; production will use it once Graph is wired. */
+export function setEmailSender(next: EmailSender): void {
+  sender = next;
+}
+
+export const sendEmail = (email: Email): Promise<void> => sender.send(email);

@@ -46,6 +46,22 @@ export function resolveStaffPin(env: NodeJS.ProcessEnv = process.env): string {
 }
 
 /**
+ * Signing key for host account sessions (Better Auth).
+ *
+ * Same rule as the staff password: production never falls back to something
+ * guessable. The consequence of a missing secret is that a random one is minted
+ * per boot, so every account session dies on restart — noisy and obvious, which
+ * is the right failure mode for a missing secret. Dev gets a fixed value so the
+ * loop doesn't sign you out on every reload.
+ */
+export function resolveAuthSecret(env: NodeJS.ProcessEnv = process.env): string {
+  const s = env.BETTER_AUTH_SECRET?.trim();
+  if (s) return s;
+  if (env.NODE_ENV === 'production') return randomBytes(32).toString('hex');
+  return 'dev-only-insecure-not-for-production';
+}
+
+/**
  * CORS origins allowed to call the API. `ALLOWED_ORIGIN` is a comma-separated
  * list. In production the website is same-origin via Caddy (no CORS needed), so
  * the only cross-origin callers are the native app WebViews — we default to
@@ -79,6 +95,15 @@ export const config = {
     password: resolveStaffPassword(ENV),
     /** Short PIN for the same admin account. Empty → PIN sign-in is off. */
     pin: resolveStaffPin(ENV),
+  },
+  /**
+   * Host accounts — the sign-up side, separate from the bar's PIN and join codes.
+   * `origin` is what verification links are built against, so it must be the URL
+   * the host actually clicks, not the port the server binds.
+   */
+  accounts: {
+    secret: resolveAuthSecret(ENV),
+    origin: (ENV.ORIGIN || 'http://localhost:5173').replace(/\/$/, ''),
   },
   /** SQLite file path (a Docker volume on the NAS). Relative to the API cwd. */
   dbPath: ENV.DB_PATH || './data/cocktails.sqlite',

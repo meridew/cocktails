@@ -117,6 +117,15 @@ export function createDb(dbPath: string) {
     /** Escape hatch for tests (PRAGMA inspection). Not for application use. */
     raw: sqlite,
 
+    /**
+     * The Drizzle handle itself, for Better Auth's adapter.
+     *
+     * Exposed rather than given its own connection so accounts and orders share
+     * one database, one WAL and one set of migrations — two handles on the same
+     * SQLite file would be a writer-contention bug waiting to happen.
+     */
+    orm: db,
+
     createOrder(input: {
       name: string;
       items: OrderItem[];
@@ -513,6 +522,9 @@ function openHandle(dbPath: string): Database.Database {
 
 let singleton: Db | undefined;
 const d = (): Db => (singleton ??= createDb(config.dbPath));
+
+/** The shared Drizzle handle, for Better Auth's adapter. See `accounts.ts`. */
+export const orm = (): Db['orm'] => d().orm;
 
 export const createOrder: Db['createOrder'] = (input) => d().createOrder(input);
 export const listOrders: Db['listOrders'] = () => d().listOrders();

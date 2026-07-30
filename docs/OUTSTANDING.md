@@ -8,7 +8,31 @@ Per [`PLATFORM-PLAN.md`](PLATFORM-PLAN.md) §0, work that needs a browser login 
 stubbed behind an interface and logged here rather than stopping the plan. Each entry
 says what is needed, who can do it, and what it unblocks.
 
-_Nothing yet — the plan hasn't started._
+### Real email — Entra app registration
+
+**Blocks:** nothing yet. Accounts work end to end; the messages go to the server log
+instead of an inbox, which is enough for development and for the tests.
+**Needed before:** a real host signs up.
+
+`src/lib/server/email.ts` is an interface with a logging implementation. To send for
+real, add a Graph sender beside it and swap the default. What only a human can do:
+
+1. **Entra app registration** on the `meridew.com` tenant — new registration, a client
+   secret, and the **`Mail.Send` _application_ permission** with admin consent.
+2. **An Application Access Policy** scoping that app to one mailbox
+   (`bar@meridew.com`), via Exchange Online PowerShell `New-ApplicationAccessPolicy`.
+   **Don't skip this** — `Mail.Send` is tenant-wide by default, so a leaked secret
+   could otherwise send as anyone in the tenant.
+3. Put the client id, tenant id and secret in the environment (piped to
+   `gh secret set`, never echoed).
+
+Also unset today: **`BETTER_AUTH_SECRET`**. Without it, production mints a random one
+per boot, so every host is signed out on restart. Dev has a fixed placeholder.
+
+### OAuth sign-in (Google / Apple) — optional
+
+Client ids and secrets, if that door is wanted. Better Auth makes it configuration
+rather than code, so this is a config block and two secrets.
 
 ## ⚠️ The NAS volume must be wiped before any deploy to it
 

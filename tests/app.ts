@@ -36,6 +36,7 @@ import * as staffById from '../src/routes/api/staff/[id]/+server';
 import * as staffApprove from '../src/routes/api/staff/[id]/approve/+server';
 import * as staffRevoke from '../src/routes/api/staff/[id]/revoke/+server';
 import * as subscriptions from '../src/routes/api/subscriptions/+server';
+import * as account from '../src/routes/api/account/[...all]/+server';
 
 type Handlers = Record<string, unknown>;
 
@@ -62,22 +63,47 @@ export const ROUTES: Record<string, Handlers> = {
   '/api/staff/[id]/approve': staffApprove,
   '/api/staff/[id]/revoke': staffRevoke,
   '/api/subscriptions': subscriptions,
+  // Better Auth's catch-all. Listed last for readability; matching order is the
+  // pass order in resolve(), not this one.
+  '/api/account/[...all]': account,
 };
 
-/** Match a concrete path to a route id, pulling out any params. */
+const isRest = (s: string): boolean => s.startsWith('[...');
+const isParam = (s: string): boolean => s.startsWith('[');
+
+/**
+ * Match a concrete path to a route id, pulling out any params.
+ *
+ * Three passes, least greedy first. Exact beats parameterised, so
+ * `/api/staff/claim` never resolves to `/api/staff/[id]` merely because it has the
+ * right number of segments; and both beat a rest route, so Better Auth's
+ * `/api/account/[...all]` catch-all only sees what nothing else claimed.
+ */
 function resolve(path: string): { id: string; params: Record<string, string> } | null {
   const parts = path.split('?')[0]!.split('/').filter(Boolean);
-  // Exact wins over parameterised, so /api/staff/claim never resolves to
-  // /api/staff/[id] just because it has the right number of segments.
-  for (const pass of ['exact', 'param'] as const) {
+
+  for (const pass of ['exact', 'param', 'rest'] as const) {
     for (const id of Object.keys(ROUTES)) {
       const seg = id.split('/').filter(Boolean);
+      const hasRest = seg.some(isRest);
+      if (hasRest !== (pass === 'rest')) continue;
+
+      if (pass === 'rest') {
+        // Everything before the [...rest] must match; the rest swallows the tail,
+        // which may be empty.
+        const head = seg.slice(0, seg.findIndex(isRest));
+        if (parts.length < head.length) continue;
+        if (!head.every((s, i) => s === parts[i])) continue;
+        const name = seg[head.length]!.slice(4, -1);
+        return { id, params: { [name]: parts.slice(head.length).join('/') } };
+      }
+
       if (seg.length !== parts.length) continue;
-      const hasParam = seg.some((s) => s.startsWith('['));
-      if ((pass === 'exact') === hasParam) continue;
+      const parameterised = seg.some(isParam);
+      if ((pass === 'exact') === parameterised) continue;
       const params: Record<string, string> = {};
       const ok = seg.every((s, i) => {
-        if (s.startsWith('[')) {
+        if (isParam(s)) {
           params[s.slice(1, -1)] = parts[i]!;
           return true;
         }
