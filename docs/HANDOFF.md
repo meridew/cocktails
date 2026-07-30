@@ -32,13 +32,25 @@ port clash with the _previous_ session's project (this repo was mistakenly opene
 ```
 apps/web   Svelte 5 (runes) + Vite + vite-plugin-pwa, bespoke neo-brutalist CSS (neo.css),
            canvas-confetti, self-hosted @fontsource fonts. Talks to /api (Vite proxy / Caddy).
-apps/api   Hono on Node 24 + built-in node:sqlite. server.ts / db.ts / config.ts. Dockerfile.
+           Also the Capacitor host: capacitor.config.ts + android/ (see MOBILE.md).
+           src/lib/*.svelte.ts = rune stores (basket, favourites, session, push) — all
+           persisted state goes through lib/storage.ts; only lib/api.ts calls fetch.
+           src/lib/*.svelte  = components (they render state, they don't own it).
+           tests/            = node:test suites (data engine, basket).
+apps/api   Hono on Node 24 + built-in node:sqlite. Import direction is one-way:
+           config → db → {auth, push} → app (routes) → server (bootstrap only).
+           app.ts is exported without a listener so tests drive it via app.request().
+           db.ts exposes createDb(path) + delegates, so ':memory:' works in tests.
+           tests/ = auth, db (incl. migrations), routes, sanitise, ratelimit, push, config.
 apps/caddy Dockerfile that bakes infra/Caddyfile into a caddy image (no host bind-mount under DooD).
-packages/shared  TS contracts: Order, OrderStatus, ORDER_STATUSES, STATUS_META, LIMITS, response envelopes.
-infra/     docker-compose.yml, docker-compose.build.yml (build-locally override), Caddyfile,
-           .env.example, runner/ (self-hosted GitHub Actions runner compose).
+packages/shared  One module per concern behind a barrel index: limits, orders
+           (Order/OrderStatus/STATUS_META), push, api envelopes, and sanitise
+           (cleanStr/cleanQty/cleanItems — used by BOTH sides, never duplicated).
+infra/     docker-compose.yml, docker-compose.build.yml (build-locally override), Caddyfile
+           (+ security headers), .env.example, runner/ (self-hosted Actions runner compose).
 .github/workflows/  deploy.yml = legacy GitHub Pages (live).  nas-deploy.yml = the new CI/CD.
-docs/      PLAN.md, OUTSTANDING.md, HANDOFF.md (this).
+docs/      PLAN.md, OUTSTANDING.md, APP-READINESS.md, MOBILE.md, CUTOVER.md,
+           QUALITY-PLAN.md (the tests/hardening/refactor plan — all phases done), handoff.md (this).
 ```
 
 ## 2. The stack / key decisions
@@ -86,7 +98,8 @@ docs/      PLAN.md, OUTSTANDING.md, HANDOFF.md (this).
 
 - `gh` CLI is authed as **meridew** (scopes: repo, workflow). GitHub secret **`BARTENDER_KEY`** is set.
 - Workflow **`.github/workflows/nas-deploy.yml`**: on push to `modernise`/`main` (paths-ignore docs/*.md):
-  1. **`check`** job on `ubuntu-latest` (free cloud): `npm ci` → `npm run check` (api typecheck + svelte-check) → `npm -w @cocktails/web run build`. **Gates prod.**
+  1. **`check`** job on `ubuntu-latest` (free cloud): `npm ci` → `format:check` → `npm run check`
+     (api typecheck + svelte-check) → `npm test` → `npm -w @cocktails/web run build`. **Gates prod.**
   2. **`deploy`** job on `[self-hosted, nas]`: checkout → write `infra/.env` from the secret →
      `docker-compose -f docker-compose.yml -f docker-compose.build.yml up -d --build` → scoped image prune.
   - Reproducible `npm ci` + dep-layer-cached Dockerfiles → deploys are ~**37s**.
@@ -98,9 +111,12 @@ docs/      PLAN.md, OUTSTANDING.md, HANDOFF.md (this).
 
 ```
 npm install
-npm run dev        # concurrently runs api (:8787) + web (:5180, proxies /api → api)
+npm run dev          # concurrently runs api (:8787) + web (:5180, proxies /api → api)
 # or separately: npm run dev:api  /  npm run dev:web
-npm run check      # api typecheck + web svelte-check  (same gate CI runs)
+npm run check        # api typecheck + web svelte-check
+npm test             # node:test suites in both workspaces (zero extra deps)
+npm run format       # Prettier (format:check is what CI runs)
+
 ```
 
 > **🎛️ Dev hub — the central place to test:** open **http://localhost:5180/dev.html**. Live API/push

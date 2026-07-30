@@ -193,9 +193,9 @@ dev accounts + icon art in hand. At that point `npx cap add ios/android` is near
 
 ## 9. Open decisions to confirm
 
-1. Auth backend: **Better Auth** (recommended) vs Firebase.
-2. Notification moments (§4 table) — keep as-is, add, or trim?
-3. Cutover timing — do it early (unblocks B fully) or batch it with Phase C?
-</content>
+1. ~~Auth backend~~ — **settled**: a lightweight self-hosted implementation on `node:sqlite`
+   (scrypt + bearer sessions), not Better Auth/Firebase. See `QUALITY-PLAN.md` for the hardening pass.
+2. ~~Notification moments~~ — **settled** (making, serving → guest; new order → bartender).
+3. Cutover timing — **done**; `https://cock.meridew.com` is live via the Cloudflare Tunnel.
 
 </invoke>

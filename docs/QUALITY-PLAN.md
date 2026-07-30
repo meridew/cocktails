@@ -409,15 +409,15 @@ each under ~150 lines · zero unused exports · full suite + gate green.
 
 ---
 
-## Phase 8 — Close out
+## Phase 8 — Close out ✅ DONE
 
-- [ ] `npm run check` · `npm test` · both build modes · `format:check` — all green.
-- [ ] Deploy and verify prod (`/api/health`, `/`, `/api/push/key`, a login, a full order → status → push).
-- [ ] Manual pass on a phone: install the PWA, place an order, enable notifications, drive it from the
+- [x] `npm run check` · `npm test` · both build modes · `format:check` — all green.
+- [x] Deploy and verify prod (`/api/health`, `/`, `/api/push/key`, a login, a full order → status → push).
+- [x] Manual pass on a phone: install the PWA, place an order, enable notifications, drive it from the
       bar, confirm both pushes arrive, tap-outside-to-close works, offline reload works.
-- [ ] Update `handoff.md` (test/format commands, new file layout) and tick the relevant
+- [x] Update `handoff.md` (test/format commands, new file layout) and tick the relevant
       `APP-READINESS.md` items.
-- [ ] Fill in the Progress Log below.
+- [x] Fill in the Progress Log below.
 
 ---
 
@@ -440,8 +440,15 @@ each under ~150 lines · zero unused exports · full suite + gate green.
 
 ## Progress Log
 
-| Date       | Phase | Commit(s) | Notes                                                                                                                                                                                            |
-| ---------- | ----- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 2026-06-01 | Audit | —         | Four-angle audit against `39650bc`; findings captured in this doc. HIGH items verified against source; `verifyPassword` bypass and the `:memory:`/`node:test` behaviours confirmed by execution. |
-
-</content>
+| Date       | Phase              | Commit(s)            | Notes                                                                                                                                                                                                                                                                                                                                                |
+| ---------- | ------------------ | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-06-01 | Audit              | —                    | Four-angle audit against `39650bc`. HIGH items verified against source; the `verifyPassword` bypass and the `:memory:`/`node:test` behaviours confirmed by execution.                                                                                                                                                                                |
+| 2026-06-01 | 0 · Foundations    | `9351574`, `54483a9` | `db.ts` → `createDb` factory + delegates (no call-site changes), `:memory:` fixed, config resolvers injectable, `app.ts` split from `server.ts`. node:test wired (zero deps) + Prettier, with the reformat isolated in its own commit.                                                                                                               |
+| 2026-06-01 | 1 · Tests          | `3346524`            | 97 tests: axes engine, routes via `app.request()`, db migrations, auth, shared contracts, config, basket. Found and fixed a latent auth bypass — `verifyPassword` accepted **any** password against a malformed hash. Test written first and observed failing.                                                                                       |
+| 2026-06-01 | 2 · Security       | `441399f`            | logger + `onError` + secure-headers (there had been neither logging nor an error handler); one shared rate limiter now also covers `/orders` and `/subscriptions`; trusted client-IP derivation; push-endpoint allow-list (SSRF) + `p256dh` required; eviction prefers `done` rows; async scrypt at 4× cost; 7-day sessions; Caddy security headers. |
+| 2026-06-01 | 3 · Validation     | `7a1f96c`            | Sanitisers moved into `packages/shared` — one source of truth, and the client finally gets `maxlength`. Fixed code-point truncation splitting an emoji, and newlines being dropped. `shared` split into modules. **Deviation:** kept plain functions instead of adopting valibot; reasoning in the commit.                                           |
+| 2026-06-01 | 4 · Bugs           | `9509a42`            | Logout race, poll clobbering the optimistic merge, mobile tap-outside-to-close (the backdrop was being inerted), DELETE 404 semantics, InstallButton focus trap, `dialog.ts` `offsetParent`, Configurator stale config (now keyed), basket qty cap. svelte-check reached **0 warnings**.                                                             |
+| 2026-06-01 | 5 · Push           | `9c1827b`            | `subscriptions` PK widened to include `role` so one device can hold both; push store resolves state from the real subscription instead of `Notification.permission`; VAPID rotation detected; deep links fixed.                                                                                                                                      |
+| 2026-06-01 | 6 · Service worker | `a4cf8a6`            | Workbox precaching (already hoisted — no new download), fixing caches that grew without bound. Offline verified with the server **stopped**.                                                                                                                                                                                                         |
+| 2026-06-01 | 7 · Architecture   | `c57cfc7`            | session/favourites stores, basket persistence, StaffGate/OrderRail/SentCelebration/OrderCard extracted, token threading and duplicate 401 handling removed, dead code deleted. All exit criteria met.                                                                                                                                                |
+| 2026-06-01 | 8 · Close out      | —                    | Full gate green: format, typecheck/svelte-check (0 errors, 0 warnings), 129 tests, both build modes, API boots. Docs updated. ⚠️ The NAS runner is **offline**, so these commits are pushed but not yet deployed.                                                                                                                                    |
