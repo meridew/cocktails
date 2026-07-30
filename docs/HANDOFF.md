@@ -152,6 +152,15 @@ Commands: `npm run dev` · `npm test` · `npm run check` · `npm run build` ·
 
 ## 4. CI/CD — how deploys work
 
+> **Pushes gate; they do not deploy.** Deploying is a deliberate act, because a
+> ~110s NAS round-trip in the middle of iterating buys nothing when nobody is
+> looking at the site between changes. Work locally (`npm run dev`, `npm test`,
+> `npm run preview`), push freely, and deploy when it needs to be on a phone:
+>
+> ```sh
+> gh workflow run "gate + deploy (NAS)" --ref modernise -f deploy=true
+> ```
+
 - `gh` CLI is authed as **meridew** (scopes: repo, workflow) and can mint runner registration tokens.
 - **GitHub secrets** (CI writes these into `infra/.env` on the NAS): `STAFF_EMAIL`,
   `STAFF_PASSWORD`, `STAFF_PIN`, `TUNNEL_TOKEN`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`. If a

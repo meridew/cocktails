@@ -71,9 +71,15 @@ Two things to know before changing anything:
 
 ## Deploying
 
-Push to `main` or `modernise`. CI gates on a cloud runner, then a self-hosted runner
-on the NAS assembles the image and restarts the container. The NAS deliberately
-compiles nothing — it shares a 4-core box with two VMs and has under a gigabyte
-free.
+Pushing gates but does **not** deploy — CI typechecks, tests and builds on a cloud
+runner, and stops there. Deploy when you actually want it live:
+
+```bash
+gh workflow run "gate + deploy (NAS)" --ref modernise -f deploy=true
+```
+
+A self-hosted runner on the NAS then assembles the image and restarts the
+container. It deliberately compiles nothing — it shares a 4-core box with two VMs
+and has under a gigabyte free.
 
 More detail, including how to operate the NAS: [`docs/handoff.md`](docs/handoff.md).

@@ -1,23 +1,35 @@
-name: deploy (NAS)
+name: gate + deploy (NAS)
 
-# Push -> GitHub cloud runner gates (fast, and costs the NAS nothing) -> if green,
-# the self-hosted NAS runner builds + deploys. Nothing inbound; no GHCR.
+# Push gates. Deploying is a separate, manual act.
+#
+# Every push used to deploy, which put a ~110s NAS round-trip in the middle of
+# iterating — for a site nobody is looking at between changes. The gate still runs
+# on every push (it's ~45s on a cloud runner and costs the NAS nothing), so a
+# regression is caught immediately; the deploy waits until someone actually wants
+# the change on a phone:
+#
+#     gh workflow run "gate + deploy (NAS)" --ref modernise -f deploy=true
 #
 # The split is deliberate and load-bearing, not duplication. The NAS is a 4-core
 # Synology sharing memory with two long-lived VMs, SQL Server and Plex; it often has
 # under 1 GB available. Merging the gate onto it was tried and failed outright —
-# `npm ci` + typecheck + 235 tests (the auth suite is scrypt at 96 MiB a hash) on a
+# `npm ci` + typecheck + 237 tests (the auth suite is scrypt at 96 MiB a hash) on a
 # box already at load 70. And BuildKit was being OOM-killed compiling the client.
 #
 # The cloud runner does everything that needs CPU or memory. The NAS job only
 # assembles an image from the result and restarts one container.
 on:
   push:
-    branches: [sveltekit, modernise, main]
+    branches: [modernise, main]
     paths-ignore:
       - 'docs/**'
       - '**/*.md'
   workflow_dispatch:
+    inputs:
+      deploy:
+        description: 'Build and deploy to the NAS (otherwise just gate)'
+        type: boolean
+        default: true
 
 concurrency:
   group: nas-deploy
@@ -58,6 +70,9 @@ jobs:
 
   deploy:
     needs: check
+    # Manual only. `github.event.inputs.deploy` is unset for a push, so this is
+    # false there — which is the point.
+    if: github.event_name == 'workflow_dispatch' && inputs.deploy
     runs-on: [self-hosted, nas]
     steps:
       - uses: actions/checkout@v4
