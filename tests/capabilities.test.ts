@@ -25,6 +25,8 @@ type Requirement =
   | 'public'
   /** Any active staff member, but no particular power: the identity endpoints. */
   | 'session'
+  /** A signed-in host account rather than a bar session. */
+  | 'account'
   | Capability;
 
 /**
@@ -63,6 +65,13 @@ const GOVERNED: Record<string, Requirement> = {
 
   'POST /api/subscriptions': 'public', // keyed to an anonymous device id
   'DELETE /api/subscriptions': 'public',
+
+  // Owned by a host *account*, not a bar session — `requireAccount`, not a
+  // capability. The staff capability table has nothing to say about someone who
+  // isn't behind a bar yet.
+  'GET /api/events': 'account',
+  'POST /api/events': 'account',
+  'POST /api/events/[id]/bar': 'account',
 
   // Better Auth's catch-all: these are how someone *becomes* authenticated, so a
   // capability gate would be circular. Its own guards are inside the library.
@@ -210,8 +219,14 @@ describe('the declared requirement is actually enforced', () => {
   const guarded = Object.entries(GOVERNED).filter(
     (e): e is [string, Exclude<Requirement, 'public'>] => e[1] !== 'public',
   );
-  /** Of those, the ones gated on a named power rather than mere identity. */
-  const capabilityGated = guarded.filter((e): e is [string, Capability] => e[1] !== 'session');
+  /**
+   * Of those, the ones gated on a named power rather than mere identity.
+   * `account` endpoints are excluded: they answer to a host's account session, not
+   * to a bar session, so the staff capability table has nothing to say about them.
+   */
+  const capabilityGated = guarded.filter(
+    (e): e is [string, Capability] => e[1] !== 'session' && e[1] !== 'account',
+  );
 
   test('anonymous callers are refused everywhere a session is needed', async () => {
     for (const [key] of guarded) {

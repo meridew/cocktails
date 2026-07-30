@@ -449,6 +449,17 @@ export function createDb(dbPath: string) {
       return db.select().from(staff).where(eq(staff.id, id)).get() ?? null;
     },
 
+    /** The staff row an account holds at an event, if they hold one. */
+    staffForAccount(eventId: string, userId: string): StaffRow | null {
+      return (
+        db
+          .select()
+          .from(staff)
+          .where(and(eq(staff.eventId, eventId), eq(staff.userId, userId)))
+          .get() ?? null
+      );
+    },
+
     /** The normal lookup: by id *within* an event, so a foreign id is simply absent. */
     staffInEvent(eventId: string, id: string): StaffRow | null {
       return (
@@ -704,6 +715,8 @@ export const clearJoinCodes: Db['clearJoinCodes'] = () => d().clearJoinCodes();
 export const staffByEmail: Db['staffByEmail'] = (email) => d().staffByEmail(email);
 export const staffByIdUnscoped: Db['staffByIdUnscoped'] = (id) => d().staffByIdUnscoped(id);
 export const staffInEvent: Db['staffInEvent'] = (eventId, id) => d().staffInEvent(eventId, id);
+export const staffForAccount: Db['staffForAccount'] = (eventId, userId) =>
+  d().staffForAccount(eventId, userId);
 export const staffByClaim: Db['staffByClaim'] = (hash) => d().staffByClaim(hash);
 export const pendingStaffForDevice: Db['pendingStaffForDevice'] = (eventId, deviceId) =>
   d().pendingStaffForDevice(eventId, deviceId);

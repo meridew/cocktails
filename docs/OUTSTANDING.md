@@ -22,15 +22,16 @@ cannot see each other's data", not "two parties can run at once".
 `liveEvent()` only as the single-party fallback. Do this before two hosts ever run
 simultaneously; until then the behaviour is correct by accident.
 
-### 2. Signing up leads nowhere
+### ~~2. Signing up leads nowhere~~ ✅ fixed in 2.5
 
-Phase 1 and phase 2 don't join up. A verified account has no event, no staff row and
-no way into a bar. There is no "create my event" endpoint, and `staff.userId` — the
-column that links an account to a membership — is **never written**. It exists in the
-schema and nothing sets it.
+`POST /api/events` creates a party and writes the host's `staff` row as owner with
+`userId` set, so that column is no longer dead. `POST /api/events/[id]/bar` trades an
+account session for a bar session, because the bar endpoints all consume a staff
+session and most people behind a bar have no account at all.
 
-**Fix:** an endpoint for a host to create an event, which also writes their `staff`
-row as owner with `userId` set. Small, and it's what makes the feature real.
+The owner's staff row deliberately carries **no email**: `staff.email` is UNIQUE
+because it is a login identity, and a host running two parties would collide with
+themselves.
 
 ### 3. The capability model was not widened as promised
 
@@ -42,11 +43,12 @@ pair §5 describes. There is no `operator` vs `host` distinction yet.
 Harmless today (one axis, two roles) and the shape is right, but the comment is
 currently a promise rather than a description.
 
-### 4. `event.hostUserId` is nullable, and the default event is owned by nobody
+### 4. The seeded default event is still owned by nobody — narrowed
 
-Deliberate — see the plan — but it leaves a permanent "The party" event with a null
-owner. Once hosts exist, either it should be claimable or event creation should
-require a host and the default should be dropped.
+Every host-created event now has an owner, and `host-loop.test.ts` asserts it. What
+remains is only the "The party" event seeded at boot so the app works before anyone
+signs up. Once sign-up is the normal way in, that seed should either be claimable or
+dropped entirely.
 
 ### 5. `staffByIdUnscoped` is guarded by its name, not by the type system
 

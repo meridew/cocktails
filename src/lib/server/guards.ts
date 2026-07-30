@@ -10,6 +10,7 @@
 import { json, type RequestEvent } from '@sveltejs/kit';
 import { can, type Capability, type Staff } from '$lib/shared';
 import { sessionStaff } from './auth';
+import { accounts } from './accounts';
 import { bearer } from './http';
 
 /** A handler that failed a guard returns this instead of a value. */
@@ -54,8 +55,39 @@ export function requireCapability(
   return { staff };
 }
 
-/** Narrowing helper, so call sites read `if (denied(auth)) return auth.denied`. */
-export const denied = (r: { staff: Staff } | { denied: Denied }): r is { denied: Denied } =>
+/** A signed-in host account, as Better Auth knows them. */
+export interface Account {
+  id: string;
+  email: string;
+  name: string;
+}
+
+/**
+ * Resolve the caller to a **host account**, rather than to bar staff.
+ *
+ * This is the bridge the platform was missing: phase 1 gave people accounts and
+ * phase 2 gave the app events, but nothing connected them, so signing up led
+ * nowhere. Endpoints about *owning* things — creating an event, editing its stock —
+ * authenticate this way; endpoints about *working a shift* keep using the staff
+ * session, because a helper behind the bar has no account at all.
+ *
+ * Better Auth reads its own cookie off the request, so there is nothing to parse
+ * here and no second session format to keep in step.
+ */
+export async function requireAccount(
+  event: RequestEvent,
+): Promise<{ account: Account } | { denied: Denied }> {
+  const session = await accounts().api.getSession({ headers: event.request.headers });
+  if (!session?.user) return { denied: fail(401, 'sign in to do that') };
+  const { id, email, name } = session.user;
+  return { account: { id, email, name } };
+}
+
+/**
+ * Narrowing helper, so call sites read `if (denied(auth)) return auth.denied`.
+ * Generic over what succeeded, so it serves both the staff and the account guards.
+ */
+export const denied = <T extends object>(r: T | { denied: Denied }): r is { denied: Denied } =>
   'denied' in r;
 
 /**

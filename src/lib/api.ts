@@ -16,6 +16,7 @@ import type {
   JoinCodeResponse,
   JoinResponse,
 } from '$lib/shared';
+import { currentEventId } from './party';
 
 // Same-origin by default: dev → Vite proxy, prod → Caddy, both route /api.
 // The native (Capacitor) build has no same-origin server, so it sets
@@ -77,10 +78,17 @@ async function req<T>(path: string, init: RequestInit = {}): Promise<T> {
   return data;
 }
 
+/**
+ * Place a round.
+ *
+ * The party id rides along when this device arrived through a `/e/<id>` link. Left
+ * out, the server falls back to the single live event — which keeps a bare visit to
+ * the root working while only one party is running.
+ */
 export const createOrder = (input: NewOrderInput) =>
   req<OrderCreatedResponse>('/orders', {
     method: 'POST',
-    body: JSON.stringify(input),
+    body: JSON.stringify({ ...input, eventId: currentEventId() ?? undefined }),
   });
 
 export const listOrders = () => req<OrderListResponse>('/orders');

@@ -38,6 +38,7 @@ import {
   staffByClaim,
   staffByEmail,
   staffByIdUnscoped,
+  staffForAccount,
   staffForDevice,
   staffSession,
   updateStaffPassword,
@@ -272,6 +273,23 @@ export function redeemJoinCode(
   });
   const row = staffByIdUnscoped(id);
   return row ? startSession(row) : null;
+}
+
+/**
+ * Open the bar for a host, using the account they signed up with.
+ *
+ * Without this the loop doesn't close: a host could create their party and then
+ * have no way into its bar screen except a PIN meant for Dan. The staff session is
+ * still what the bar endpoints consume — this only mints one from an account,
+ * rather than introducing a second thing for those endpoints to understand.
+ */
+export function barSessionForAccount(
+  eventId: string,
+  userId: string,
+): { token: string; staff: Staff } | null {
+  const row = staffForAccount(eventId, userId);
+  if (!row || row.status !== 'active') return null;
+  return startSession(row);
 }
 
 // ---- request to help -------------------------------------------------------
