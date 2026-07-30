@@ -1,13 +1,44 @@
 # Platform plan — hosts, accounts and the cocktail generator
 
-**Status:** approved, not started. Point a goal at this and work top-to-bottom.
-**Prerequisite:** none — phase 0 is self-contained.
-
 > **Read this first if you're a fresh session.** `HANDOFF.md` describes the stack as
 > it is; this describes where it's going and why. `CLAUDE.md` has the shell rules —
 > read those before running anything, they are not optional on Windows. The decisions
 > in §2 were made deliberately after research; don't relitigate them without a reason,
 > and if you do, record the reason here.
+
+## Where this actually stands — 30 Jul 2026
+
+**Phases 0, 1, 2, 2.5, 2.6 and 4 are done. Phase 3 is half done. Phase 5 hasn't
+started.** 333 tests, 0 type errors, working tree clean.
+
+**⚠️ `main` is four commits ahead of what is live.** The Mac serves `1ba0771`; `main`
+is `4a4708c`. So the host screen, Google sign-in and menu gating are **written,
+tested and not deployed**. Deploying is manual and on Dan's say-so:
+
+```bash
+gh workflow run "gate + deploy (Mac)" --ref main -f deploy=true
+```
+
+### What is left, and who it's waiting on
+
+|                                                | Whose | Notes                                                                                                                                       |
+| ---------------------------------------------- | ----- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Host stock screen** — tick what you have in  | mine  | The last piece of phase 3. `GET/PUT /api/inventory` and `GET /api/events/[id]/menu` already exist and are tested; this is the UI over them. |
+| **Guest menu shows unavailable drinks**        | mine  | Endpoint done; `+page.svelte` doesn't call it yet.                                                                                          |
+| **Widen `can()` to account-role × event-role** | mine  | §6 promises this and the code doesn't do it — see `OUTSTANDING.md` concession 3.                                                            |
+| **Phase 5 — Playwright**                       | mine  | Not started.                                                                                                                                |
+| **Google credentials**                         | Dan's | Code is done and tested; needs a client id + secret. `OUTSTANDING.md`.                                                                      |
+| **`STAFF_PIN`**                                | Dan's | Empty on the Mac, so PIN sign-in is off. Email + password works.                                                                            |
+| **Litestream → R2**                            | Dan's | **Parked by Dan.** There are currently no backups of anything.                                                                              |
+
+### Two habits this plan cost me, recorded so they don't repeat
+
+- **I marked phase 1 done while quietly moving Google OAuth to "optional".** Scope
+  narrowed without asking. Dan caught it. If a deliverable is being dropped, say so
+  and let him decide.
+- **I asked Dan to choose whether the generated list replaces the curated menu.** The
+  plan already said "the main menu is then _gated_ by stock". Read the plan before
+  asking a question it answers.
 
 ---
 
