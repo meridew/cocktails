@@ -387,6 +387,29 @@ doing Drizzle before tenancy: do the structural work while already in there.
 _Gate: `tests/host-loop.test.ts` — sign up → verify → create → open the bar → guests
 order, with **two events live at once**, which the isolation suite cannot set up._
 
+### Phase 2.6 — the missing door: auth and host UI
+
+**A gap in this plan, spotted by Dan on 30 Jul 2026.** Every phase here is written in
+terms of endpoints, and phase 1's gate — "sign up → verify → sign in → reset, end to
+end" — was met through the API. The plan never scheduled the _screens_. The only UI
+it mentions anywhere is phase 3's stock screen.
+
+The result: guests, helpers and Dan-via-PIN all have working doors, and the **host —
+the entire point of the overhaul — has none.** Signing up requires curl. Building the
+stock screen first would have meant designing for a person who cannot yet exist.
+
+So, before phase 3:
+
+1. **Graph `sendMail` behind the existing `EmailSender`** — writable and testable now
+   against a faked `fetch`; the Entra registration (§8.1) becomes the last 5% rather
+   than a prerequisite.
+2. **Sign up / sign in / verification landing.**
+3. **Create your party**, and **open its bar** — the two endpoints from phase 2.5,
+   with a face.
+
+_Gate: a person with a browser and no terminal can sign up, verify, create an event
+and reach its bar screen._
+
 ### Phase 3 — inventory and the generator
 
 - Restore the data: `git show 5a41824:cocktails.json` — **270 recipes**, an 11-step
