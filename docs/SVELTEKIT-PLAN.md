@@ -1,8 +1,23 @@
 # SvelteKit migration plan
 
-**Status:** approved, not started.
+**Status:** ✅ done — merged and deployed. Kept as the record of what was decided
+and why; §12 is the part that still matters day to day.
 **Shape:** full collapse — one SvelteKit app, no npm workspaces, no separate API.
 **Prerequisite:** ✅ done — Vitest is in place, which is the runner SvelteKit uses.
+
+> **Outcome.** 237 tests green on one runner, 0 type errors, four containers down to
+> two, ~100 lines of migration machinery deleted, and deploys at ~117s. Two things
+> the plan predicted and one it didn't:
+>
+> - The schema rewrite **did** require wiping the production volume —
+>   `CREATE TABLE IF NOT EXISTS` is a no-op against the old table, so the app booted
+>   with `no column named joined_via`. Exactly §5's stated cost, paid once.
+> - Nothing had replaced the old server's boot-time `seedStaff()`, so a fresh
+>   database had no admin and the PIN had nothing to sign into. It's the `init`
+>   hook now.
+> - Unpredicted: `config.ts` read `process.env` directly, which Vite does not
+>   populate for server modules under `vite dev`. It worked in the container and
+>   silently used dev defaults locally.
 
 > **Operating assumptions.** The app has no users, downtime is free, and one person
 > works in this repo. So this plan optimises for the **simplest end state**, not for a
