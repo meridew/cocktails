@@ -33,10 +33,13 @@ registration tokens and survive reboots.
 
 ## 1. Where things live
 
-- **Repo:** `github.com/meridew/cocktails`. Working branch **`modernise`** (pushed; ~13 commits ahead of `main`).
+- **Repo:** `github.com/meridew/cocktails`. Working branch **`modernise`** (pushed; well ahead of
+  `main`, which is untouched).
 - **Legacy flat app** (still at repo ROOT: `index.html`, `app.js`, `styles.css`, `cocktails.json`,
-  `config.js`, `nas/`, `favicon.svg`, `CNAME`) — the _current live public site_ via GitHub Pages.
-  **Do not break it**; it stays until cutover. `apps/web/src/neo.css` is a **verbatim copy** of root `styles.css`.
+  `config.js`, `nas/`, `favicon.svg`, `CNAME`) — **no longer the live site**; the tunnel serves the
+  Svelte app now, so this is redundant and can be retired whenever you like.
+  `apps/web/src/neo.css` is a **verbatim copy** of root `styles.css` — keep it byte-identical so the
+  two stay diffable (it's excluded from Prettier for exactly this reason).
 - **New monorepo** (the rebuild) under `apps/`, `packages/`, `infra/`, `.github/`, `docs/`.
 
 ```
@@ -73,10 +76,13 @@ docs/      PLAN.md, OUTSTANDING.md, APP-READINESS.md, MOBILE.md, CUTOVER.md,
   Prepared statements, WAL, flock-free. Data in a Docker volume.
 - **Menu model** (`apps/web/src/lib/data.ts`): `DRINKS` + reusable option **axes** + `buildLine()`.
   Adding a drink/axis is a one-place edit. (This is the nicest piece of the codebase.)
-- **Identity:** anonymous device id in localStorage (`apps/web/src/lib/device.ts`) — no guest login.
-- **Bartender auth:** shared PIN **`1337`** (to be replaced by a real staff login in Phase 3).
-- **Cloudflare-later seam:** all public traffic enters through **Caddy** on an internal port; today via
-  the router port-forward, later via `cloudflared` → same Caddy, zero app changes.
+- **Identity:** anonymous device id in localStorage (`apps/web/src/lib/device.ts`) — no guest login,
+  by design. Guests order instantly; notifications are keyed to the device, not an account.
+- **Staff auth:** email + password → **scrypt** hash + a revocable **bearer session** (only the
+  token's SHA-256 is stored). Seeded from `STAFF_EMAIL`/`STAFF_PASSWORD`; env is the source of truth,
+  so changing the secret and redeploying rotates the password. The old shared PIN is **gone**.
+- **Public entry:** **cloudflared → Caddy** (internal port) → web/api. No inbound router ports. Caddy
+  also sets the security headers. Swapping the ingress again would still be zero app changes.
 
 ## 3. The NAS — how to operate it ⚠️ important gotchas
 
@@ -90,10 +96,14 @@ docs/      PLAN.md, OUTSTANDING.md, APP-READINESS.md, MOBILE.md, CUTOVER.md,
   - SSH prints a post-quantum warning to stderr — filter it: `2>&1 | grep -v -i "post-quantum\|store now\|may need\|openssh.com/pq\|Permanently added"`.
 - **Docker:** ContainerManager (Docker 20.10.23). No `buildx`/BuildKit plugin, but the daemon's
   integrated BuildKit handles our Dockerfiles. No GHCR — we build images **locally on the NAS**.
-- **Deployed stack:** `/volume1/docker/cocktails/` (source extracted there + `infra/.env` with
-  `PUBLIC_PORT=8088`, `BARTENDER_KEY=1337`). Containers: `cocktails-{web,api,caddy}-1`
-  (`restart: unless-stopped`, api has a healthcheck, caddy waits for it). SQLite in volume `cocktails_cocktails-data`.
-- **Live at:** **http://192.168.1.1:8088** (LAN only; deliberately not public yet). Bartender: 🍸 → PIN `1337`.
+- **Deployed stack:** `/volume1/docker/cocktails/` (source extracted there + `infra/.env`, written by
+  CI from GitHub secrets: `PUBLIC_PORT`, `STAFF_EMAIL`/`STAFF_PASSWORD`, `VAPID_*`, `TUNNEL_TOKEN`).
+  Containers: `cocktails-{web,api,caddy,cloudflared}-1` (`restart: unless-stopped`, api has a
+  healthcheck, caddy waits for it). SQLite in volume `cocktails_cocktails-data`.
+- **Live at:** **https://cock.meridew.com** (public, via the tunnel) and **http://192.168.1.1:8088**
+  on the LAN. Bartender: 🍸 → staff email + password.
+  ⚠️ The LAN `:8088` port bypasses Cloudflare, so the API can't trust `x-forwarded-for` from it —
+  that's why `clientIp()` prefers `cf-connecting-ip` and falls back to the socket address.
 - **Self-hosted runner:** `/volume1/docker/cocktails-runner/` — container `cocktails-runner-runner-1`
   (`myoung34/github-runner`, label **`nas`**), mounts the docker socket + the host `docker-compose` binary.
   ⚠️ It authenticates with a **short-lived registration token**, so after a **NAS reboot** it can't
@@ -124,7 +134,11 @@ docs/      PLAN.md, OUTSTANDING.md, APP-READINESS.md, MOBILE.md, CUTOVER.md,
 
 ## 4. CI/CD — how deploys work
 
-- `gh` CLI is authed as **meridew** (scopes: repo, workflow). GitHub secret **`BARTENDER_KEY`** is set.
+- `gh` CLI is authed as **meridew** (scopes: repo, workflow) and can mint runner registration tokens.
+- **GitHub secrets** (CI writes these into `infra/.env` on the NAS): `STAFF_EMAIL`, `TUNNEL_TOKEN`,
+  `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`. ⚠️ **`STAFF_PASSWORD` is deliberately absent** — with it
+  unset the API generates a random one in production rather than falling back to anything guessable,
+  which is why nobody can currently sign in to the live bar. Set it to fix that.
 - Workflow **`.github/workflows/nas-deploy.yml`**: on push to `modernise`/`main` (paths-ignore docs/*.md):
   1. **`check`** job on `ubuntu-latest` (free cloud): `npm ci` → `format:check` → `npm run check`
      (api typecheck + svelte-check) → `npm test` → `npm -w @cocktails/web run build`. **Gates prod.**
