@@ -23,11 +23,12 @@ import {
 
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 const DUMMY_SALT = randomBytes(16); // constant-time "no such user" path
+const KEY_LEN = 64; // derived-key length, shared by hash + verify
 
 /** `salt:hash` (hex). scrypt is intentionally slow — a built-in brute-force brake. */
 export function hashPassword(password: string): string {
   const salt = randomBytes(16);
-  const hash = scryptSync(password, salt, 64);
+  const hash = scryptSync(password, salt, KEY_LEN);
   return `${salt.toString('hex')}:${hash.toString('hex')}`;
 }
 
@@ -35,8 +36,13 @@ export function verifyPassword(password: string, stored: string): boolean {
   const [saltHex, hashHex] = stored.split(':');
   if (!saltHex || !hashHex) return false;
   const expected = Buffer.from(hashHex, 'hex');
-  const actual = scryptSync(password, Buffer.from(saltHex, 'hex'), expected.length);
-  return actual.length === expected.length && timingSafeEqual(actual, expected);
+  // A malformed hash portion (non-hex, odd length, truncated) decodes short or
+  // empty. Deriving a key of that length would then make timingSafeEqual pass on
+  // two empty buffers — i.e. any password would authenticate. Require the exact
+  // length we produce, so only a well-formed hash can ever be compared.
+  if (expected.length !== KEY_LEN) return false;
+  const actual = scryptSync(password, Buffer.from(saltHex, 'hex'), KEY_LEN);
+  return timingSafeEqual(actual, expected);
 }
 
 const hashToken = (token: string): string => createHash('sha256').update(token).digest('hex');

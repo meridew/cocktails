@@ -24,10 +24,17 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - name: Typecheck + svelte-check + build
-        run: |
-          npm run check
-          npm -w @cocktails/web run build
+      # Deliberately no VAPID_* env here: with the keys unset, push.ts is inert and
+      # the suite makes zero outbound requests. Adding them would make the
+      # order-status tests hit real push services and flake.
+      - name: Format check
+        run: npm run format:check
+      - name: Typecheck + svelte-check
+        run: npm run check
+      - name: Test
+        run: npm test
+      - name: Build web
+        run: npm -w @cocktails/web run build
 
   deploy:
     needs: check
