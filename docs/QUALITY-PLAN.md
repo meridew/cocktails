@@ -266,23 +266,23 @@ prod `/api/health` 200 after deploy · logs show request lines and a caught erro
 
 ---
 
-## Phase 3 — Validation, rewritten as a shared schema
+## Phase 3 — Validation, rewritten as a shared schema ✅ DONE
 
 Replace hand-rolled `cleanStr`/`cleanItems` in `app.ts` + hand-maintained `NewOrderInput`/`OrderItem`
 interfaces with **one** schema in `packages/shared` consumed by both sides. This is the design to pick
 from scratch, and it closes several bugs by construction.
 
-- [ ] Add `valibot` (~2 kB tree-shaken; chosen over Zod's ~14 kB because the PWA ships it) and
+- [x] Add `valibot` (~2 kB tree-shaken; chosen over Zod's ~14 kB because the PWA ships it) and
       `@hono/valibot-validator`.
-- [ ] Define schemas in `packages/shared` (order, order item, subscription) with `LIMITS` applied;
+- [x] Define schemas in `packages/shared` (order, order item, subscription) with `LIMITS` applied;
       **infer** the TS types from them (deleting the duplicated interfaces — DRY).
-- [ ] API validates via middleware; drop the `as never` cast.
-- [ ] Client reuses the same limits: add `maxlength={LIMITS.maxFieldLen}` to the name/note inputs —
+- [x] API validates via middleware; drop the `as never` cast.
+- [x] Client reuses the same limits: add `maxlength={LIMITS.maxFieldLen}` to the name/note inputs —
       today a 200-char note is silently truncated to 140 with a `200 OK` and no feedback.
-- [ ] **Fix truncation by code point, not UTF-16 unit.** `cleanStr` iterates code points but then
+- [x] **Fix truncation by code point, not UTF-16 unit.** `cleanStr` iterates code points but then
       slices code units, so a 140-char boundary **splits an emoji** into a lone surrogate that reaches
       SQLite. Cap on `[...s]`.
-- [ ] **Preserve line breaks.** Control chars are dropped with no replacement, so
+- [x] **Preserve line breaks.** Control chars are dropped with no replacement, so
       `"No ice!\nExtra lime!"` is stored as `"No ice!Extra lime!"`. Map to a space (and collapse runs), or
       allow `\n` in the note field.
 
@@ -291,34 +291,34 @@ multi-line notes readable on the bar card · client prevents over-long input · 
 
 ---
 
-## Phase 4 — Correctness bugs
+## Phase 4 — Correctness bugs ✅ DONE
 
 Each item: write the failing test first (where testable), then fix.
 
-- [ ] **Bartender logout race (HIGH).** `fetchOrders` unconditionally sets `unlocked = true`; an
+- [x] **Bartender logout race (HIGH).** `fetchOrders` unconditionally sets `unlocked = true`; an
       in-flight poll resolving _after_ `signedOut()` re-shows the queue with an empty token, so every
       button then fails. Guard on identity (capture the token / bump a generation counter and drop stale
       responses).
-- [ ] **Poll clobbers the optimistic merge.** `orders = r.orders` replaces the array with a snapshot
+- [x] **Poll clobbers the optimistic merge.** `orders = r.orders` replaces the array with a snapshot
       taken before the PATCH committed, so a status can visibly revert for up to 4 s (and the guest gets an
       "INCOMING" push while the bar shows "Making"). Skip the poll while `busy.size > 0`, or version the store.
       The existing comment overstates what the merge defends against — update it.
-- [ ] **Mobile tap-outside-to-close is dead (MED, primary platform).** `.order-backdrop` is a _sibling_
+- [x] **Mobile tap-outside-to-close is dead (MED, primary platform).** `.order-backdrop` is a _sibling_
       of `.order-rail`, so `lockBackground(orderRail)` marks it `inert` and its `onclick` never fires —
       even though `neo.css` deliberately gives it `pointer-events: auto`. Exclude the backdrop from the
       lock (extra keep-node, or move it inside the kept wrapper).
-- [ ] **`DELETE /api/orders/:id` returns `200 {ok:false}`** for a missing id, so the client renders
+- [x] **`DELETE /api/orders/:id` returns `200 {ok:false}`** for a missing id, so the client renders
       _"Something went wrong (HTTP 200)."_ and leaves the row on screen. Return `404 {ok:false,error:'not found'}`
       (matching PATCH) and treat 404-on-delete as success client-side.
-- [ ] **`InstallButton.svelte`** declares `role="dialog" aria-modal="true"` but never applies
+- [x] **`InstallButton.svelte`** declares `role="dialog" aria-modal="true"` but never applies
       `use:dialog` — no focus trap, no Escape, no background inerting. One directive.
-- [ ] **`dialog.ts` focusable filter** uses `el.offsetParent !== null`, which is `null` for
+- [x] **`dialog.ts` focusable filter** uses `el.offsetParent !== null`, which is `null` for
       `position: fixed`, silently excluding fixed controls from the trap. Use `checkVisibility()`.
-- [ ] **`Configurator.svelte` `state_referenced_locally`.** `config` captures only the first `drink`
+- [x] **`Configurator.svelte` `state_referenced_locally`.** `config` captures only the first `drink`
       while `axes`/`line` are `$derived` — latent wrong-order-line if `drink` ever changes in place
       (reachable where `inert` is unsupported, e.g. iOS < 15.5). Fix with `{#key}` remount or an explicit
       `$effect` reset.
-- [ ] **`basket.svelte.ts` `addLine`** increments without a cap while `setQty` clamps to
+- [x] **`basket.svelte.ts` `addLine`** increments without a cap while `setQty` clamps to
       `LIMITS.maxQty` — 100 taps yields qty 100 client-side, silently clamped to 99 server-side. Clamp both
       (reuse one helper — DRY).
 
@@ -327,24 +327,24 @@ tap-outside closes the sheet on a mobile viewport · no status flicker under a m
 
 ---
 
-## Phase 5 — Push subsystem, rewritten
+## Phase 5 — Push subsystem, rewritten ✅ DONE
 
 Patching here would paper over a wrong model, so replace it.
 
-- [ ] **Schema: a device can only hold one role.** PK is `(device_id, endpoint)` and the upsert does
+- [x] **Schema: a device can only hold one role.** PK is `(device_id, endpoint)` and the upsert does
       `role = excluded.role`, so enabling guest notifications **silently kills bartender alerts** on the
       same phone (the host's normal usage). Migrate to `(device_id, endpoint, role)` via the existing
       idempotent-migration helper; de-dupe by endpoint in `pushToDevice`.
-- [ ] **`lib/push.svelte.ts` store — one state machine, resolved from truth.** Both `App.svelte` and
+- [x] **`lib/push.svelte.ts` store — one state machine, resolved from truth.** Both `App.svelte` and
       `Bartender.svelte` currently seed `notify = 'on'` from `Notification.permission`, which says nothing
       about whether _this device+role_ is registered — so the UI claims "🔔 On" while no subscription
       exists. Resolve from `reg.pushManager.getSubscription()` **and** a persisted role, re-register when
       either is missing, and expose `enable(role, token)`. Collapses two divergent state unions
       (`'idle'|'working'|'on'|'denied'|'unavailable'` vs `'idle'|'working'|'on'|'off'`) into one (DRY).
-- [ ] **VAPID rotation.** The client reuses an existing `getSubscription()` unconditionally, so after a
+- [x] **VAPID rotation.** The client reuses an existing `getSubscription()` unconditionally, so after a
       key rotation that device silently never receives another push. Compare
       `subscription.options.applicationServerKey` and re-subscribe on mismatch.
-- [ ] Server: set `PushPayload.url` (currently never set) **or** delete the dead deep-link plumbing —
+- [x] Server: set `PushPayload.url` (currently never set) **or** delete the dead deep-link plumbing —
       `notificationclick` computes `target` then returns before using it.
 
 **Exit criteria:** enabling guest notifications does not disable bartender alerts (tested at the DB
@@ -352,16 +352,16 @@ layer) · the chip reflects real subscription state · one push state machine in
 
 ---
 
-## Phase 6 — Service worker → Workbox
+## Phase 6 — Service worker → Workbox ✅ DONE
 
-- [ ] Replace the hand-rolled `sw.ts` cache logic with `precacheAndRoute(self.__WB_MANIFEST)` +
+- [x] Replace the hand-rolled `sw.ts` cache logic with `precacheAndRoute(self.__WB_MANIFEST)` +
       `NavigationRoute`/`createHandlerBoundToURL`. `workbox-precaching@7.4.1` and `workbox-routing@7.4.1`
       are **already hoisted** via `vite-plugin-pwa` — zero new downloads; declare them as devDeps.
       Keep the push/`notificationclick` handlers (they're fine).
-- [ ] Fixes the real defect: `CACHE = 'cocktails-shell-v1'` never changes, so `activate` never prunes
+- [x] Fixes the real defect: `CACHE = 'cocktails-shell-v1'` never changes, so `activate` never prunes
       and obsolete hashed bundles accumulate across every deploy until the storage quota is hit — at which
       point `addAll` rejects and `.catch(() => self.skipWaiting())` hides it, leaving the offline shell broken.
-- [ ] ~40 lines → ~15. **Verify manually** (install the PWA, go offline, reload) — this is the offline
+- [x] ~40 lines → ~15. **Verify manually** (install the PWA, go offline, reload) — this is the offline
       path and is out of unit-test scope.
 
 **Exit criteria:** default build still emits `sw.js` · native build still omits it · installed PWA works
