@@ -364,6 +364,29 @@ lookup, so a host could approve, revoke or delete another host's helper. Fixed b
 splitting it into `staffInEvent(eventId, id)` and `staffByIdUnscoped(id)` — the latter
 is genuinely needed when resolving a session, and its name now makes misuse obvious.
 
+### ~~Phase 2.5 — close the loop~~ ✅ done, 30 Jul 2026
+
+**Not in the original plan.** Added after phases 1 and 2 turned out not to join up:
+accounts existed, events existed, and nothing connected them — signing up led
+nowhere, and a guest's order went to whichever event happened to be live.
+
+Taken _before_ phase 3 deliberately. The generator's whole point is a menu per host
+from their own stock, so building it first would have meant `listInventory(ensureLiveEvent())`
+everywhere and testing the interesting part against a singleton. Same argument as
+doing Drizzle before tenancy: do the structural work while already in there.
+
+- `requireAccount()` resolves a Better Auth session in our own routes — the missing
+  bridge between phase 1 and phase 2.
+- `POST /api/events` creates a party and makes the host its owner behind the bar,
+  writing `staff.userId` so that column stops being dead.
+- `POST /api/events/[id]/bar` trades an account session for a bar session, so the bar
+  endpoints don't have to learn a second kind of caller.
+- Orders name their party; `/e/<id>` is the link behind the QR code. `liveEvent()`
+  survives only as the single-party fallback.
+
+_Gate: `tests/host-loop.test.ts` — sign up → verify → create → open the bar → guests
+order, with **two events live at once**, which the isolation suite cannot set up._
+
 ### Phase 3 — inventory and the generator
 
 - Restore the data: `git show 5a41824:cocktails.json` — **270 recipes**, an 11-step
