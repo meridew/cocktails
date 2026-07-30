@@ -105,7 +105,18 @@ export const config = {
     secret: resolveAuthSecret(ENV),
     origin: (ENV.ORIGIN || 'http://localhost:5173').replace(/\/$/, ''),
   },
-  /** SQLite file path (a Docker volume on the NAS). Relative to the API cwd. */
+  /**
+   * Microsoft Graph, for outbound email. Any piece missing → the logging sender,
+   * so a half-configured tenant degrades to "the link is in the log" rather than
+   * to sign-ups that fail with nothing to show for it.
+   */
+  graph: {
+    tenantId: (ENV.GRAPH_TENANT_ID ?? '').trim(),
+    clientId: (ENV.GRAPH_CLIENT_ID ?? '').trim(),
+    clientSecret: (ENV.GRAPH_CLIENT_SECRET ?? '').trim(),
+    sender: (ENV.GRAPH_SENDER || 'bar@meridew.com').trim(),
+  },
+  /** SQLite file path. Relative to the app's working directory. */
   dbPath: ENV.DB_PATH || './data/cocktails.sqlite',
   /**
    * Web Push (VAPID). Empty keys → push is disabled and the sender no-ops.

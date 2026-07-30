@@ -16,6 +16,8 @@
  * the end of December 2026, with removal announced for H2 2027 — building on it
  * would have had a five-month shelf life.
  */
+import { config } from './config';
+import { graphConfigured, graphSender } from './email.graph';
 
 export interface Email {
   to: string;
@@ -67,11 +69,28 @@ export function memorySender(): EmailSender & { sent: Email[] } {
   };
 }
 
-let sender: EmailSender = loggingSender;
+/**
+ * Graph when the tenant is configured, the log otherwise.
+ *
+ * Chosen once, lazily, so importing this module reads no config and opens no
+ * connection. A missing credential is not an error: it degrades to "the
+ * verification link is in the server log", which is a working development loop
+ * rather than a sign-up that fails with nothing to show for it.
+ */
+function pick(): EmailSender {
+  if (!graphConfigured(config.graph)) {
+    console.info('📧 email: no Graph credentials — messages go to the log (see OUTSTANDING.md)');
+    return loggingSender;
+  }
+  console.info(`📧 email: sending via Microsoft Graph as ${config.graph.sender}`);
+  return graphSender(config.graph);
+}
 
-/** Swap the sender. Tests use this; production will use it once Graph is wired. */
+let sender: EmailSender | null = null;
+
+/** Swap the sender. Tests use this. */
 export function setEmailSender(next: EmailSender): void {
   sender = next;
 }
 
-export const sendEmail = (email: Email): Promise<void> => sender.send(email);
+export const sendEmail = (email: Email): Promise<void> => (sender ??= pick()).send(email);
