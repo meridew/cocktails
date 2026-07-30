@@ -105,26 +105,15 @@ dashboard, then `litestream replicate` as a third LaunchAgent beside the app and
 tunnel. Not done until a restore into a scratch path has been diffed against the
 live database — the plan is explicit that an untested backup is not a backup.
 
-### Real email — Entra app registration
+### ~~Real email~~ ✅ done, 30 Jul 2026
 
-**Blocks:** nothing yet. Accounts work end to end; the messages go to the server log
-instead of an inbox, which is enough for development and for the tests.
-**Needed before:** a real host signs up.
+Microsoft Graph, authenticated with a **certificate** rather than a client secret, so
+nothing secret ever passed through a clipboard or this repo. Proven end to end
+against the live tenant: certificate → token → `sendMail` → shared mailbox. Details
+and identifiers in [`PLATFORM-PLAN.md`](PLATFORM-PLAN.md) §8.1.
 
-`src/lib/server/email.ts` is an interface with a logging implementation. To send for
-real, add a Graph sender beside it and swap the default. What only a human can do:
-
-1. **Entra app registration** on the `meridew.com` tenant — new registration, a client
-   secret, and the **`Mail.Send` _application_ permission** with admin consent.
-2. **An Application Access Policy** scoping that app to one mailbox
-   (`bar@meridew.com`), via Exchange Online PowerShell `New-ApplicationAccessPolicy`.
-   **Don't skip this** — `Mail.Send` is tenant-wide by default, so a leaked secret
-   could otherwise send as anyone in the tenant.
-3. Put the client id, tenant id and secret in the environment (piped to
-   `gh secret set`, never echoed).
-
-Also unset today: **`BETTER_AUTH_SECRET`**. Without it, production mints a random one
-per boot, so every host is signed out on restart. Dev has a fixed placeholder.
+Still unset: **`BETTER_AUTH_SECRET`**… actually no — it is set on the Mac. What
+remains unset is **`STAFF_PIN`**, so PIN sign-in is off; email and password work.
 
 ### OAuth sign-in (Google / Apple) — optional
 

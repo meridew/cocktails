@@ -457,16 +457,36 @@ _Gate: the suite runs in CI on the Mac runner._
 Work around these per §0 — interface + dev implementation + a note in
 `docs/OUTSTANDING.md` — rather than stopping the plan.
 
-1. **Entra app registration** — new registration, client secret, `Mail.Send`
-   _application_ permission with admin consent. _Blocks: real email in phase 1._
-2. **Application Access Policy** restricting that app to a single mailbox
-   (`bar@meridew.com`). Exchange Online PowerShell, `New-ApplicationAccessPolicy`.
-   **Don't skip it** — see §9.
-3. **Cloudflare R2 bucket** + an API token for Litestream. _Blocks: phase 4.6._
-4. **OAuth client IDs** for Google and Apple, if that sign-in path is wanted.
-5. **The tunnel's Public Hostname**, which lives in the Cloudflare dashboard rather
+1. ~~**Entra app registration**~~ and ~~**Application Access Policy**~~ — **done,
+   30 Jul 2026.** Recorded because none of it is discoverable from the repo:
+
+   |                   |                                                                                          |
+   | ----------------- | ---------------------------------------------------------------------------------------- |
+   | Tenant            | `122521bd-12ea-4515-acc6-cf8d44a8dae7` (`meridew.com`)                                   |
+   | App (client) id   | `5c0fbbe4-aa85-4313-8938-4914437baee7`                                                   |
+   | Credential        | **certificate**, not a secret — see §2d                                                  |
+   | Private key       | `~/.config/cocktails/graph-key.pem` on the Mac, mode 600, expires Jul 2029               |
+   | Thumbprint        | `B58F26CB039EAADF2E3CDAEDA199E13EECAD9B5E`                                               |
+   | Sends as          | `bar@meridew.com` — a **shared mailbox**, so no licence is consumed                      |
+   | Scope group       | `Cocktails App Mailboxes`, guid `62ebf848-1fd2-4c5d-9629-cc8b5b973f5b`                   |
+   | Dan's own mailbox | `dan@meridew.com` — **not** `daniel.meridew@`, which is a guess that wasted a round trip |
+
+   Verified the way it should be: `Test-ApplicationAccessPolicy` returns **Granted**
+   for `bar@meridew.com` and **Denied** for `dan@meridew.com`. The second is the one
+   that matters — `Mail.Send` is tenant-wide by default, so without the policy that
+   app could send as anyone in the tenant.
+
+   Two things that cost a round trip each, so they're written down:
+   `New-DistributionGroup` takes the **default accepted domain**, so the group landed
+   on `@meridew.onmicrosoft.com` rather than `@meridew.com` — pass the **guid** to
+   `PolicyScopeGroupId` and the question never arises. And a 404 from `sendMail`
+   means the mailbox doesn't exist, not that the credential is wrong.
+
+2. **Cloudflare R2 bucket** + an API token for Litestream. _Blocks: phase 4.6._
+3. **OAuth client IDs** for Google and Apple, if that sign-in path is wanted.
+4. **The tunnel's Public Hostname**, which lives in the Cloudflare dashboard rather
    than in this repo. It must point at the app's new address on the Mac.
-6. ~~**Mac mini access**~~ — **done, 30 Jul 2026.** Recorded because it isn't
+5. ~~**Mac mini access**~~ — **done, 30 Jul 2026.** Recorded because it isn't
    discoverable from the repo:
    - `~/.ssh/mac_cocktails` (ed25519, no passphrase) → `dan@mac.home.meridew.com`
      (192.168.1.9), via the `Host mac` entry in `~/.ssh/config`.
