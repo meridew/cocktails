@@ -236,16 +236,29 @@ Flag these and stop; don't guess around them.
    (`bar@meridew.com`). Exchange Online PowerShell, `New-ApplicationAccessPolicy`.
 3. **Cloudflare R2 bucket** + an API token for Litestream.
 4. **OAuth client IDs** for Google and Apple, if that sign-in path is wanted.
-5. **Mac mini as the host** — physical setup, and three settings that are easy to miss
-   and each silently break unattended operation:
-   - **FileVault off.** With it on, the disk stays locked after a reboot until someone
-     logs in physically, so the app never comes back on its own.
-   - **Never sleep** — `sudo pmset -a sleep 0 disablesleep 1`.
-   - **Start up automatically after a power failure**, in Energy Saver.
+5. ~~**Mac mini access**~~ — **done, 30 Jul 2026.** Recorded here because it is not
+   discoverable from the repo:
+   - `~/.ssh/mac_cocktails` (ed25519, no passphrase) → `dan@mac.home.meridew.com`
+     (192.168.1.9), via the `Host mac` entry in `~/.ssh/config`.
+   - Passwordless sudo through `/etc/sudoers.d/dan-claude`, so non-interactive
+     sessions — which have no stdin and can never answer a prompt — can administer it.
+   - Use **`scripts/mac.ps1`** to run anything there. Read its header before
+     hand-rolling an `ssh mac …`; it exists because PowerShell corrupts piped scripts
+     in two separate ways.
 
-   Then: Node 24, `cloudflared`, and the GitHub Actions runner, each as a launchd
-   service with `RunAtLoad` + `KeepAlive`. The runner belongs here rather than on the
-   NAS — that is the whole point of the move.
+   The box turned out to be **already server-ready**: FileVault off, auto-login as
+   `dan`, `autorestart 1`, and — the trap worth knowing about — sshd already holds
+   **Full Disk Access**, without which even root hits "Operation not permitted" on
+   protected paths over SSH. `sleep 0 / disablesleep 1 / womp 1` were set at the same
+   time; sleep had only been suppressed incidentally by a VS Code tunnel.
+
+   **Spec:** Apple M4, 10 cores, 16 GB, macOS 26.1, 55 GB free. Nothing installed but
+   Apple's git — no brew, node, docker, cloudflared or litestream yet.
+
+6. **Mac mini as the host** — install Node 24, `cloudflared` and the GitHub Actions
+   runner, each as a launchd job with `RunAtLoad` + `KeepAlive`. Auto-login is on, so a
+   LaunchAgent survives reboot; a LaunchDaemon would not need the login session at all.
+   The runner belongs here rather than on the NAS — that is the whole point of the move.
 
 Secrets go to `gh secret set` piped, never echoed, and reach the container through
 `infra/.env` like `STAFF_PIN` and the VAPID keys.
