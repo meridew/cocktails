@@ -1,17 +1,27 @@
 import { json, type RequestEvent } from '@sveltejs/kit';
-import { STOCKABLE, makeable, suggestions } from '$lib/shared';
+import { OPTIONAL_CATEGORIES, STOCKABLE, makeable, suggestions } from '$lib/shared';
 import { listInventory, setInStock } from '$lib/server/db';
 import { body, denied, fail, requireCapability } from '$lib/server/guards';
 
 /** How many ingredients one event may track. Generous; a guard against a flood. */
 const MAX_ITEMS = 400;
 
+/** What this stock can pour, trimmed to what a list needs. Both verbs answer it. */
+const pourable = (stock: readonly string[]) =>
+  makeable(stock, { ignore: OPTIONAL_CATEGORIES }).map((r) => ({
+    id: r.id,
+    name: r.name,
+    base: r.base,
+  }));
+
 /**
  * Tonight's stock, and what it can pour.
  *
  * The makeable list is computed here rather than shipped as raw stock plus a
  * client-side filter, so the bar and the guest menu cannot disagree about what's
- * available — the same reason the permission table lives in one place.
+ * available — the same reason the permission table lives in one place. Both this and
+ * the guest menu apply `OPTIONAL_CATEGORIES`, which is what makes that true: they
+ * once differed on garnishes and quietly counted different drinks.
  */
 export function GET(event: RequestEvent) {
   const auth = requireCapability(event, 'inventory:read');
@@ -25,9 +35,9 @@ export function GET(event: RequestEvent) {
     /** Everything a host could tick, so the screen needs no second source. */
     stockable: STOCKABLE,
     stock,
-    makeable: makeable(stock).map((r) => ({ id: r.id, name: r.name, base: r.base })),
+    makeable: pourable(stock),
     /** What one more bottle would unlock — the question a tick list can't answer. */
-    suggestions: suggestions(stock).slice(0, 10),
+    suggestions: suggestions(stock, { ignore: OPTIONAL_CATEGORIES }).slice(0, 10),
   });
 }
 
@@ -60,9 +70,5 @@ export async function PUT(event: RequestEvent) {
   }
 
   const stock = [...wanted];
-  return json({
-    ok: true,
-    stock,
-    makeable: makeable(stock).map((r) => ({ id: r.id, name: r.name, base: r.base })),
-  });
+  return json({ ok: true, stock, makeable: pourable(stock) });
 }

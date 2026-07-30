@@ -30,6 +30,7 @@
   import { hydrateSession, session, signOut } from '$lib/stores/session.svelte';
   import StaffGate from '$lib/components/StaffGate.svelte';
   import StaffAdmin from '$lib/components/StaffAdmin.svelte';
+  import StockList from '$lib/components/StockList.svelte';
   import BarMenu from '$lib/components/BarMenu.svelte';
   import OrderCard from '$lib/components/OrderCard.svelte';
   import { SvelteSet } from 'svelte/reactivity';
@@ -61,6 +62,11 @@
   // Staff administration, admins only.
   let canManageStaff = $derived(can(session.staff, 'staff:approve'));
   let showStaff = $state(false);
+
+  // The stock list. Bartenders can look — being asked "have we got any gin left?" is
+  // most of the job — but only the host can tick.
+  let canSeeStock = $derived(can(session.staff, 'inventory:read'));
+  let showStock = $state(false);
   let staff = $state<Staff[]>([]);
   let staffLoaded = $state(false);
   let pendingCount = $derived(staff.filter((s) => s.status === 'pending').length);
@@ -228,6 +234,7 @@
     loaded = false;
     staffLoaded = false;
     showStaff = false;
+    showStock = false;
     openId = null;
     await signOut();
   }
@@ -286,6 +293,8 @@
       onchanged={fetchStaff}
       onclose={() => (showStaff = false)}
     />
+  {:else if showStock && canSeeStock}
+    <StockList onclose={() => (showStock = false)} />
   {:else}
     <!-- Tabs are both the filter and the queue overview, which is why there's no
          separate "show done" control any more: Done is simply a tab. -->
@@ -339,10 +348,12 @@
 {#if menuOpen}
   <BarMenu
     {canManageStaff}
+    {canSeeStock}
     pendingStaff={pendingCount}
     {sort}
     {pushLabel}
     onstaff={() => (showStaff = true)}
+    onstock={() => (showStock = true)}
     onsort={() => (view.barSort = sort === 'oldest' ? 'newest' : 'oldest')}
     onpush={() => void enablePush('bartender')}
     onclearDone={clearDone}

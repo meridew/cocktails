@@ -9,6 +9,8 @@
   import { goto } from '$app/navigation';
   import { onMount } from 'svelte';
   import { DRINKS, type Drink } from '$lib/data';
+  import { eventMenu } from '$lib/api';
+  import { currentEventId } from '$lib/party';
   import { addLine, basketCount } from '$lib/stores/basket.svelte';
   import { favourites } from '$lib/stores/favourites.svelte';
   import { applyDeepLink, settings, view } from '$lib/stores/view.svelte';
@@ -26,6 +28,22 @@
   let favesOnly = $derived(view.favesOnly);
   let count = $derived(basketCount());
 
+  /**
+   * What this party can actually pour, from the host's stock list.
+   *
+   * **Fails open on purpose.** An empty map means every drink is offered, and so
+   * does a failed request, a guest who arrived without an `/e/<id>` link, or a name
+   * the recipe engine has never heard of. Wrongly offering a drink costs someone a
+   * "sorry, we're out"; wrongly hiding one costs a drink nobody knew they could have
+   * had — and a menu that silently shrinks because the network hiccuped is
+   * indistinguishable from a broken app.
+   *
+   * Marked, not hidden: a guest who knows this menu has six drinks and counts four
+   * assumes the app is wrong. "Not tonight" is information.
+   */
+  let available = $state<Record<string, boolean>>({});
+  const pourable = (name: string): boolean => available[name] !== false;
+
   onMount(() => {
     // Notifications sent before the bar became a route still carry `/?bartender`.
     if (new URLSearchParams(location.search).has('bartender')) {
@@ -33,6 +51,18 @@
       return;
     }
     applyDeepLink(location.search);
+
+    // Deliberately not awaited: the menu renders immediately and drinks that turn
+    // out to be off get marked when the answer lands, rather than the whole list
+    // waiting on a request to show anything at all.
+    const eventId = currentEventId();
+    if (eventId) {
+      void eventMenu(eventId)
+        .then((r) => (available = r.available))
+        .catch(() => {
+          /* offline, or a party that's been deleted — offer everything */
+        });
+    }
   });
 
   // The mobile order sheet spans two siblings — the rail and its click-to-dismiss
@@ -54,8 +84,11 @@
     };
   });
 
+  /** Only ever suggests something the bar can actually pour. */
   function surprise() {
-    selected = DRINKS[Math.floor(Math.random() * DRINKS.length)]!;
+    const pool = DRINKS.filter((d) => pourable(d.name));
+    if (pool.length === 0) return;
+    selected = pool[Math.floor(Math.random() * pool.length)]!;
   }
 
   function toggleFav(name: string) {
@@ -138,7 +171,10 @@
            the class drives it rather than a filtered list. -->
       <div class="menu" class:faves-only={favesOnly}>
         {#each DRINKS as d (d.name)}
-          <article class="cocktail" class:is-fav={favourites.has(d.name)}>
+          {@const on = pourable(d.name)}
+          <!-- Order is never re-sorted on the availability response: drinks
+               visibly jumping around a second after load reads as a glitch. -->
+          <article class="cocktail" class:is-fav={favourites.has(d.name)} class:is-out={!on}>
             <button
               type="button"
               class="fav"
@@ -149,7 +185,9 @@
               {favourites.has(d.name) ? '⭐' : '☆'}
             </button>
             <h3><span class="emoji">{d.emoji}</span> {d.name}</h3>
-            <button type="button" class="order" onclick={() => (selected = d)}>Add to order</button>
+            <button type="button" class="order" disabled={!on} onclick={() => (selected = d)}>
+              {on ? 'Add to order' : 'Not tonight'}
+            </button>
           </article>
         {/each}
       </div>

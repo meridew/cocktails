@@ -215,6 +215,52 @@ export const createParty = (name: string) =>
 export const openBar = (eventId: string) =>
   req<{ ok: true; token: string; staff: Staff }>(`/events/${eventId}/bar`, { method: 'POST' });
 
+// ---- what the host has in ----
+
+/** A recipe as the stock screen lists it — enough to name it, nothing more. */
+export interface Pourable {
+  id: string;
+  name: string;
+  base: string;
+}
+
+export interface StockView {
+  /** Everything tickable, so the screen needs no second source for the list. */
+  stockable: string[];
+  stock: string[];
+  makeable: Pourable[];
+  /** What one more bottle would unlock, best first. */
+  suggestions: { ingredient: string; unlocks: number }[];
+}
+
+export const getStock = () => req<{ ok: true } & StockView>('/inventory');
+
+/**
+ * Replace the whole list rather than toggling one bottle.
+ *
+ * Matches the endpoint, and for the same reason: a request per tick would make the
+ * makeable count flicker through states the host never chose.
+ */
+export const saveStock = (stock: string[]) =>
+  req<{ ok: true; stock: string[]; makeable: Pourable[] }>('/inventory', {
+    method: 'PUT',
+    body: JSON.stringify({ stock }),
+  });
+
+/**
+ * What a party can pour, for the guest menu. Public — a menu is not a secret.
+ *
+ * Not routed through `req`'s auth at all in spirit: guests are anonymous, and the
+ * endpoint ignores the header if one happens to be attached.
+ */
+export const eventMenu = (eventId: string) =>
+  req<{
+    ok: true;
+    event: { id: string; name: string };
+    available: Record<string, boolean>;
+    makeable: Pourable[];
+  }>(`/events/${eventId}/menu`);
+
 // ---- staff auth ----
 
 /**

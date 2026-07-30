@@ -79,6 +79,51 @@ export const STOCKABLE: string[] = [
 /** Which category an ingredient belongs to, or undefined for a base with no entry. */
 export const categoryOf = (ingredient: string): Category | undefined => INGREDIENTS[ingredient];
 
+/**
+ * Headings for the stock screen.
+ *
+ * Deliberately **not** `CATEGORY_LABELS`, which are the interactive walk's questions
+ * — "A squeeze of citrus?" is the right thing to ask a guest choosing a drink and the
+ * wrong thing to print above a column of checkboxes. Same categories, different job,
+ * so a second set of words rather than one set stretched over both.
+ */
+export const SHELF_LABELS: Record<Category, string> = {
+  liquor: 'Spirits & liqueurs',
+  citrus: 'Citrus',
+  juice: 'Juices',
+  sweetener: 'Sweet',
+  bitters: 'Bitters',
+  texture: 'Egg & cream',
+  herb: 'Herbs & muddles',
+  top: 'Mixers',
+  aromatic: 'Savoury & spice',
+  finish: 'Garnishes',
+  method: 'How it is built',
+};
+
+/**
+ * `STOCKABLE` arranged for a human to work down — the shape the stock screen needs.
+ *
+ * A flat alphabetical list of ~100 bottles is a search task; grouped into ten
+ * headings it's a walk through a cupboard. The order is `categoryOrder`, which the
+ * legacy app already tuned for the interactive walk (spirit first, garnish last), so
+ * a host meets the decisions that matter most while they still care.
+ *
+ * The 12 bases with no entry in the ingredients table — White Rum, Sherry, Aquavit
+ * and the rest — are filed under `liquor`. That is not a guess: a `base` is by
+ * definition the spirit a drink is built on, so there is no other shelf it could be
+ * on, and leaving them ungrouped would strand exactly the ticks that unlock the most
+ * drinks.
+ */
+export const STOCK_GROUPS: readonly { category: Category; label: string; items: string[] }[] =
+  CATEGORY_ORDER.filter((c) => !NON_STOCKABLE.has(c))
+    .map((category) => ({
+      category,
+      label: SHELF_LABELS[category],
+      items: STOCKABLE.filter((i) => (categoryOf(i) ?? 'liquor') === category),
+    }))
+    .filter((g) => g.items.length > 0);
+
 // ---- Make-a-Drink: the interactive walk ------------------------------------
 
 export interface WalkState {
@@ -134,6 +179,22 @@ export interface MakeableOptions {
    */
   ignore?: readonly Category[];
 }
+
+/**
+ * The product decision about garnishes, made once.
+ *
+ * A missing olive shouldn't hide a Martini, and asking a host to tick fourteen
+ * garnishes before their menu behaves would make the stock screen a chore rather
+ * than a minute's work.
+ *
+ * It lives here rather than in either endpoint because it was briefly in **both**,
+ * and they didn't agree: `/api/inventory` passed nothing while `/api/events/[id]/menu`
+ * passed `['finish']`, so the host's screen and the guest menu were counting
+ * different drinks. That is precisely the drift both endpoints compute server-side
+ * to avoid — a rule written twice is a rule that will differ, which is the same
+ * reason the permission table has one home.
+ */
+export const OPTIONAL_CATEGORIES: readonly Category[] = ['finish'];
 
 /**
  * What tonight's stock can actually produce.

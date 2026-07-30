@@ -15,10 +15,14 @@ import { test, describe } from 'vitest';
 import assert from 'node:assert/strict';
 import {
   BASES,
+  CATEGORY_LABELS,
   CATEGORY_ORDER,
   INGREDIENTS,
+  OPTIONAL_CATEGORIES,
   RECIPES,
+  SHELF_LABELS,
   STOCKABLE,
+  STOCK_GROUPS,
   categoryOf,
   countWith,
   exactMatch,
@@ -308,5 +312,66 @@ describe('availability — gating the curated menu', () => {
   test('matching ignores case, because the two lists were written separately', () => {
     const stock = ['Tequila', 'Triple Sec', 'Lime Juice', 'Agave Syrup'];
     assert.equal(availability(stock, ['MARGARITA'])['MARGARITA'], true);
+  });
+});
+
+describe('the shape the stock screen needs', () => {
+  test('every tickable ingredient lands in exactly one group', () => {
+    const grouped = STOCK_GROUPS.flatMap((g) => g.items);
+    assert.deepEqual([...grouped].sort(), [...STOCKABLE].sort());
+    assert.equal(new Set(grouped).size, grouped.length, 'an ingredient appeared twice');
+  });
+
+  test('the bases with no ingredients entry are filed under spirits', () => {
+    const liquor = STOCK_GROUPS.find((g) => g.category === 'liquor');
+    assert.ok(liquor);
+    // White Rum is a `base` and nothing else. Left ungrouped it would be untickable,
+    // which would make every rum drink permanently unmakeable.
+    assert.ok(!INGREDIENTS['White Rum'], 'this test is pointless if the data changed');
+    assert.ok(liquor.items.includes('White Rum'));
+  });
+
+  test('nothing you cannot stock has a shelf', () => {
+    assert.ok(!STOCK_GROUPS.some((g) => g.category === 'method'));
+    assert.ok(
+      !STOCK_GROUPS.some((g) => g.items.length === 0),
+      'an empty heading is a dangling one',
+    );
+  });
+
+  test('groups follow the walk order, spirit first and garnish last', () => {
+    const order = STOCK_GROUPS.map((g) => g.category);
+    assert.equal(order[0], 'liquor');
+    assert.equal(order.at(-1), 'finish');
+    assert.deepEqual(
+      order,
+      CATEGORY_ORDER.filter((c) => order.includes(c)),
+    );
+  });
+
+  test('the headings are not the walk’s questions', () => {
+    // CATEGORY_LABELS asks "A squeeze of citrus?" — right for a guest choosing a
+    // drink, wrong above a column of checkboxes. Same categories, different job.
+    for (const g of STOCK_GROUPS) {
+      assert.notEqual(g.label, CATEGORY_LABELS[g.category]);
+      assert.ok(!g.label.includes('?'), `"${g.label}" is a question, not a heading`);
+    }
+    assert.equal(SHELF_LABELS.liquor, 'Spirits & liqueurs');
+  });
+});
+
+describe('the pouring rule, shared', () => {
+  test('a garnish does not hide a drink', () => {
+    // Dry Martini is gin, dry vermouth and an olive; the olive is a `finish`.
+    const cupboard = ['Gin', 'Dry Vermouth'];
+    const strict = makeable(cupboard).map((r) => r.name);
+    const real = makeable(cupboard, { ignore: OPTIONAL_CATEGORIES }).map((r) => r.name);
+    assert.ok(!strict.includes('Dry Martini'), 'this test is pointless if the data changed');
+    assert.ok(real.includes('Dry Martini'), 'a missing olive should not hide a Martini');
+  });
+
+  test('it says garnishes and nothing else', () => {
+    // Widening this silently would make drinks appear that the host cannot pour.
+    assert.deepEqual([...OPTIONAL_CATEGORIES], ['finish']);
   });
 });

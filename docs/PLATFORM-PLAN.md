@@ -6,14 +6,14 @@
 > in §2 were made deliberately after research; don't relitigate them without a reason,
 > and if you do, record the reason here.
 
-## Where this actually stands — 30 Jul 2026
+## Where this actually stands — 31 Jul 2026
 
-**Phases 0, 1, 2, 2.5, 2.6 and 4 are done. Phase 3 is half done. Phase 5 hasn't
-started.** 333 tests, 0 type errors, working tree clean.
+**Phases 0, 1, 2, 2.5, 2.6, 3 and 4 are done. Phase 5 hasn't started.** 361 tests,
+0 type errors, working tree clean.
 
-**⚠️ `main` is four commits ahead of what is live.** The Mac serves `1ba0771`; `main`
-is `4a4708c`. So the host screen, Google sign-in and menu gating are **written,
-tested and not deployed**. Deploying is manual and on Dan's say-so:
+**⚠️ `main` is six commits ahead of what is live.** The Mac serves `1ba0771`. So the
+host screen, Google sign-in, menu gating and the stock screen are **written, tested
+and not deployed**. Deploying is manual and on Dan's say-so:
 
 ```bash
 gh workflow run "gate + deploy (Mac)" --ref main -f deploy=true
@@ -21,15 +21,14 @@ gh workflow run "gate + deploy (Mac)" --ref main -f deploy=true
 
 ### What is left, and who it's waiting on
 
-|                                                | Whose | Notes                                                                                                                                       |
-| ---------------------------------------------- | ----- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Host stock screen** — tick what you have in  | mine  | The last piece of phase 3. `GET/PUT /api/inventory` and `GET /api/events/[id]/menu` already exist and are tested; this is the UI over them. |
-| **Guest menu shows unavailable drinks**        | mine  | Endpoint done; `+page.svelte` doesn't call it yet.                                                                                          |
-| **Widen `can()` to account-role × event-role** | mine  | §6 promises this and the code doesn't do it — see `OUTSTANDING.md` concession 3.                                                            |
-| **Phase 5 — Playwright**                       | mine  | Not started.                                                                                                                                |
-| **Google credentials**                         | Dan's | Code is done and tested; needs a client id + secret. `OUTSTANDING.md`.                                                                      |
-| **`STAFF_PIN`**                                | Dan's | Empty on the Mac, so PIN sign-in is off. Email + password works.                                                                            |
-| **Litestream → R2**                            | Dan's | **Parked by Dan.** There are currently no backups of anything.                                                                              |
+|                                                | Whose | Notes                                                                                                                              |
+| ---------------------------------------------- | ----- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| **Widen `can()` to account-role × event-role** | mine  | §6 promises this and the code doesn't do it — see `OUTSTANDING.md` concession 3.                                                   |
+| **Phase 5 — Playwright**                       | mine  | Not started.                                                                                                                       |
+| **Make-a-Drink, the interactive walk**         | mine  | `reachable()` is ported and tested and nothing calls it. Phase 3 said to do it once the inventory had proved the port; it now has. |
+| **Google credentials**                         | Dan's | Code is done and tested; needs a client id + secret. `OUTSTANDING.md`.                                                             |
+| **`STAFF_PIN`**                                | Dan's | Empty on the Mac, so PIN sign-in is off. Email + password works.                                                                   |
+| **Litestream → R2**                            | Dan's | **Parked by Dan.** There are currently no backups of anything.                                                                     |
 
 ### Two habits this plan cost me, recorded so they don't repeat
 
@@ -459,7 +458,7 @@ without depending on a session that by design doesn't exist yet.
 `/host` is reachable from the bar door ("It's my party"), because it was otherwise
 findable only by typing the URL.
 
-### Phase 3 — inventory and the generator
+### ~~Phase 3 — inventory and the generator~~ ✅ done, 31 Jul 2026
 
 - Restore the data: `git show 5a41824:cocktails.json` — **270 recipes**, an 11-step
   `categoryOrder` (liquor → citrus → juice → sweetener → bitters → texture → herb →
@@ -475,6 +474,23 @@ which is why the interactive flow should come _after_ the inventory proves the p
 
 _Gate: the ported engine agrees with the old one on a fixture set of ingredient
 combinations._
+
+**Two things this phase turned up that the plan didn't predict, both in
+`tests/stock.test.ts`:**
+
+1. **The two screens were already disagreeing.** `GET /api/inventory` computed
+   `makeable(stock)` and `GET /api/events/[id]/menu` computed
+   `makeable(stock, { ignore: ['finish'] })`, so a Dry Martini counted at the bar and
+   not on the menu. Nothing failed — the numbers were just different, on two screens
+   nobody sees side by side. The rule is now `OPTIONAL_CATEGORIES` in `$lib/shared`,
+   read by both, with a test asserting the two agree.
+2. **An unrecorded cupboard is not an empty one.** Gating on "no stock rows" greyed
+   out four of six drinks for every brand-new party, before the host had been asked a
+   single question. `rows.length === 0` now means "never asked" and offers everything;
+   the `false` rows the PUT already writes are what make the first tick real.
+
+Make-a-Drink — the interactive walk over `reachable()` — is still unbuilt. The port is
+done and tested, which is the precondition the plan set for it.
 
 ### Phase 4 — move to the Mac, natively — ⏳ mostly done, 30 Jul 2026
 

@@ -1,18 +1,8 @@
 import { json, type RequestEvent } from '@sveltejs/kit';
-import { availability, makeable, type Category } from '$lib/shared';
+import { availability, makeable, OPTIONAL_CATEGORIES } from '$lib/shared';
 import { DRINKS } from '$lib/data';
 import { eventById, listInventory } from '$lib/server/db';
 import { fail } from '$lib/server/guards';
-
-/**
- * Garnishes don't gate a drink.
- *
- * A missing olive shouldn't hide a Martini, and asking a host to tick fourteen
- * garnishes before their menu behaves would make the stock screen a chore rather
- * than a minute's work. Stated here rather than buried in `makeable` because it is
- * a product decision, not a property of the engine.
- */
-const IGNORE: readonly Category[] = ['finish'];
 
 /**
  * What this party can pour — public, because guests are anonymous.
@@ -29,21 +19,34 @@ export function GET(event: RequestEvent) {
   const party = eventById(event.params.id!);
   if (!party) return fail(404, 'no such party');
 
-  const stock = listInventory(party.id)
-    .filter((r) => r.inStock)
-    .map((r) => r.ingredient);
+  const rows = listInventory(party.id);
+  const stock = rows.filter((r) => r.inStock).map((r) => r.ingredient);
+
+  /**
+   * A host who has never opened the stock screen has not told us they have nothing.
+   *
+   * Without this, the default state of every brand-new party is a menu with four of
+   * six drinks greyed out — the app looking broken at exactly the moment someone is
+   * deciding whether to trust it. "Never asked" is not "asked and answered no", and
+   * the PUT already keeps that distinction alive by writing `false` rows rather than
+   * deleting them: untick everything and this is `false`, so the gating is real from
+   * the first tick onward.
+   */
+  const unrecorded = rows.length === 0;
 
   return json({
     ok: true,
     event: { id: party.id, name: party.name },
     /** name → can we pour it. Unknown drinks report available; see `availability`. */
-    available: availability(
-      stock,
-      DRINKS.map((d) => d.name),
-      { ignore: IGNORE },
-    ),
+    available: unrecorded
+      ? Object.fromEntries(DRINKS.map((d) => [d.name, true]))
+      : availability(
+          stock,
+          DRINKS.map((d) => d.name),
+          { ignore: OPTIONAL_CATEGORIES },
+        ),
     /** Everything the stock can make, for a host deciding what else to offer. */
-    makeable: makeable(stock, { ignore: IGNORE }).map((r) => ({
+    makeable: makeable(stock, { ignore: OPTIONAL_CATEGORIES }).map((r) => ({
       id: r.id,
       name: r.name,
       base: r.base,

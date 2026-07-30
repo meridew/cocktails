@@ -551,6 +551,122 @@
   background: #ff2e88;
 }
 
+/* A drink the host hasn't got the makings for. Dimmed and inert rather than
+   removed — see the note in +page.svelte on why it stays on the menu. */
+.cocktail.is-out {
+  opacity: 0.45;
+  filter: grayscale(0.8);
+}
+.cocktail.is-out .order {
+  cursor: not-allowed;
+}
+
+/* the host's stock list — shares .bt-staff-* for the panel chrome */
+.bt-stock {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 12px 14px 28px;
+}
+/* The number the screen exists to move; pinned under the header so the effect of
+   a tick is never off-screen. */
+.bt-stock-count {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  margin: 0;
+  padding: 10px 0;
+  background: #0a0a12;
+  font-family: 'Bungee', system-ui, sans-serif;
+  font-size: 0.9rem;
+}
+.bt-stock-count b {
+  color: #ffe600;
+}
+.bt-stock-acts {
+  margin-bottom: 4px;
+}
+.bt-stock-search input {
+  width: 100%;
+  margin-top: 18px;
+  padding: 10px 12px;
+  min-height: 44px;
+  font: inherit;
+  color: inherit;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 8px;
+}
+/* auto-fill rather than fixed columns: one column on a phone, three on a laptop,
+   without a media query per breakpoint. */
+.bt-stock-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 4px 10px;
+}
+.bt-stock-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 6px;
+  min-height: 44px; /* thumb-sized: this list is worked through standing up */
+  border-radius: 8px;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+.bt-stock-item.is-in {
+  background: rgba(255, 230, 0, 0.12);
+}
+.bt-stock-item input {
+  width: 20px;
+  height: 20px;
+  flex: none;
+  accent-color: #ffe600;
+}
+.bt-stock-item:has(input:disabled) {
+  cursor: default;
+  opacity: 0.75;
+}
+.bt-stock-suggest {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.bt-stock-tip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  min-height: 40px;
+  font: inherit;
+  font-size: 0.85rem;
+  color: inherit;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+  cursor: pointer;
+}
+.bt-stock-tip b {
+  color: #ffe600;
+}
+.bt-stock-tip:disabled {
+  cursor: default;
+  opacity: 0.7;
+}
+/* Names, not cards: at ~40 drinks this is a glance-able list, and each one in its
+   own box would be four screens of scrolling. */
+.bt-stock-pourable {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  font-size: 0.85rem;
+}
+.bt-stock-pourable span {
+  padding: 4px 10px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+}
+
 /* "Notify me" Web Push opt-in (celebrate dialog) */
 .notify-btn {
   display: inline-block;
