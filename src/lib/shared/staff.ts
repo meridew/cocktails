@@ -59,9 +59,8 @@ export interface Staff {
   createdAt: number;
 }
 
-/** Only admins may approve, deny or revoke. */
-export const canApproveStaff = (staff: Staff | null): boolean =>
-  staff?.role === 'admin' && staff.status === 'active';
+// Who may approve, deny or revoke now lives in ./permissions, alongside every
+// other such rule, so the server guard and the UI cannot disagree about it.
 
 // ---- request-to-help flow --------------------------------------------------
 

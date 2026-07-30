@@ -3,7 +3,7 @@ import type { OkResponse } from '$lib/shared';
 import { deleteStaff, staffById } from '$lib/server/db';
 import { staffDecisionPush } from '$lib/server/notify';
 import { pushToDevice } from '$lib/server/push';
-import { denied, fail, requireAdmin } from '$lib/server/guards';
+import { denied, fail, requireCapability } from '$lib/server/guards';
 
 /**
  * Deny a request, or remove a helper entirely.
@@ -12,7 +12,7 @@ import { denied, fail, requireAdmin } from '$lib/server/guards';
  * that was never granted, and it keeps the host's list clean.
  */
 export function DELETE(event: RequestEvent) {
-  const auth = requireAdmin(event);
+  const auth = requireCapability(event, 'staff:revoke');
   if (denied(auth)) return auth.denied;
 
   const target = staffById(event.params.id!);

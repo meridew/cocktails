@@ -277,7 +277,7 @@ export const can = (member: Membership | null, cap: Capability): boolean => …
 
 ## 7. Phases
 
-### Phase 0 — Drizzle, migrations, capabilities _(no user-visible change)_
+### ~~Phase 0 — Drizzle, migrations, capabilities~~ ✅ done, 30 Jul 2026
 
 1. **Adopt Drizzle.** Add `drizzle-orm`, `drizzle-kit`, `better-sqlite3`; drop
    `node:sqlite`. Declare the current schema in `src/lib/server/schema.ts`.
@@ -290,8 +290,18 @@ export const can = (member: Membership | null, cap: Capability): boolean => …
    capability — the same trick that already guards the test dispatcher, so a new
    endpoint can't ship ungoverned.
 
-_Gate: 251 tests green, plus new tests for the capability table. Prove the baseline
-migration produces a schema identical to today's._
+_Gate: **met** — 261 tests green (251 + 10 new), 820 files 0 type errors. The baseline
+migration was generated from the schema and produces the same five tables, defaults,
+composite key and unique index as the old declared DDL; the app was booted to confirm
+it applies at first query and round-trips an order._
+
+**Two things worth knowing before phase 1:**
+
+- Migrations are applied by `createDb`, not a separate boot step, so one code path
+  covers the server, the dev loop and every `createDb(':memory:')` in the tests.
+- A database created **before** this phase has the tables but no
+  `__drizzle_migrations` row, so the baseline collides with "table orders already
+  exists". Deliberately not solved with adoption code — see `OUTSTANDING.md`.
 
 ### Phase 1 — accounts
 

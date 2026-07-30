@@ -3,11 +3,12 @@
  *
  * These are called at the top of a handler rather than registered as middleware.
  * Hono's `app.use` chain made the guard a property of the route table, several
- * files away from the code it protected; here `requireAdmin(event)` sits on the
- * first line of the thing it guards, which is much harder to forget or misread.
+ * files away from the code it protected; here `requireCapability(event, cap)` sits
+ * on the first line of the thing it guards, which is much harder to forget or
+ * misread — and `tests/capabilities.test.ts` fails if an endpoint ships without one.
  */
 import { json, type RequestEvent } from '@sveltejs/kit';
-import type { Staff } from '$lib/shared';
+import { can, type Capability, type Staff } from '$lib/shared';
 import { sessionStaff } from './auth';
 import { bearer } from './http';
 
@@ -31,16 +32,25 @@ export function requireStaff(event: RequestEvent): { staff: Staff } | { denied: 
 }
 
 /**
- * As above, but admins only — for deciding who else gets in.
+ * As above, but the caller must hold a specific capability.
+ *
+ * This replaced `requireAdmin`, which encoded the rule as `role !== 'admin'` right
+ * here — a second copy of a decision the client was also making. Now both sides
+ * read `$lib/shared/permissions`, so a role gaining or losing a power is one edit
+ * and the UI follows automatically.
  *
  * 403 rather than 401 when a signed-in bartender asks, so they learn they're
- * authenticated but not permitted, and can't mistake it for an expired session
- * and try to promote themselves by signing in again.
+ * authenticated but not permitted, and can't mistake it for an expired session and
+ * try to promote themselves by signing in again. The capability is named in the
+ * error because it's the useful half: "admin only" doesn't say what was wanted.
  */
-export function requireAdmin(event: RequestEvent): { staff: Staff } | { denied: Denied } {
+export function requireCapability(
+  event: RequestEvent,
+  capability: Capability,
+): { staff: Staff } | { denied: Denied } {
   const staff = sessionStaff(bearer(event));
   if (!staff) return { denied: fail(401, 'unauthorized') };
-  if (staff.role !== 'admin') return { denied: fail(403, 'admin only') };
+  if (!can(staff, capability)) return { denied: fail(403, `requires ${capability}`) };
   return { staff };
 }
 

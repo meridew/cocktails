@@ -92,9 +92,13 @@ src/
 ```
 
 - `$lib/server/*` is compiler-enforced: importing it from client code fails the build.
-- **Auth guards are not middleware.** `requireStaff`/`requireAdmin` are called on the
-  first line of the handler they protect, so the guard is visible in the file it
-  guards.
+- **Auth guards are not middleware.** `requireCapability(event, 'orders:advance')` is
+  called on the first line of the handler it protects, so the guard is visible in the
+  file it guards. `tests/capabilities.test.ts` fails if an endpoint ships without one,
+  and proves the declared requirement is actually enforced rather than just declared.
+- **Permissions live in one table**, `$lib/shared/permissions.ts`, which the server
+  guard and the UI both read — so what the client offers and what the server allows
+  cannot drift.
 - **No SQLite migrations.** The schema is declared; a change means editing it and
   running `npm run db:reset`. Still fine — nothing is live. **PLATFORM-PLAN.md phase
   0** replaces this with Drizzle + `drizzle-kit`, and ⚠️ **the freedom to wipe ends

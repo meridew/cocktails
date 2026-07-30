@@ -3,11 +3,11 @@ import { isHandoff, isOrderStatus, type Handoff } from '$lib/shared';
 import { deleteOrder, orderDeviceId, setOrderStatus } from '$lib/server/db';
 import { guestStatusPush } from '$lib/server/notify';
 import { pushToDevice } from '$lib/server/push';
-import { body, denied, fail, requireStaff } from '$lib/server/guards';
+import { body, denied, fail, requireCapability } from '$lib/server/guards';
 
 /** Move an order along, optionally saying how the drink reaches the guest. */
 export async function PATCH(event: RequestEvent) {
-  const auth = requireStaff(event);
+  const auth = requireCapability(event, 'orders:advance');
   if (denied(auth)) return auth.denied;
 
   const b = await body(event);
@@ -29,7 +29,7 @@ export async function PATCH(event: RequestEvent) {
 }
 
 export function DELETE(event: RequestEvent) {
-  const auth = requireStaff(event);
+  const auth = requireCapability(event, 'orders:delete');
   if (denied(auth)) return auth.denied;
   if (!deleteOrder(event.params.id!)) return fail(404, 'not found');
   return json({ ok: true });

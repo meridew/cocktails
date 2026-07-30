@@ -9,7 +9,7 @@
   import { dialog } from '$lib/dialog';
 
   let {
-    isAdmin,
+    canManageStaff,
     pendingStaff,
     sort,
     pushLabel,
@@ -20,7 +20,7 @@
     onsignout,
     onclose,
   }: {
-    isAdmin: boolean;
+    canManageStaff: boolean;
     pendingStaff: number;
     sort: 'oldest' | 'newest';
     /** null when push can't be offered at all on this device. */
@@ -55,7 +55,7 @@
   <div class="barmenu-sheet">
     <h3>Bar options</h3>
 
-    {#if isAdmin}
+    {#if canManageStaff}
       <button type="button" class="barmenu-item" onclick={pick(onstaff)}>
         <span>Bar staff</span>
         {#if pendingStaff}

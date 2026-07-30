@@ -13,6 +13,7 @@
 export * from './limits';
 export * from './orders';
 export * from './staff';
+export * from './permissions';
 export * from './push';
 export * from './api';
 export * from './sanitise';

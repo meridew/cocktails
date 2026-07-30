@@ -1,6 +1,6 @@
 import { json, type RequestEvent } from '@sveltejs/kit';
 import { setItemProgress } from '$lib/server/db';
-import { body, denied, fail, requireStaff } from '$lib/server/guards';
+import { body, denied, fail, requireCapability } from '$lib/server/guards';
 
 /**
  * Record how many of one line have been poured.
@@ -9,7 +9,7 @@ import { body, denied, fail, requireStaff } from '$lib/server/guards';
  * payload carrying them can't rewrite the drink. The server clamps to the qty.
  */
 export async function PATCH(event: RequestEvent) {
-  const auth = requireStaff(event);
+  const auth = requireCapability(event, 'orders:advance');
   if (denied(auth)) return auth.denied;
 
   const b = await body(event);

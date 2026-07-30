@@ -33,7 +33,7 @@
   import BarMenu from '$lib/components/BarMenu.svelte';
   import OrderCard from '$lib/components/OrderCard.svelte';
   import { SvelteSet } from 'svelte/reactivity';
-  import { canApproveStaff, ORDER_STATUSES, STATUS_META } from '$lib/shared';
+  import { can, ORDER_STATUSES, STATUS_META } from '$lib/shared';
   import type { Handoff, Order, OrderStatus, Staff } from '$lib/shared';
   import { view } from '$lib/stores/view.svelte';
 
@@ -59,7 +59,7 @@
   let notify = $derived(pushState('bartender'));
 
   // Staff administration, admins only.
-  let isAdmin = $derived(canApproveStaff(session.staff));
+  let canManageStaff = $derived(can(session.staff, 'staff:approve'));
   let showStaff = $state(false);
   let staff = $state<Staff[]>([]);
   let staffLoaded = $state(false);
@@ -108,7 +108,7 @@
 
   /** Admins also poll the staff list, so a new request shows up without a refresh. */
   async function fetchStaff() {
-    if (!canApproveStaff(session.staff)) return;
+    if (!can(session.staff, 'staff:approve')) return;
     const started = session.generation;
     try {
       const r = await listStaff();
@@ -268,7 +268,7 @@
         aria-label={pendingCount ? `Bar options — ${pendingCount} staff waiting` : 'Bar options'}
         onclick={() => (menuOpen = true)}
       >
-        ⋯{#if isAdmin && pendingCount}<b class="bar-dot"></b>{/if}
+        ⋯{#if canManageStaff && pendingCount}<b class="bar-dot"></b>{/if}
       </button>
     {/if}
     <button type="button" class="bar-icon" onclick={onclose} aria-label="Back to the menu">✕</button
@@ -279,7 +279,7 @@
 
   {#if !signedIn}
     <StaffGate onasked={onclose} />
-  {:else if showStaff && isAdmin}
+  {:else if showStaff && canManageStaff}
     <StaffAdmin
       {staff}
       loaded={staffLoaded}
@@ -338,7 +338,7 @@
 
 {#if menuOpen}
   <BarMenu
-    {isAdmin}
+    {canManageStaff}
     pendingStaff={pendingCount}
     {sort}
     {pushLabel}

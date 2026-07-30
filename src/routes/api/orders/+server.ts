@@ -8,12 +8,12 @@ import {
 import { createOrder, listOrders, now } from '$lib/server/db';
 import { newOrderPush } from '$lib/server/notify';
 import { pushToRole } from '$lib/server/push';
-import { body, denied, fail, requireStaff } from '$lib/server/guards';
+import { body, denied, fail, requireCapability } from '$lib/server/guards';
 import { rateLimitWrites } from '$lib/server/ratelimit';
 
 /** The bar's queue. */
 export function GET(event: RequestEvent) {
-  const auth = requireStaff(event);
+  const auth = requireCapability(event, 'orders:read');
   if (denied(auth)) return auth.denied;
   return json({ ok: true, orders: listOrders(), now: now() } satisfies OrderListResponse);
 }

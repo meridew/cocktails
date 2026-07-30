@@ -4,10 +4,10 @@ import { approveStaff } from '$lib/server/auth';
 import { staffById } from '$lib/server/db';
 import { staffDecisionPush } from '$lib/server/notify';
 import { pushToDevice } from '$lib/server/push';
-import { denied, fail, requireAdmin } from '$lib/server/guards';
+import { denied, fail, requireCapability } from '$lib/server/guards';
 
 export function POST(event: RequestEvent) {
-  const auth = requireAdmin(event);
+  const auth = requireCapability(event, 'staff:approve');
   if (denied(auth)) return auth.denied;
 
   const target = staffById(event.params.id!);

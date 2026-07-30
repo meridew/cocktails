@@ -1,10 +1,10 @@
 import { json, type RequestEvent } from '@sveltejs/kit';
 import type { OkResponse } from '$lib/shared';
 import { revokeStaff, staffById } from '$lib/server/db';
-import { denied, fail, requireAdmin } from '$lib/server/guards';
+import { denied, fail, requireCapability } from '$lib/server/guards';
 
 export function POST(event: RequestEvent) {
-  const auth = requireAdmin(event);
+  const auth = requireCapability(event, 'staff:revoke');
   if (denied(auth)) return auth.denied;
 
   const target = staffById(event.params.id!);
