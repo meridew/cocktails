@@ -17,7 +17,7 @@
  *   node scripts/db.js seed helper    a helper waiting for approval
  *   node scripts/db.js show           what's in there
  */
-import { DatabaseSync } from 'node:sqlite';
+import Database from 'better-sqlite3';
 import { existsSync, mkdirSync, rmSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { randomBytes } from 'node:crypto';
@@ -36,11 +36,15 @@ const now = () => Date.now();
 /**
  * Empty the database.
  *
- * Deleting the file is the cleaner option — the schema is then recreated from
- * scratch on the next boot, which is the whole point of having no migrations. But
- * Windows refuses to unlink a file another process has open, and the dev server
- * usually does. So if that fails, empty every table in place instead: same
- * observable result, and it doesn't require stopping the server first.
+ * Deleting the file is the cleaner option — the migrations replay from scratch on
+ * the next boot. But Windows refuses to unlink a file another process has open,
+ * and the dev server usually does. So if that fails, empty every table in place
+ * instead: same observable result, and it doesn't require stopping the server.
+ *
+ * Emptying deliberately skips `__drizzle_migrations`, so the schema survives and
+ * only the data goes. Dropping that table would leave the schema in place while
+ * claiming nothing had been applied, and the next boot would fail re-creating
+ * tables that already exist.
  */
 function reset() {
   try {
@@ -53,9 +57,12 @@ function reset() {
     if (err.code !== 'EPERM' && err.code !== 'EBUSY') throw err;
   }
 
-  const db = new DatabaseSync(path);
+  const db = new Database(path);
   const tables = db
-    .prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'`)
+    .prepare(
+      `SELECT name FROM sqlite_master
+        WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name <> '__drizzle_migrations'`,
+    )
     .all();
   for (const { name } of tables) db.prepare(`DELETE FROM ${name}`).run();
   db.close();
@@ -68,7 +75,7 @@ function open() {
     console.error(`no database at ${DB_PATH} — start the server once to create it`);
     process.exit(1);
   }
-  return new DatabaseSync(path);
+  return new Database(path);
 }
 
 const SCENARIOS = {

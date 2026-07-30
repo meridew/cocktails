@@ -16,6 +16,6 @@ export function POST(event: RequestEvent) {
   }
   // Reach them even if they've pocketed their phone: polling only works while the
   // page is awake, and a browser freezes timers when it isn't.
-  if (target.device_id) void pushToDevice(target.device_id, staffDecisionPush(true));
+  if (target.deviceId) void pushToDevice(target.deviceId, staffDecisionPush(true));
   return json({ ok: true } satisfies OkResponse);
 }

@@ -1,23 +1,29 @@
 /**
- * Persistence layer. All SQL lives here; callers get plain functions.
+ * Persistence layer. All queries live here; callers get plain functions.
  *
- * `createDb(path)` builds an isolated database handle with its statements
- * prepared once. The module then exposes each query as a thin delegate over a
- * lazily-created singleton, so callers (`auth.ts`, `push.ts`, `app.ts`) import
- * plain functions and know nothing about the handle. Tests call `createDb(':memory:')`
- * directly for a fresh schema per test.
+ * `createDb(path)` builds an isolated handle, applies any outstanding migrations,
+ * and returns the query API. The module then exposes each query as a thin delegate
+ * over a lazily-created singleton, so callers (`auth.ts`, `push.ts`, `app.ts`)
+ * import plain functions and know nothing about the handle. Tests call
+ * `createDb(':memory:')` directly for a fresh schema per test.
  *
- * There is deliberately no migration machinery. It used to carry ~110 lines of
- * detect-then-act column adds and table rebuilds, purely to upgrade a deployed
- * database in place — and the database is disposable, so that was pure cost. A
- * schema change is an edit here plus `npm run db:reset`. When the app holds data
- * worth keeping, a forward-only numbered runner goes in; it will be far simpler
- * than what was removed.
+ * Queries are Drizzle rather than SQL strings, which buys two things worth the
+ * rewrite: the row types are *derived* from `schema.ts` instead of asserted with
+ * `as unknown as`, and a mistyped column is a compile error rather than a runtime
+ * one. Where Drizzle can't express something (SQLite's `rowid`, boolean-expression
+ * ordering, `COALESCE` in an UPDATE) the `sql` template drops through — that's the
+ * intended escape hatch, not a workaround.
+ *
+ * Everything is synchronous: better-sqlite3 is a synchronous driver, and SQLite is
+ * a library rather than a server, so there is no I/O to await.
  *
  * Lazy on purpose: importing this module must not touch the filesystem, so a
  * typecheck or a test that never queries pays nothing.
  */
-import { DatabaseSync } from 'node:sqlite';
+import Database from 'better-sqlite3';
+import { drizzle, type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
+import { and, asc, count, desc, eq, inArray, lt, ne, sql } from 'drizzle-orm';
 import { mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { randomBytes } from 'node:crypto';
@@ -35,57 +41,23 @@ import type {
 } from '$lib/shared';
 import { LIMITS, isHandoff } from '$lib/shared';
 import { config } from './config';
+import * as schema from './schema';
+import { joinCodes, orders, staff, staffSessions, subscriptions } from './schema';
 
 export const now = (): number => Date.now();
 export const genId = (): string => randomBytes(6).toString('hex');
 
-interface OrderRow {
-  id: string;
-  name: string;
-  items: string;
-  note: string;
-  status: string;
-  device_id: string | null;
-  bumped_at: number | null;
-  handoff: string | null;
-  created_at: number;
-  updated_at: number;
-}
-
-export interface StaffRow {
-  id: string;
-  display_name: string;
-  /** null for helpers (they have no password to sign in with) */
-  email: string | null;
-  password_hash: string | null;
-  device_id: string | null;
-  role: string;
-  status: string;
-  claim_hash: string | null;
-  claim_expires_at: number | null;
-  /** 'seed' | 'code' | 'request' — how this person got in. */
-  joined_via: string;
-  /** Which admin approved them, when a person did. Null for seeds and codes. */
-  approved_by: string | null;
-  created_at: number;
-}
-
-interface SessionRow {
-  token_hash: string;
-  staff_id: string;
-  expires_at: number;
-  created_at: number;
-}
-
-interface SubRow {
-  device_id: string;
-  role: string;
-  subscription: string;
-  endpoint: string;
-  transport: string;
-  platform: string;
-  created_at: number;
-}
+/**
+ * Row types, inferred from the schema rather than hand-written.
+ *
+ * This is the point of the ORM: these cannot drift from the table definitions,
+ * because they *are* the table definitions. Fields are camelCase in TypeScript and
+ * snake_case on disk — `schema.ts` maps between them.
+ */
+export type StaffRow = typeof staff.$inferSelect;
+export type SessionRow = typeof staffSessions.$inferSelect;
+type OrderRow = typeof orders.$inferSelect;
+type SubRow = typeof subscriptions.$inferSelect;
 
 function rowToOrder(r: OrderRow): Order {
   let items: OrderItem[] = [];
@@ -101,206 +73,49 @@ function rowToOrder(r: OrderRow): Order {
     items,
     note: r.note,
     status: r.status as OrderStatus,
-    createdAt: r.created_at,
-    updatedAt: r.updated_at,
-    bumpedAt: r.bumped_at,
+    createdAt: r.createdAt,
+    updatedAt: r.updatedAt,
+    bumpedAt: r.bumpedAt,
     handoff: isHandoff(r.handoff) ? r.handoff : null,
   };
 }
 
 function rowToSub(r: SubRow): SubscriptionRecord {
   return {
-    deviceId: r.device_id,
+    deviceId: r.deviceId,
     role: r.role as SubscriberRole,
     subscription: JSON.parse(r.subscription) as PushSubscriptionJSON,
     transport: r.transport as SubscriptionTransport,
     platform: r.platform as Platform,
-    createdAt: r.created_at,
+    createdAt: r.createdAt,
   };
 }
 
-/** Open (or create) a database, apply the schema + migrations, prepare statements. */
+/**
+ * Where the generated migrations live.
+ *
+ * Resolved from the working directory rather than from `import.meta.url`, because
+ * the built server is bundled into `build/` while `drizzle/` ships beside it. The
+ * env var exists so a deployment that lays things out differently can say so
+ * instead of failing at boot.
+ */
+function migrationsDir(): string {
+  return process.env.DRIZZLE_DIR ?? resolve(process.cwd(), 'drizzle');
+}
+
+/** Open (or create) a database, bring it up to the current schema, return the API. */
 export function createDb(dbPath: string) {
-  const db = openHandle(dbPath);
+  const sqlite = openHandle(dbPath);
+  const db: BetterSQLite3Database<typeof schema> = drizzle(sqlite, { schema });
+  migrate(db, { migrationsFolder: migrationsDir() });
 
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS orders (
-      id         TEXT PRIMARY KEY,
-      name       TEXT NOT NULL,
-      items      TEXT NOT NULL,
-      note       TEXT NOT NULL DEFAULT '',
-      status     TEXT NOT NULL DEFAULT 'pending',
-      device_id  TEXT,
-      bumped_at  INTEGER,
-      handoff    TEXT,
-      created_at INTEGER NOT NULL,
-      updated_at INTEGER NOT NULL
-    );
-    CREATE TABLE IF NOT EXISTS subscriptions (
-      device_id    TEXT NOT NULL,
-      role         TEXT NOT NULL,
-      subscription TEXT NOT NULL,
-      endpoint     TEXT NOT NULL,
-      transport    TEXT NOT NULL DEFAULT 'webpush',
-      platform     TEXT NOT NULL DEFAULT 'web',
-      created_at   INTEGER NOT NULL,
-      -- role is part of the key: one device legitimately holds BOTH roles (the
-      -- host runs the bar and orders drinks). With (device_id, endpoint) alone,
-      -- registering one role overwrote the other and silently killed its pushes.
-      PRIMARY KEY (device_id, endpoint, role)
-    );
-    -- email and password_hash are NULLABLE on purpose: an approved helper has
-    -- neither (their identity is a device, their credential is a session), while
-    -- an admin has both so they can sign in from any device. SQLite allows many
-    -- NULLs under a UNIQUE index, so several helpers can coexist without emails.
-    CREATE TABLE IF NOT EXISTS staff (
-      id                TEXT PRIMARY KEY,
-      display_name      TEXT NOT NULL DEFAULT '',
-      email             TEXT UNIQUE,
-      password_hash     TEXT,
-      device_id         TEXT,
-      role              TEXT NOT NULL DEFAULT 'bartender',
-      status            TEXT NOT NULL DEFAULT 'active',
-      claim_hash        TEXT,
-      claim_expires_at  INTEGER,
-      -- How they got in: 'seed' | 'code' | 'request'. Separate from approved_by,
-      -- which is the admin who decided — a join code has no such person, and
-      -- squeezing both facts into one column meant a 'join-code' sentinel string.
-      -- (No backticks in this comment: it sits inside a JS template literal.)
-      joined_via        TEXT NOT NULL DEFAULT 'request',
-      approved_by       TEXT,
-      created_at        INTEGER NOT NULL
-    );
-    CREATE TABLE IF NOT EXISTS staff_sessions (
-      token_hash TEXT PRIMARY KEY,
-      staff_id   TEXT NOT NULL,
-      expires_at INTEGER NOT NULL,
-      created_at INTEGER NOT NULL
-    );
-    -- Short-lived codes the host reads out to onboard a helper on the spot. Only
-    -- the SHA-256 is stored: a stolen database shouldn't hand anyone the bar.
-    -- Reusable until they expire, because one code often onboards several people.
-    CREATE TABLE IF NOT EXISTS join_codes (
-      code_hash  TEXT PRIMARY KEY,
-      expires_at INTEGER NOT NULL,
-      created_by TEXT,
-      created_at INTEGER NOT NULL
-    );
-  `);
-
-  // ---- orders ----
-  const stInsertOrder = db.prepare(
-    `INSERT INTO orders (id, name, items, note, status, device_id, created_at, updated_at)
-     VALUES (?, ?, ?, ?, 'pending', ?, ?, ?)`,
-  );
-  // Bumped orders come first (most recently bumped wins), then oldest. The client
-  // can re-sort for display, but this keeps the wire order meaningful on its own.
-  const stListOrders = db.prepare(
-    `SELECT * FROM orders
-      ORDER BY (bumped_at IS NOT NULL) DESC, bumped_at DESC, created_at ASC, rowid ASC`,
-  );
-  const stGetOrder = db.prepare(`SELECT * FROM orders WHERE id = ?`);
-  const stCountOrders = db.prepare(`SELECT COUNT(*) AS n FROM orders`);
-  // Eviction candidate: finished orders first, then the oldest. Without the status
-  // term, flooding the endpoint would delete the live queue before touching rows
-  // nobody cares about any more.
-  const stEvictionCandidate = db.prepare(
-    `SELECT id FROM orders
-     ORDER BY (status = 'done') DESC, created_at ASC, rowid ASC
-     LIMIT 1`,
-  );
-  const stSetStatus = db.prepare(
-    `UPDATE orders SET status = ?, handoff = ?, updated_at = ? WHERE id = ?`,
-  );
-  const stBumpOrder = db.prepare(`UPDATE orders SET bumped_at = ?, updated_at = ? WHERE id = ?`);
-  const stSetItems = db.prepare(`UPDATE orders SET items = ?, updated_at = ? WHERE id = ?`);
-  const stDeleteOrder = db.prepare(`DELETE FROM orders WHERE id = ?`);
-  const stClearDone = db.prepare(`DELETE FROM orders WHERE status = 'done'`);
-  const stClearAll = db.prepare(`DELETE FROM orders`);
-  const stOrderDeviceId = db.prepare(`SELECT device_id FROM orders WHERE id = ?`);
-
-  // ---- subscriptions ----
-  const stUpsertSub = db.prepare(
-    `INSERT INTO subscriptions (device_id, role, subscription, endpoint, transport, platform, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?)
-     ON CONFLICT(device_id, endpoint, role) DO UPDATE SET
-       subscription = excluded.subscription,
-       transport = excluded.transport,
-       platform = excluded.platform`,
-  );
-  const stSubsByDevice = db.prepare(`SELECT * FROM subscriptions WHERE device_id = ?`);
-  const stSubsByRole = db.prepare(`SELECT * FROM subscriptions WHERE role = ?`);
-  const stDeleteSub = db.prepare(`DELETE FROM subscriptions WHERE device_id = ? AND endpoint = ?`);
-  const stDeleteSubsForDevice = db.prepare(`DELETE FROM subscriptions WHERE device_id = ?`);
-
-  // ---- join codes ----
-  const stInsertJoinCode = db.prepare(
-    `INSERT INTO join_codes (code_hash, expires_at, created_by, created_at) VALUES (?, ?, ?, ?)`,
-  );
-  const stJoinCode = db.prepare(`SELECT * FROM join_codes WHERE code_hash = ?`);
-  const stPurgeJoinCodes = db.prepare(`DELETE FROM join_codes WHERE expires_at < ?`);
-  const stClearJoinCodes = db.prepare(`DELETE FROM join_codes`);
-
-  // ---- staff ----
-  const stInsertStaff = db.prepare(
-    `INSERT INTO staff
-       (id, display_name, email, password_hash, device_id, role, status,
-        claim_hash, claim_expires_at, joined_via, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-  );
-  const stSetJoinedVia = db.prepare(`UPDATE staff SET joined_via = ? WHERE id = ?`);
-  const stStaffByEmail = db.prepare(`SELECT * FROM staff WHERE email = ?`);
-  const stStaffById = db.prepare(`SELECT * FROM staff WHERE id = ?`);
-  const stStaffByClaim = db.prepare(`SELECT * FROM staff WHERE claim_hash = ?`);
-  const stStaffPendingDevice = db.prepare(
-    `SELECT * FROM staff WHERE device_id = ? AND status = 'pending'`,
-  );
-  // Any row for this device, whatever its status — an admin first, so the host's
-  // own phone is never mistaken for a helper it also happens to have a row for.
-  const stStaffAnyDevice = db.prepare(
-    `SELECT * FROM staff WHERE device_id = ?
-      ORDER BY (role = 'admin') DESC, (status = 'active') DESC, rowid DESC`,
-  );
-  const stRenameStaff = db.prepare(`UPDATE staff SET display_name = ? WHERE id = ?`);
-  const stListStaff = db.prepare(
-    // Pending first (that's what needs action), then newest.
-    `SELECT * FROM staff
-      ORDER BY (status = 'pending') DESC, created_at DESC, rowid DESC`,
-  );
-  const stUpdateStaffPw = db.prepare(`UPDATE staff SET password_hash = ? WHERE id = ?`);
-  const stSetStaffStatus = db.prepare(
-    `UPDATE staff SET status = ?, approved_by = COALESCE(?, approved_by) WHERE id = ?`,
-  );
-  const stEnsureAdmin = db.prepare(
-    `UPDATE staff SET role = 'admin', status = 'active' WHERE id = ?`,
-  );
-  const stClearClaim = db.prepare(
-    `UPDATE staff SET claim_hash = NULL, claim_expires_at = NULL WHERE id = ?`,
-  );
-  const stSetClaim = db.prepare(
-    `UPDATE staff SET claim_hash = ?, claim_expires_at = ? WHERE id = ?`,
-  );
-  const stDeleteStaff = db.prepare(`DELETE FROM staff WHERE id = ?`);
-  const stRevokeHelpers = db.prepare(
-    `UPDATE staff SET status = 'revoked' WHERE role <> 'admin' AND status = 'active'`,
-  );
-  const stDeleteSessionsFor = db.prepare(`DELETE FROM staff_sessions WHERE staff_id = ?`);
-  const stDeleteHelperSessions = db.prepare(
-    `DELETE FROM staff_sessions WHERE staff_id IN (SELECT id FROM staff WHERE role <> 'admin')`,
-  );
-  const stInsertSession = db.prepare(
-    `INSERT INTO staff_sessions (token_hash, staff_id, expires_at, created_at) VALUES (?, ?, ?, ?)`,
-  );
-  const stSessionByHash = db.prepare(`SELECT * FROM staff_sessions WHERE token_hash = ?`);
-  const stDeleteSession = db.prepare(`DELETE FROM staff_sessions WHERE token_hash = ?`);
-  const stPurgeSessions = db.prepare(`DELETE FROM staff_sessions WHERE expires_at < ?`);
-  const stPurgeStalePending = db.prepare(
-    `DELETE FROM staff WHERE status = 'pending' AND claim_expires_at < ?`,
-  );
+  /** One order by id, or undefined. Used after every mutation to return the truth. */
+  const getRow = (id: string): OrderRow | undefined =>
+    db.select().from(orders).where(eq(orders.id, id)).get();
 
   return {
     /** Escape hatch for tests (PRAGMA inspection). Not for application use. */
-    raw: db,
+    raw: sqlite,
 
     createOrder(input: {
       name: string;
@@ -308,27 +123,52 @@ export function createDb(dbPath: string) {
       note: string;
       deviceId?: string;
     }): Order {
-      const count = (stCountOrders.get() as { n: number }).n;
-      if (count >= LIMITS.maxOrders) {
-        const evict = stEvictionCandidate.get() as { id: string } | undefined;
-        if (evict) stDeleteOrder.run(evict.id);
+      const total = db.select({ n: count() }).from(orders).get()?.n ?? 0;
+      if (total >= LIMITS.maxOrders) {
+        // Eviction candidate: finished orders first, then the oldest. Without the
+        // status term, flooding the endpoint would delete the live queue before
+        // touching rows nobody cares about any more.
+        const evict = db
+          .select({ id: orders.id })
+          .from(orders)
+          .orderBy(sql`(${orders.status} = 'done') DESC`, asc(orders.createdAt), sql`rowid ASC`)
+          .limit(1)
+          .get();
+        if (evict) db.delete(orders).where(eq(orders.id, evict.id)).run();
       }
       const ts = now();
       const id = genId();
-      stInsertOrder.run(
-        id,
-        input.name,
-        JSON.stringify(input.items),
-        input.note,
-        input.deviceId ?? null,
-        ts,
-        ts,
-      );
-      return rowToOrder(stGetOrder.get(id) as unknown as OrderRow);
+      db.insert(orders)
+        .values({
+          id,
+          name: input.name,
+          items: JSON.stringify(input.items),
+          note: input.note,
+          status: 'pending',
+          deviceId: input.deviceId ?? null,
+          createdAt: ts,
+          updatedAt: ts,
+        })
+        .run();
+      return rowToOrder(getRow(id)!);
     },
 
+    /**
+     * Bumped orders first (most recently bumped wins), then oldest. The client can
+     * re-sort for display, but this keeps the wire order meaningful on its own.
+     */
     listOrders(): Order[] {
-      return (stListOrders.all() as unknown as OrderRow[]).map(rowToOrder);
+      return db
+        .select()
+        .from(orders)
+        .orderBy(
+          sql`(${orders.bumpedAt} IS NOT NULL) DESC`,
+          desc(orders.bumpedAt),
+          asc(orders.createdAt),
+          sql`rowid ASC`,
+        )
+        .all()
+        .map(rowToOrder);
     },
 
     /**
@@ -339,19 +179,26 @@ export function createDb(dbPath: string) {
      * previous choice and notify the guest with stale wording.
      */
     setOrderStatus(id: string, status: OrderStatus, handoff?: Handoff): Order | null {
-      const existing = stGetOrder.get(id) as unknown as OrderRow | undefined;
+      const existing = getRow(id);
       if (!existing) return null;
       const nextHandoff =
         handoff ?? (status === 'pending' || status === 'making' ? null : existing.handoff);
-      stSetStatus.run(status, nextHandoff, now(), id);
-      return rowToOrder(stGetOrder.get(id) as unknown as OrderRow);
+      db.update(orders)
+        .set({ status, handoff: nextHandoff, updatedAt: now() })
+        .where(eq(orders.id, id))
+        .run();
+      return rowToOrder(getRow(id)!);
     },
 
     /** Push an order to the front of the queue (or clear that, with null). */
     bumpOrder(id: string, bumped: boolean): Order | null {
-      const res = stBumpOrder.run(bumped ? now() : null, now(), id);
+      const res = db
+        .update(orders)
+        .set({ bumpedAt: bumped ? now() : null, updatedAt: now() })
+        .where(eq(orders.id, id))
+        .run();
       if (res.changes === 0) return null;
-      return rowToOrder(stGetOrder.get(id) as unknown as OrderRow);
+      return rowToOrder(getRow(id)!);
     },
 
     /**
@@ -360,7 +207,7 @@ export function createDb(dbPath: string) {
      * request — only the count changes.
      */
     setItemProgress(id: string, index: number, made: number): Order | null {
-      const row = stGetOrder.get(id) as unknown as OrderRow | undefined;
+      const row = getRow(id);
       if (!row) return null;
       const order = rowToOrder(row);
       const item = order.items[index];
@@ -368,23 +215,28 @@ export function createDb(dbPath: string) {
       const next = order.items.map((it, i) =>
         i === index ? { ...it, made: Math.max(0, Math.min(Math.floor(made), it.qty)) } : it,
       );
-      stSetItems.run(JSON.stringify(next), now(), id);
-      return rowToOrder(stGetOrder.get(id) as unknown as OrderRow);
+      db.update(orders)
+        .set({ items: JSON.stringify(next), updatedAt: now() })
+        .where(eq(orders.id, id))
+        .run();
+      return rowToOrder(getRow(id)!);
     },
 
     deleteOrder(id: string): boolean {
-      return stDeleteOrder.run(id).changes > 0;
+      return db.delete(orders).where(eq(orders.id, id)).run().changes > 0;
     },
 
     clearOrders(which: ClearWhich): void {
-      if (which === 'all') stClearAll.run();
-      else stClearDone.run();
+      if (which === 'all') db.delete(orders).run();
+      else db.delete(orders).where(eq(orders.status, 'done')).run();
     },
 
     /** The anonymous device that placed an order, for routing "your drink" pushes. */
     orderDeviceId(id: string): string | null {
-      const row = stOrderDeviceId.get(id) as { device_id: string | null } | undefined;
-      return row?.device_id ?? null;
+      return (
+        db.select({ deviceId: orders.deviceId }).from(orders).where(eq(orders.id, id)).get()
+          ?.deviceId ?? null
+      );
     },
 
     saveSubscription(
@@ -394,28 +246,50 @@ export function createDb(dbPath: string) {
       transport: SubscriptionTransport = 'webpush',
       platform: Platform = 'web',
     ): void {
-      stUpsertSub.run(
-        deviceId,
-        role,
-        JSON.stringify(subscription),
-        subscription.endpoint,
-        transport,
-        platform,
-        now(),
-      );
+      db.insert(subscriptions)
+        .values({
+          deviceId,
+          role,
+          subscription: JSON.stringify(subscription),
+          endpoint: subscription.endpoint,
+          transport,
+          platform,
+          createdAt: now(),
+        })
+        .onConflictDoUpdate({
+          target: [subscriptions.deviceId, subscriptions.endpoint, subscriptions.role],
+          set: {
+            subscription: sql`excluded.subscription`,
+            transport: sql`excluded.transport`,
+            platform: sql`excluded.platform`,
+          },
+        })
+        .run();
     },
 
     subscriptionsForDevice(deviceId: string): SubscriptionRecord[] {
-      return (stSubsByDevice.all(deviceId) as unknown as SubRow[]).map(rowToSub);
+      return db
+        .select()
+        .from(subscriptions)
+        .where(eq(subscriptions.deviceId, deviceId))
+        .all()
+        .map(rowToSub);
     },
 
     subscriptionsForRole(role: SubscriberRole): SubscriptionRecord[] {
-      return (stSubsByRole.all(role) as unknown as SubRow[]).map(rowToSub);
+      return db
+        .select()
+        .from(subscriptions)
+        .where(eq(subscriptions.role, role))
+        .all()
+        .map(rowToSub);
     },
 
     /** Remove a dead subscription (called when a push returns 404/410 Gone). */
     deleteSubscription(deviceId: string, endpoint: string): void {
-      stDeleteSub.run(deviceId, endpoint);
+      db.delete(subscriptions)
+        .where(and(eq(subscriptions.deviceId, deviceId), eq(subscriptions.endpoint, endpoint)))
+        .run();
     },
 
     /**
@@ -426,56 +300,82 @@ export function createDb(dbPath: string) {
      * notification for the browser's own "site updated in the background".)
      */
     deleteSubscriptionsForDevice(deviceId: string): void {
-      stDeleteSubsForDevice.run(deviceId);
+      db.delete(subscriptions).where(eq(subscriptions.deviceId, deviceId)).run();
     },
 
     /** Record a join code (hashed) that the host can read out to a helper. */
     createJoinCode(codeHash: string, expiresAt: number, createdBy: string): void {
-      stPurgeJoinCodes.run(now()); // opportunistic sweep, so the table stays tiny
-      stInsertJoinCode.run(codeHash, expiresAt, createdBy, now());
+      // Opportunistic sweep, so the table stays tiny.
+      db.delete(joinCodes).where(lt(joinCodes.expiresAt, now())).run();
+      db.insert(joinCodes).values({ codeHash, expiresAt, createdBy, createdAt: now() }).run();
     },
 
     /** A join code, only if it exists and hasn't expired. */
     liveJoinCode(codeHash: string): { expiresAt: number } | null {
-      const row = stJoinCode.get(codeHash) as { code_hash: string; expires_at: number } | undefined;
-      if (!row || row.expires_at < now()) return null;
-      return { expiresAt: row.expires_at };
+      const row = db.select().from(joinCodes).where(eq(joinCodes.codeHash, codeHash)).get();
+      if (!row || row.expiresAt < now()) return null;
+      return { expiresAt: row.expiresAt };
     },
 
     /** Invalidate every outstanding code — the host's "stop letting people in". */
     clearJoinCodes(): void {
-      stClearJoinCodes.run();
+      db.delete(joinCodes).run();
     },
 
     staffByEmail(email: string): StaffRow | null {
-      return (stStaffByEmail.get(email) as StaffRow | undefined) ?? null;
+      return db.select().from(staff).where(eq(staff.email, email)).get() ?? null;
     },
 
     staffById(id: string): StaffRow | null {
-      return (stStaffById.get(id) as StaffRow | undefined) ?? null;
+      return db.select().from(staff).where(eq(staff.id, id)).get() ?? null;
     },
 
     /** Look up the pending request a device already has, so it can't queue several. */
     pendingStaffForDevice(deviceId: string): StaffRow | null {
-      return (stStaffPendingDevice.get(deviceId) as StaffRow | undefined) ?? null;
+      return (
+        db
+          .select()
+          .from(staff)
+          .where(and(eq(staff.deviceId, deviceId), eq(staff.status, 'pending')))
+          .get() ?? null
+      );
     },
 
-    /** Whatever staff row this device already has, in any status. */
+    /**
+     * Whatever staff row this device already has, in any status — an admin first,
+     * so the host's own phone is never mistaken for a helper it also has a row for.
+     */
     staffForDevice(deviceId: string): StaffRow | null {
-      return (stStaffAnyDevice.get(deviceId) as StaffRow | undefined) ?? null;
+      return (
+        db
+          .select()
+          .from(staff)
+          .where(eq(staff.deviceId, deviceId))
+          .orderBy(
+            sql`(${staff.role} = 'admin') DESC`,
+            sql`(${staff.status} = 'active') DESC`,
+            sql`rowid DESC`,
+          )
+          .get() ?? null
+      );
     },
 
     /** Update the display name — the only thing a helper can change about themselves. */
     renameStaff(id: string, displayName: string): void {
-      stRenameStaff.run(displayName, id);
+      db.update(staff).set({ displayName }).where(eq(staff.id, id)).run();
     },
 
     staffByClaim(claimHash: string): StaffRow | null {
-      return (stStaffByClaim.get(claimHash) as StaffRow | undefined) ?? null;
+      return db.select().from(staff).where(eq(staff.claimHash, claimHash)).get() ?? null;
     },
 
+    /** Pending first (that's what needs action), then newest. */
     listStaff(): StaffRow[] {
-      return stListStaff.all() as unknown as StaffRow[];
+      return db
+        .select()
+        .from(staff)
+        .orderBy(sql`(${staff.status} = 'pending') DESC`, desc(staff.createdAt), sql`rowid DESC`)
+        .all();
     },
 
     createStaff(s: {
@@ -491,85 +391,106 @@ export function createDb(dbPath: string) {
       /** Defaults to 'request' — the slow path, where an admin decides. */
       joinedVia?: 'seed' | 'code' | 'request';
     }): void {
-      stInsertStaff.run(
-        s.id,
-        s.displayName,
-        s.email ?? null,
-        s.passwordHash ?? null,
-        s.deviceId ?? null,
-        s.role,
-        s.status,
-        s.claimHash ?? null,
-        s.claimExpiresAt ?? null,
-        s.joinedVia ?? 'request',
-        now(),
-      );
+      db.insert(staff)
+        .values({
+          id: s.id,
+          displayName: s.displayName,
+          email: s.email ?? null,
+          passwordHash: s.passwordHash ?? null,
+          deviceId: s.deviceId ?? null,
+          role: s.role,
+          status: s.status,
+          claimHash: s.claimHash ?? null,
+          claimExpiresAt: s.claimExpiresAt ?? null,
+          joinedVia: s.joinedVia ?? 'request',
+          createdAt: now(),
+        })
+        .run();
     },
 
     /** Record how someone got in, when it changes (e.g. asked, then used a code). */
     setJoinedVia(id: string, joinedVia: 'seed' | 'code' | 'request'): void {
-      stSetJoinedVia.run(joinedVia, id);
+      db.update(staff).set({ joinedVia }).where(eq(staff.id, id)).run();
     },
 
     updateStaffPassword(id: string, passwordHash: string): void {
-      stUpdateStaffPw.run(passwordHash, id);
+      db.update(staff).set({ passwordHash }).where(eq(staff.id, id)).run();
     },
 
     /** Promote the env-configured account so an admin can never be locked out. */
     ensureAdmin(id: string): void {
-      stEnsureAdmin.run(id);
+      db.update(staff).set({ role: 'admin', status: 'active' }).where(eq(staff.id, id)).run();
     },
 
     setStaffStatus(id: string, status: string, approvedBy: string | null = null): void {
-      stSetStaffStatus.run(status, approvedBy, id);
+      db.update(staff)
+        // COALESCE so passing null leaves the existing approver alone: a later
+        // status change must not erase who originally decided.
+        .set({ status, approvedBy: sql`COALESCE(${approvedBy}, ${staff.approvedBy})` })
+        .where(eq(staff.id, id))
+        .run();
     },
 
     /** Consume a claim secret so an approval can only be collected once. */
     clearStaffClaim(id: string): void {
-      stClearClaim.run(id);
+      db.update(staff).set({ claimHash: null, claimExpiresAt: null }).where(eq(staff.id, id)).run();
     },
 
     /** Re-issue a claim secret (asking again from the same device). */
     setStaffClaim(id: string, claimHash: string, expiresAt: number): void {
-      stSetClaim.run(claimHash, expiresAt, id);
+      db.update(staff).set({ claimHash, claimExpiresAt: expiresAt }).where(eq(staff.id, id)).run();
     },
 
     deleteStaff(id: string): void {
-      stDeleteStaff.run(id);
-      stDeleteSessionsFor.run(id);
+      db.delete(staff).where(eq(staff.id, id)).run();
+      db.delete(staffSessions).where(eq(staffSessions.staffId, id)).run();
     },
 
     /** End the party: revoke every helper and kill their sessions. Admins survive. */
     revokeAllHelpers(): void {
-      stRevokeHelpers.run();
-      stDeleteHelperSessions.run();
+      db.update(staff)
+        .set({ status: 'revoked' })
+        .where(and(ne(staff.role, 'admin'), eq(staff.status, 'active')))
+        .run();
+      db.delete(staffSessions)
+        .where(
+          inArray(
+            staffSessions.staffId,
+            db.select({ id: staff.id }).from(staff).where(ne(staff.role, 'admin')),
+          ),
+        )
+        .run();
     },
 
     /** Revocation must be immediate, so drop the sessions too. */
     revokeStaff(id: string): void {
-      stSetStaffStatus.run('revoked', null, id);
-      stDeleteSessionsFor.run(id);
+      db.update(staff).set({ status: 'revoked' }).where(eq(staff.id, id)).run();
+      db.delete(staffSessions).where(eq(staffSessions.staffId, id)).run();
     },
 
     /** Drop abandoned requests whose claim window has passed. */
     purgeStalePendingStaff(): void {
-      stPurgeStalePending.run(now());
+      db.delete(staff)
+        .where(and(eq(staff.status, 'pending'), lt(staff.claimExpiresAt, now())))
+        .run();
     },
 
     createStaffSession(tokenHash: string, staffId: string, expiresAt: number): void {
-      stInsertSession.run(tokenHash, staffId, expiresAt, now());
+      db.insert(staffSessions).values({ tokenHash, staffId, expiresAt, createdAt: now() }).run();
     },
 
     staffSession(tokenHash: string): SessionRow | null {
-      return (stSessionByHash.get(tokenHash) as SessionRow | undefined) ?? null;
+      return (
+        db.select().from(staffSessions).where(eq(staffSessions.tokenHash, tokenHash)).get() ?? null
+      );
     },
 
     deleteStaffSession(tokenHash: string): void {
-      stDeleteSession.run(tokenHash);
+      db.delete(staffSessions).where(eq(staffSessions.tokenHash, tokenHash)).run();
     },
 
     purgeExpiredSessions(): void {
-      stPurgeSessions.run(now());
+      db.delete(staffSessions).where(lt(staffSessions.expiresAt, now())).run();
     },
   };
 }
@@ -577,13 +498,13 @@ export function createDb(dbPath: string) {
 export type Db = ReturnType<typeof createDb>;
 
 /** `:memory:` is a magic token, not a path — resolving it would create a real file. */
-function openHandle(dbPath: string): DatabaseSync {
-  if (dbPath === ':memory:') return new DatabaseSync(':memory:');
+function openHandle(dbPath: string): Database.Database {
+  if (dbPath === ':memory:') return new Database(':memory:');
   const file = resolve(process.cwd(), dbPath);
   mkdirSync(dirname(file), { recursive: true });
-  const db = new DatabaseSync(file);
-  db.exec('PRAGMA journal_mode = WAL;');
-  db.exec('PRAGMA busy_timeout = 5000;'); // wait rather than fail if another process writes
+  const db = new Database(file);
+  db.pragma('journal_mode = WAL');
+  db.pragma('busy_timeout = 5000'); // wait rather than fail if another process writes
   return db;
 }
 

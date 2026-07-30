@@ -40,7 +40,7 @@ const claim = async (secret: string): Promise<StaffClaimResponse> => {
 
 const pendingFor = (name: string): Staff | undefined =>
   listStaff()
-    .map((r) => ({ id: r.id, name: r.display_name, status: r.status }) as unknown as Staff)
+    .map((r) => ({ id: r.id, name: r.displayName, status: r.status }) as unknown as Staff)
     .find((s) => s.name === name && s.status === 'pending');
 
 beforeAll(async () => {

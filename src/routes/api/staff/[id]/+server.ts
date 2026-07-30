@@ -22,8 +22,8 @@ export function DELETE(event: RequestEvent) {
   deleteStaff(target.id);
   // Only a *pending* row was waiting on an answer; removing an established helper
   // isn't a decision they asked for, so it shouldn't ping them.
-  if (target.status === 'pending' && target.device_id) {
-    void pushToDevice(target.device_id, staffDecisionPush(false));
+  if (target.status === 'pending' && target.deviceId) {
+    void pushToDevice(target.deviceId, staffDecisionPush(false));
   }
   return json({ ok: true } satisfies OkResponse);
 }

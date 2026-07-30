@@ -161,11 +161,11 @@ describe('seedStaff', () => {
     assert.ok(second);
     assert.equal(second.id, first.id, 'must not create a second account');
     assert.equal(
-      second.password_hash,
-      first.password_hash,
+      second.passwordHash,
+      first.passwordHash,
       'an unchanged password must not be re-hashed',
     );
-    assert.equal(await verifyPassword(config.staff.password, second.password_hash ?? ''), true);
+    assert.equal(await verifyPassword(config.staff.password, second.passwordHash ?? ''), true);
   });
 
   test('rotates the stored password when the env value differs', async () => {
@@ -182,7 +182,7 @@ describe('seedStaff', () => {
     await seedStaff();
     const after = staffByEmail(config.staff.email);
     assert.ok(after);
-    assert.equal(await verifyPassword(config.staff.password, after.password_hash ?? ''), true);
+    assert.equal(await verifyPassword(config.staff.password, after.passwordHash ?? ''), true);
   });
 });
 

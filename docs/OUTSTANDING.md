@@ -10,6 +10,17 @@ says what is needed, who can do it, and what it unblocks.
 
 _Nothing yet — the plan hasn't started._
 
+## ⚠️ The NAS volume must be wiped before any deploy to it
+
+Phase 0 replaced the declared schema with Drizzle migrations. A database created by
+the old code has all five tables but no `__drizzle_migrations` row, so the baseline
+migration collides with `table orders already exists` at boot.
+
+Deliberately **not** solved with adoption code — that would be a compatibility shim
+for a single transition, and `PLATFORM-PLAN.md` §0 rules those out while the data is
+still disposable. Phase 4 abandons the NAS volume entirely, so the realistic fix is
+"don't deploy to the NAS again". If you must, delete `cocktails-data` first.
+
 ## Voice / NL "Ask" finder — ❌ DROPPED
 
 The legacy voice/natural-language "Ask the bar" finder relied on a now-dead

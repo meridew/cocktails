@@ -100,11 +100,11 @@ const sha256 = (value: string): string => createHash('sha256').update(value).dig
 export function toStaff(row: StaffRow): Staff {
   return {
     id: row.id,
-    name: row.display_name,
+    name: row.displayName,
     email: row.email,
     role: row.role === 'admin' ? 'admin' : 'bartender',
     status: row.status as StaffStatus,
-    createdAt: row.created_at,
+    createdAt: row.createdAt,
   };
 }
 
@@ -133,7 +133,7 @@ export async function seedStaff(): Promise<void> {
   // Always re-assert admin+active: the account that owns the bar must never end up
   // demoted or revoked, or nobody could approve anyone again.
   if (existing.role !== 'admin' || existing.status !== 'active') ensureAdmin(existing.id);
-  if (!(await verifyPassword(config.staff.password, existing.password_hash ?? ''))) {
+  if (!(await verifyPassword(config.staff.password, existing.passwordHash ?? ''))) {
     updateStaffPassword(existing.id, await hashPassword(config.staff.password));
     console.log(`\u{1F511} updated admin password: ${config.staff.email}`);
   }
@@ -155,11 +155,11 @@ export async function login(
   const row = staffByEmail(email.trim().toLowerCase());
   // Hash regardless so a missing account, a helper with no password, and a wrong
   // password all cost the same — otherwise response timing reveals which emails exist.
-  if (!row?.password_hash || row.status !== 'active') {
+  if (!row?.passwordHash || row.status !== 'active') {
     await scryptAsync(password, DUMMY_SALT, KEY_LEN, SCRYPT);
     return null;
   }
-  if (!(await verifyPassword(password, row.password_hash))) return null;
+  if (!(await verifyPassword(password, row.passwordHash))) return null;
   return startSession(row);
 }
 
@@ -300,7 +300,7 @@ export function claimStaffAccess(
   // can't probe for which secrets exist.
   if (!row) return { status: 'denied' };
   if (row.status === 'pending') {
-    if ((row.claim_expires_at ?? 0) < now()) return { status: 'denied' };
+    if ((row.claimExpiresAt ?? 0) < now()) return { status: 'denied' };
     return { status: 'pending' };
   }
   if (row.status !== 'active') return { status: 'denied' };
@@ -407,8 +407,8 @@ export function noteClaimAttempt(ip: string): void {
 export function sessionStaff(token: string | undefined): Staff | null {
   if (!token) return null;
   const sess = staffSession(sha256(token));
-  if (!sess || sess.expires_at < now()) return null;
-  const row = staffById(sess.staff_id);
+  if (!sess || sess.expiresAt < now()) return null;
+  const row = staffById(sess.staffId);
   if (!row || row.status !== 'active') return null;
   return toStaff(row);
 }

@@ -130,18 +130,18 @@ describe('redeeming a code', () => {
     // Someone asks, gets impatient, then goes and gets the code. The host should
     // see one person, not a pending request plus a helper.
     await request('/api/staff/requests', send('POST', { name: 'Mo', deviceId: 'device-mo' }));
-    const before = listStaff().filter((s) => s.device_id === 'device-mo');
+    const before = listStaff().filter((s) => s.deviceId === 'device-mo');
     assert.equal(before.length, 1);
     assert.equal(before[0]?.status, 'pending');
 
     const { code } = await mintCode();
     assert.equal((await redeem(code, 'Mo', 'device-mo')).status, 200);
 
-    const after = listStaff().filter((s) => s.device_id === 'device-mo');
+    const after = listStaff().filter((s) => s.deviceId === 'device-mo');
     assert.equal(after.length, 1, 'no duplicate row');
     assert.equal(after[0]?.status, 'active');
     // The claim is spent, so the old pending request can't also be collected.
-    assert.equal(staffForDevice('device-mo')?.claim_hash ?? null, null);
+    assert.equal(staffForDevice('device-mo')?.claimHash ?? null, null);
   });
 
   test('rejects a wrong code, and a malformed one, the same way', async () => {

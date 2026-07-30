@@ -12,7 +12,12 @@
 #
 # No `# syntax=` directive on purpose: it makes BuildKit pull and run an external
 # frontend container per Dockerfile, and those were dying on the NAS too.
-FROM node:24-alpine
+# Debian rather than Alpine: better-sqlite3 is a native module and publishes
+# prebuilt binaries for glibc but not musl, so Alpine would compile it from source
+# here — on a box that was already being OOM-killed during builds. slim + prebuilds
+# means no compiler on the NAS at all. Phase 4 of docs/PLATFORM-PLAN.md deletes this
+# file entirely in favour of launchd on the Mac; this keeps it honest until then.
+FROM node:24-slim
 WORKDIR /app
 ENV NODE_ENV=production
 
@@ -22,6 +27,11 @@ RUN npm ci --omit=dev && npm cache clean --force
 
 # Built elsewhere and downloaded as an artifact; see .github/workflows/nas-deploy.yml.
 COPY build ./build
+
+# The migrations are read at runtime, not baked into the bundle — createDb applies
+# any outstanding ones on the first query. Without this the container boots and
+# immediately fails looking for the folder.
+COPY drizzle ./drizzle
 
 # SQLite lives on a volume; the app creates the file on first boot.
 ENV DB_PATH=/data/cocktails.sqlite
