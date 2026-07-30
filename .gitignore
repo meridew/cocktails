@@ -10,7 +10,11 @@ build/
 .env.*
 !.env.example
 !.env.native
-data/
+# Anchored: this is the SQLite database at ./data/, nothing else. Unanchored it
+# matches a directory named `data` at ANY depth, which silently swallowed
+# src/lib/shared/data/cocktails.json — the entire recipe dataset — and only a
+# clean checkout on another machine revealed it.
+/data/
 *.sqlite
 *.sqlite-journal
 *.sqlite-wal
