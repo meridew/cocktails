@@ -11,9 +11,11 @@
 **Phases 0, 1, 2, 2.5, 2.6, 3 and 4 are done. Phase 5 hasn't started.** 361 tests,
 0 type errors, working tree clean.
 
-**⚠️ `main` is six commits ahead of what is live.** The Mac serves `1ba0771`. So the
-host screen, Google sign-in, menu gating and the stock screen are **written, tested
-and not deployed**. Deploying is manual and on Dan's say-so:
+**⚠️ Nothing since `1ba0771` is deployed.** That is what the Mac serves; check it with
+`git log --oneline 1ba0771..main` rather than trusting a count written here, which
+goes stale on the next commit. The host screen, Google sign-in, menu gating and the
+stock screen are all **written, tested and not live**. Deploying is manual and on
+Dan's say-so:
 
 ```bash
 gh workflow run "gate + deploy (Mac)" --ref main -f deploy=true
