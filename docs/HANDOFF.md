@@ -66,35 +66,36 @@ docs/      PLAN.md, OUTSTANDING.md, APP-READINESS.md, MOBILE.md, CUTOVER.md,
            QUALITY-PLAN.md (the tests/hardening/refactor plan — all phases done), handoff.md (this).
 ```
 
-## 2. The stack / key decisions
+## 2. The stack
 
-- **Frontend:** Svelte 5 runes + Vite + vite-plugin-pwa (offline SW + manifest). Bespoke neo-brutalist
-  design (bright-yellow hatch bg, cyan/lime/pink cards, thick black borders, hard offset shadows,
-  tri-colour text-shadow, Archivo Black/Bungee). **canvas-confetti** (background emoji cannon + order
-  celebrate) and **@fontsource** (self-hosted fonts, no Google CDN) are the only "modern swap-ins".
-- **Backend:** **Hono on Node 24** (NOT Bun — Node 24 ships built-in `node:sqlite`, zero new tooling).
-  Prepared statements, WAL, flock-free. Data in a Docker volume.
-- **Menu model** (`apps/web/src/lib/data.ts`): `DRINKS` + reusable option **axes** + `buildLine()`.
-  Adding a drink/axis is a one-place edit. (This is the nicest piece of the codebase.)
-- **Identity:** anonymous device id in localStorage (`apps/web/src/lib/device.ts`) — no guest login,
-  by design. Guests order instantly; notifications are keyed to the device, not an account.
-- **Staff auth:** two doors onto one **revocable bearer session** (only the token's SHA-256 is
-  stored). Everyday: a **6-digit PIN** (`STAFF_PIN`), compared constant-time against env and throttled
-  both per-IP _and globally_ — a 10^6 keyspace is defended by rate limiting, not by length. Break
-  glass: **email + password** (`STAFF_EMAIL`/`STAFF_PASSWORD`, scrypt), which is deliberately kept so
-  that jamming the PIN door can never lock the bar out. Env is the source of truth for both, so
-  changing a secret and redeploying rotates it.
-- **Helpers:** the host shows a **join code** (6 digits, 15-minute TTL, hashed at rest, revocable,
-  reusable) and they're in instantly — `staff/join-code` + `staff/join`, throttled per-IP _and_
-  globally like the PIN. Asking for approval is the fallback for when the host isn't nearby; that
-  request lifecycle is persisted client-side (`staffRequest.svelte.ts`), both sides get **pushed**,
-  and submitting it closes the bar panel so it never blocks ordering.
-- **Notifications:** opted into once, up front, via our own card (`NotifyOptIn`) — the browser prompt
-  is one-shot and a dismissal is permanent, so it only ever fires from that tap. One grant covers
-  every role. Settings has a single on/off switch; **off means the subscription is deleted**, not a
-  stored preference, because Web Push is `userVisibleOnly` and anything delivered must be displayed.
-- **Public entry:** **cloudflared → Caddy** (internal port) → web/api. No inbound router ports. Caddy
-  also sets the security headers. Swapping the ingress again would still be zero app changes.
+**One SvelteKit app.** `src/routes` holds the pages _and_ the 25 `/api` endpoints;
+`adapter-node` builds `build/index.js`, a single Node process serving both. That is
+what the container runs and what `npm run preview` runs locally, so what gets tested
+and what ships are the same artifact.
+
+```
+src/
+├── routes/            / (menu) · /bar · api/**/+server.ts
+├── lib/
+│   ├── server/        db · auth · notify · push · ratelimit · guards · config
+│   ├── components/    OrderCard · Keypad · StaffGate · BarMenu · …
+│   ├── stores/        basket · view · session · favourites · push · staffRequest
+│   └── shared/        limits · orders · staff · api · sanitise
+├── hooks.server.ts    CORS · body cap · security headers · logging · boot seed
+└── service-worker.ts  precache + Web Push
+```
+
+- `$lib/server/*` is compiler-enforced: importing it from client code fails the build.
+- **Auth guards are not middleware.** `requireStaff`/`requireAdmin` are called on the
+  first line of the handler they protect, so the guard is visible in the file it
+  guards.
+- **No SQLite migrations.** The schema is declared; a change means editing it and
+  running `npm run db:reset`. Put a forward-only runner back **before the first
+  party with real orders in it** — see `SVELTEKIT-PLAN.md` §5.
+- **`neo.css` is still a verbatim port.** Keep it that way.
+
+Commands: `npm run dev` · `npm test` · `npm run check` · `npm run build` ·
+`npm run preview` · `npm run db:reset` · `npm run db:seed busy|helper`.
 
 ## 3. The NAS — how to operate it ⚠️ important gotchas
 
@@ -111,7 +112,7 @@ docs/      PLAN.md, OUTSTANDING.md, APP-READINESS.md, MOBILE.md, CUTOVER.md,
 - **Deployed stack:** `/volume1/docker/cocktails/` (source extracted there + `infra/.env`, written by
   CI from GitHub secrets: `PUBLIC_PORT`, `STAFF_EMAIL`/`STAFF_PASSWORD`/`STAFF_PIN`, `VAPID_*`,
   `TUNNEL_TOKEN`).
-  Containers: `cocktails-{web,api,caddy,cloudflared}-1` (`restart: unless-stopped`, api has a
+  Containers: `cocktails-{app,cloudflared}-1` (`restart: unless-stopped`, api has a
   healthcheck, caddy waits for it). SQLite in volume `cocktails_cocktails-data`.
 - **Live at:** **https://cock.meridew.com** (public, via the tunnel) and **http://192.168.1.1:8088**
   on the LAN. Bartender: 🍸 → tap the PIN.
