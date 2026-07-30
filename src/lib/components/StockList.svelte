@@ -24,7 +24,7 @@
   import { session } from '$lib/stores/session.svelte';
   import { can, makeable, suggestions, OPTIONAL_CATEGORIES, STOCK_GROUPS } from '$lib/shared';
 
-  let { onsaved, onclose }: { onsaved?: () => void; onclose: () => void } = $props();
+  let { onclose }: { onclose: () => void } = $props();
 
   /** How many "buy this next" rows earn their space on a phone. */
   const SUGGESTION_COUNT = 4;
@@ -91,7 +91,6 @@
       saved = r.stock;
       ticked.clear();
       for (const i of r.stock) ticked.add(i);
-      onsaved?.();
     } catch (e) {
       if (!(e instanceof Unauthorized)) err = (e as Error).message || "That didn't save";
     } finally {
