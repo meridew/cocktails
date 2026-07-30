@@ -3,21 +3,29 @@
 > Context snapshot so a fresh session (started in **this** folder,
 > `C:\Users\danie\vscode-workspace\cocktails`) can continue seamlessly.
 > Companion docs: **`PLAN.md`** (roadmap/phases), **`OUTSTANDING.md`** (parked decisions),
-> **`APP-READINESS.md`** (locked design + plan for getting to iOS/Android-app-ready),
-> **`MOBILE.md`** / **`CUTOVER.md`** (build + public-HTTPS runbooks), and
-> **`QUALITY-PLAN.md`** (⭐ the active work plan: tests, hardening, refactors — work it top-to-bottom).
+> **`APP-READINESS.md`** (design + roadmap for iOS/Android), **`MOBILE.md`** / **`CUTOVER.md`**
+> (build + public-HTTPS runbooks), and **`QUALITY-PLAN.md`** (the tests/hardening/refactor plan —
+> **all phases complete**; its standards and guardrails still apply to new work).
 
 ## TL;DR
 
-The cocktails party-ordering app has been **fully rebuilt** on a modern self-hosted stack and is
-**live on the NAS** (LAN only) with a working **push-to-deploy CI/CD pipeline**. The original
-**neo-brutalist design has been faithfully restored**, and a **multi-agent code review** was run
-with **two batches of fixes shipped**. All work is on git branch **`modernise`** (pushed to GitHub).
-`main` + the legacy flat app are untouched and still serve the live public site until cutover.
+The cocktails party-ordering app is **live at https://cock.meridew.com**, served entirely from the
+NAS through a **Cloudflare Tunnel** (no open router ports), with **push-to-deploy CI/CD**. The
+original **neo-brutalist design is intact** (`neo.css` is a verbatim port — keep it that way).
+Guests order anonymously; staff sign in with email + password. **Web Push works**. The PWA is
+installable from the site, and the **Android** Capacitor project exists (iOS needs a Mac).
 
-The very last thing we were doing: trying to show a **local preview screenshot** — blocked only by a
-port clash with the _previous_ session's project (this repo was mistakenly opened inside a
-`dead-vector` session). That's why we're moving to a new session in the right folder.
+Recently completed a full **quality pass** (`QUALITY-PLAN.md`): a four-angle audit, then
+**129 tests** (`node:test`, zero new deps) where there were none, security hardening of the
+now-public API, a shared validation module, ~10 correctness fixes, the push subsystem and service
+worker rewritten, and a store/component refactor. `npm run check` is at **0 errors, 0 warnings** and
+CI runs format → typecheck → tests → build as the gate.
+
+⚠️ **The self-hosted NAS runner is offline** (its registration token expires after a NAS reboot — see
+§3), so the newest commits are pushed and CI-green but **not yet deployed**; the live site still
+serves the previous build. Refresh the runner to deploy.
+⚠️ **`STAFF_PASSWORD` is not set**, so the live staff account is locked behind a random password.
+Set the secret and redeploy to sign in to the live bar (see `CUTOVER.md`).
 
 ---
 
@@ -134,20 +142,42 @@ npm run format       # Prettier (format:check is what CI runs)
 - ✅ **Visual restoration** — original neo-brutalist design ported verbatim (`neo.css`) + components re-marked to original classes.
 - ✅ **Code review** — multi-agent review (33 confirmed findings). **Batch 1** (DX/DRY/robustness) and
   **Batch 2** (a11y: focus-trap `dialog` action, alerts, touch targets, dead-nav fix) both shipped.
+- ✅ **Phase 3 (auth + push)** — staff email/password sign-in (scrypt + revocable bearer sessions)
+  replaced the shared PIN; Web Push live end-to-end (server sender + client subscribe + service worker).
+- ✅ **Cutover** — `https://cock.meridew.com` public via Cloudflare Tunnel, no inbound ports.
+- ✅ **Phase 5 groundwork** — Capacitor scaffolded, Android project generated, icon set from one SVG,
+  PWA installable from the site. iOS pending a Mac.
+- ✅ **Quality pass** (`QUALITY-PLAN.md`, all 9 phases) — 129 tests where there were none; security
+  hardening (rate limits, SSRF allow-list, trusted client IP, an auth-bypass fix, security headers);
+  observability (request logging + error handler, which did not exist); shared validation; ~10
+  correctness fixes; push subsystem and service worker rewritten; store/component refactor.
 
 ## 7. What's next (pick up here)
 
-1. **Local preview** the user asked for — just `npm run dev` and open `http://localhost:5173` (or screenshot it; freeze the confetti rAF loop first or the screenshotter waits for "idle" forever).
-2. **Cutover** (the big one, needs explicit go-ahead): point the router port-forward / `cock.meridew.com`
-   at **Caddy :8088**, migrate existing orders out of the legacy PHP (`/volume1/web/cocktails/orders.data.php`)
-   into SQLite, retire the PHP, and **make the repo private** — _only at cutover_ (private repo kills GitHub Pages, so the legacy public site must move first).
-3. **Make-a-Drink + ingredient availability** — design discussion required (see OUTSTANDING.md): bartender
-   marks in-stock ingredients → filters both the Make-a-Drink engine (`cocktails.json`) and the menu.
-4. **Phase 3** — PWA Web Push notifications ("your drink is being served / INCOMING") sent from the NAS via
-   `web-push` (VAPID); replace the bartender PIN with a real staff login.
-5. **Phase 5 (later)** — wrap the same web build with **Capacitor** for iOS/Android store apps.
-6. **Minor/optional:** bump `actions/checkout`→v5 (Node-20 deprecation warning); extract `OrderSheet.svelte`
-   - a `favs` rune store; add a request-id guard to the bartender poll (review classed the race as a self-healing flicker).
+**Blocking (do these first):**
+
+1. **Bring the NAS runner back online** so the CI-green commits actually deploy (§3 has the
+   token-refresh commands). Until then the live site serves an older build.
+2. **Set `STAFF_PASSWORD`** (`gh secret set STAFF_PASSWORD -R meridew/cocktails`) and redeploy — the
+   seed upserts it. Login stays `bar@meridew.com`.
+
+**Then, in rough priority order:**
+
+3. **Android build** — install the Android SDK via Android Studio's SDK Manager (Studio itself is
+   installed but the SDK is missing, which is why `cap:android` hits a "Select SDKs" dialog), then
+   `cd apps/web && npm run cap:android`. See `MOBILE.md`.
+4. **iOS** — needs macOS (or a cloud-Mac CI) plus the Apple Developer Program; `cap add ios` can't run
+   on Windows. The iPhone **PWA** already works today.
+5. **Native push (APNs/FCM)** — the only notification path that works inside an iOS WebView. The
+   server's subscription model is already transport-aware (`transport`/`platform`), so this is a new
+   branch in `push.ts` plus client registration.
+6. **Make-a-Drink + ingredient availability** — still needs a design discussion (see `OUTSTANDING.md`):
+   the bartender marks what's in stock, which filters both the discovery engine (`cocktails.json`) and
+   the menu.
+7. **Retire the legacy flat app** at the repo root and optionally make the repo private — the tunnel
+   owns the domain now, so GitHub Pages is redundant.
+8. **Minor:** bump `actions/checkout`→v5 (Node-20 deprecation warning). Optional: OTA live-updates
+   (Capgo) so store apps get UI changes without a review.
 
 ## 8. Parked / not-in-scope
 
