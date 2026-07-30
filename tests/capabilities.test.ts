@@ -75,6 +75,8 @@ const GOVERNED: Record<string, Requirement> = {
   'GET /api/events': 'account',
   'POST /api/events': 'account',
   'POST /api/events/[id]/bar': 'account',
+  // A menu is what's on the kitchen table under the QR code — not a secret.
+  'GET /api/events/[id]/menu': 'public',
 
   // Better Auth's catch-all: these are how someone *becomes* authenticated, so a
   // capability gate would be circular. Its own guards are inside the library.

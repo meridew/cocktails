@@ -155,6 +155,35 @@ export function makeable(stock: Iterable<string>, options: MakeableOptions = {})
 }
 
 /**
+ * Can tonight's stock pour each of these, by name?
+ *
+ * This is what gates the guest menu. The curated drinks and the 270 recipes are
+ * separate lists that happen to overlap: four of the six match by name, and
+ * **Pom & Elderflower and Wine have no recipe at all**.
+ *
+ * A drink we know nothing about is reported **available**. Hiding it would mean
+ * telling a guest they can't have wine because our ingredient table doesn't model
+ * wine — punishing them for a gap in our data. Absence of knowledge is not evidence
+ * of absence, and the failure modes are not symmetric: wrongly offering a drink
+ * costs someone a "sorry, we're out"; wrongly hiding one costs a drink nobody knew
+ * they could have had.
+ */
+export function availability(
+  stock: Iterable<string>,
+  names: readonly string[],
+  options: MakeableOptions = {},
+): Record<string, boolean> {
+  const can = new Set(makeable(stock, options).map((r) => r.name.toLowerCase()));
+  const known = new Set(RECIPES.map((r) => r.name.toLowerCase()));
+  const out: Record<string, boolean> = {};
+  for (const name of names) {
+    const key = name.toLowerCase();
+    out[name] = known.has(key) ? can.has(key) : true;
+  }
+  return out;
+}
+
+/**
  * What one more bottle would unlock, best first.
  *
  * The useful question a stock screen can answer that a list of ticks cannot: not

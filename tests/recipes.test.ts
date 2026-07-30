@@ -22,6 +22,7 @@ import {
   categoryOf,
   countWith,
   exactMatch,
+  availability,
   makeable,
   reachable,
   suggestions,
@@ -276,5 +277,36 @@ describe('suggestions — what one more bottle would unlock', () => {
     for (let i = 1; i < out.length; i++) {
       assert.ok(out[i - 1]!.unlocks >= out[i]!.unlocks, 'suggestions are out of order');
     }
+  });
+});
+
+describe('availability — gating the curated menu', () => {
+  test('a curated drink the stock can pour is available', () => {
+    // Margarita: Tequila + Triple Sec + Lime Juice + Agave Syrup (Shaken is a method).
+    const stock = ['Tequila', 'Triple Sec', 'Lime Juice', 'Agave Syrup'];
+    assert.equal(availability(stock, ['Margarita'])['Margarita'], true);
+  });
+
+  test('and one it cannot is not', () => {
+    assert.equal(availability(['Tequila'], ['Margarita'])['Margarita'], false);
+  });
+
+  test('a drink with no recipe at all stays available', () => {
+    // Wine and Pom & Elderflower are on the curated menu and in no recipe. Hiding
+    // them would mean telling a guest they can't have wine because our ingredient
+    // table doesn't model wine — punishing them for a gap in our data.
+    const out = availability([], ['Wine', 'Pom & Elderflower']);
+    assert.equal(out['Wine'], true);
+    assert.equal(out['Pom & Elderflower'], true);
+  });
+
+  test('an empty cupboard hides only what we can actually reason about', () => {
+    const out = availability([], ['Margarita', 'Mojito', 'Wine']);
+    assert.deepEqual(out, { Margarita: false, Mojito: false, Wine: true });
+  });
+
+  test('matching ignores case, because the two lists were written separately', () => {
+    const stock = ['Tequila', 'Triple Sec', 'Lime Juice', 'Agave Syrup'];
+    assert.equal(availability(stock, ['MARGARITA'])['MARGARITA'], true);
   });
 });
