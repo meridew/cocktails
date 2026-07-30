@@ -67,7 +67,7 @@ Two things to know before changing anything:
   `.prettierignore` and must stay byte-identical — additions belong in `app.css`.
 - **There are no database migrations.** The schema is declared in `db.ts`; changing
   it means editing that and running `npm run db:reset`. Add a forward-only runner
-  before there's data worth keeping — see `docs/archive/SVELTEKIT-PLAN.md` §5.
+  before there's data worth keeping.
 
 ## Deploying
 

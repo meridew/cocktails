@@ -2,9 +2,10 @@
 
 > Context snapshot so a fresh session (started in **this** folder,
 > `C:\Users\danie\vscode-workspace\cocktails`) can continue seamlessly.
-> This is the only doc that describes the **current** stack. `OUTSTANDING.md` holds parked
-> decisions. Everything in **`docs/archive/`** is finished work kept for its reasoning — several
-> were written against the old two-app monorepo, so following their steps would be wrong.
+> This and `OUTSTANDING.md` (parked decisions) are the only docs. The old planning documents —
+> the modernisation roadmap, the quality programme, the Cloudflare cutover, the app-readiness
+> design and the SvelteKit migration plan — all shipped and were deleted rather than left to rot;
+> they're in git history if the reasoning is ever wanted (`git log -- docs/`).
 
 ## TL;DR
 
@@ -19,9 +20,8 @@ It is **one SvelteKit app** — `adapter-node` serves the pages and `/api` from 
 process, in a single container. **237 tests** (Vitest), `npm run check` at **0 errors**, and CI
 runs format → typecheck → tests → build as the gate.
 
-The **native app has not been started**: the Capacitor project and packages were removed during the
-migration because nothing imported them and there was no project left to build. See
-`docs/archive/MOBILE.md` for what restarting involves.
+The **native app has not been started**: the Capacitor project and packages were removed during
+the migration because nothing imported them and there was no project left to build.
 
 ⚠️ **The runner drops out after a NAS reboot** — it authenticates with a short-lived _registration_
 token, so once that expires the container can't re-register and silently vanishes from GitHub
@@ -60,7 +60,6 @@ infra/              docker-compose.yml (app + cloudflared), docker-compose.build
                     runner/ (self-hosted Actions runner compose).
 Dockerfile          copies a prebuilt build/ in — it deliberately compiles nothing.
 scripts/db.js       db:reset and db:seed busy|helper
-docs/archive/       completed plans. None of them describe the current stack.
 ```
 
 There is no legacy app any more: the flat GitHub Pages app at the repo root, the
@@ -93,7 +92,7 @@ src/
   guards.
 - **No SQLite migrations.** The schema is declared; a change means editing it and
   running `npm run db:reset`. Put a forward-only runner back **before the first
-  party with real orders in it** — see `docs/archive/SVELTEKIT-PLAN.md` §5.
+  party with real orders in it**.
 - **`neo.css` is still a verbatim port.** Keep it that way.
 
 Commands: `npm run dev` · `npm test` · `npm run check` · `npm run build` ·
@@ -195,13 +194,13 @@ under** `process.env` — plain `process.env` is not populated for server module
 
 ## 6. How it got here
 
-Every phase of `docs/archive/PLAN.md` and `docs/archive/QUALITY-PLAN.md` shipped: the rebuild, the NAS
-deployment, self-hosted CI/CD, the verbatim design restoration, staff auth and Web Push, the public
-cutover, and a nine-phase quality pass (tests where there were none, security hardening, a shared
-validation module, ~10 correctness fixes, push and service worker rewritten).
+Rebuilt from a flat GitHub Pages app, deployed to the NAS, given self-hosted CI/CD, had its
+original design restored verbatim, gained staff auth and Web Push, went public through a Cloudflare
+Tunnel, then took a nine-phase quality pass — tests where there were none, security hardening, a
+shared validation module, ~10 correctness fixes, push and the service worker rewritten.
 
-Then the whole thing collapsed into one SvelteKit app — see `docs/archive/SVELTEKIT-PLAN.md`, whose
-§12 records what the "no users" assumption bought and when each part needs undoing.
+Finally the two-app monorepo collapsed into one SvelteKit app. The plans that drove all of that are
+in git history; the decisions that still bind are in §7 and `OUTSTANDING.md`.
 
 ## 7. What's next (pick up here)
 
@@ -213,7 +212,7 @@ Then the whole thing collapsed into one SvelteKit app — see `docs/archive/SVEL
 1. **Native app** — not started, and the Capacitor scaffolding was removed. Restarting means
    reinstalling `@capacitor/{core,cli,android}`, adding `@sveltejs/adapter-static` behind an env
    switch in `svelte.config.js`, and pointing `VITE_API_BASE` at the public origin. Also needs the
-   Android SDK (Studio is installed, the SDK isn't). See `docs/archive/MOBILE.md`.
+   Android SDK (Studio is installed, the SDK isn't).
 2. **iOS** — needs macOS (or a cloud-Mac CI) plus the Apple Developer Program; `cap add ios` can't run
    on Windows. The iPhone **PWA** already works today.
 3. **Native push (APNs/FCM)** — the only notification path that works inside an iOS WebView. The

@@ -10,7 +10,7 @@ import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
  * `adapter-static` for the Capacitor build is deliberately not here yet: that
  * build has never been exercised end to end (no Android SDK, no Mac), and
  * carrying an unverifiable second target through this migration is exactly the
- * complexity it's meant to remove. See docs/archive/SVELTEKIT-PLAN.md §8.
+ * complexity it's meant to remove.
  *
  * @type {import('@sveltejs/kit').Config}
  */
