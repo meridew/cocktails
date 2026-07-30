@@ -197,19 +197,43 @@ session before it was recognised as an environment limit.)
 
 ## 10. CI
 
-Deploys currently average ~150s (95–256s observed). The fat, and what's done about
-it:
+Deploys average ~150s and swing between 95s and 256s. The variance is **not** the
+workflow — it's the hardware. The NAS is a 4-core Synology that also runs two
+long-lived QEMU VMs (72% and 41% CPU, up 35 days), SQL Server and Plex, with almost
+no free RAM and `kswapd0` visibly thrashing. Baseline load average is ~70.
 
-| Fat                                                                                                             | Fix                                                                                                                          | Status             |
-| --------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | ------------------ |
-| Two jobs — gate on a GitHub-hosted runner, deploy on the NAS: two checkouts, two `npm ci`, ~15s VM provisioning | One job on the NAS runner                                                                                                    | ✅ done            |
-| `cancel-in-progress: false`, queueing deploys that are already obsolete                                         | `true` — supersede                                                                                                           | ✅ done            |
-| Three images rebuilt per deploy (nginx+client, api, caddy)                                                      | One image (§6)                                                                                                               | with the migration |
-| A whole GitHub round-trip when only the live site needs refreshing                                              | `npm run deploy:nas` — ssh + compose directly (verified working: key present, docker at `/usr/local/bin/docker`, needs sudo) | with the migration |
+Two conclusions follow, one of them learned the hard way:
 
-Note the gate job was GitHub-hosted, so that was the only _billed_ usage; the deploy
-runner is self-hosted and free. Merging the jobs takes billed usage to zero, but the
-thing actually worth optimising was wall-clock, not billing.
+**Do not run the gate on the NAS.** Merging the check job into the deploy job was
+tried, to save a second checkout and ~15s of cloud VM provisioning. It failed the
+run outright: `npm ci` + typecheck + 235 tests (the auth suite is scrypt at N=65536,
+96 MiB per hash) on top of a three-image Docker build, on a box already at load 70.
+The GitHub-hosted runner does the same gate in ~35s on idle hardware while the NAS
+does nothing. **The two jobs are not duplication — they are the point.**
+
+**Stop compiling on the NAS.** This is the real fix, and the migration enables it.
+Today a deploy runs `docker compose up --build`, which means `npm ci` and `vite
+build` inside three images, on the swapping box. After the migration the deployable
+artifact is `build/` plus production `node_modules` — so a deploy becomes:
+
+```
+rsync the build output  →  docker restart cocktails-app
+```
+
+Seconds, with all compilation done on the dev machine or a cloud runner. That also
+makes `npm run deploy:nas` genuinely fast (ssh path verified: key present, docker at
+`/usr/local/bin/docker`, sudo required).
+
+| Change                                                   | Status                         |
+| -------------------------------------------------------- | ------------------------------ |
+| `cancel-in-progress: true` — supersede rather than queue | ✅ done                        |
+| Merge gate into the deploy job                           | ❌ tried, reverted — see above |
+| Three images → one                                       | with the migration             |
+| Ship a built artifact instead of building on the NAS     | with the migration             |
+
+Note the gate job is the only _billed_ Actions usage; the NAS runner is self-hosted
+and free. Billing was never the thing worth optimising — wall-clock was, and the
+answer turned out to be "use the cloud runner more, not less".
 
 ## 11. Phases
 
