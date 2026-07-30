@@ -9,12 +9,11 @@ name: deploy (NAS)
 # `npm ci` + typecheck + 235 tests (the auth suite is scrypt at 96 MiB a hash) on a
 # box already at load 70. And BuildKit was being OOM-killed compiling the client.
 #
-# So the cloud runner does everything that needs CPU or memory — gate, and building
-# the client bundle — and hands `dist/` to the NAS as an artifact. The NAS job only
-# copies files into images and restarts containers.
+# The cloud runner does everything that needs CPU or memory. The NAS job only
+# assembles an image from the result and restarts one container.
 on:
   push:
-    branches: [modernise, main]
+    branches: [sveltekit, modernise, main]
     paths-ignore:
       - 'docs/**'
       - '**/*.md'
@@ -42,18 +41,18 @@ jobs:
       # order-status tests hit real push services and flake.
       - name: Format check
         run: npm run format:check
-      - name: Typecheck + svelte-check
+      - name: Typecheck
         run: npm run check
       - name: Test
         run: npm test
-      - name: Build web
-        run: npm -w @cocktails/web run build
+      - name: Build
+        run: npm run build
 
-      # Hand the bundle to the NAS rather than making it compile one.
+      # Hand the built app to the NAS rather than making it compile one.
       - uses: actions/upload-artifact@v4
         with:
-          name: web-dist
-          path: apps/web/dist
+          name: app-build
+          path: build
           retention-days: 1
           if-no-files-found: error
 
@@ -63,19 +62,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # apps/web/Dockerfile copies this in; it never builds it.
+      # The Dockerfile copies this in; it never builds it.
       - uses: actions/download-artifact@v4
         with:
-          name: web-dist
-          path: apps/web/dist
+          name: app-build
+          path: build
 
       - name: Write infra/.env
         run: |
           cat > infra/.env <<EOF
-          API_IMAGE=cocktails-api:local
-          WEB_IMAGE=cocktails-web:local
-          CADDY_IMAGE=cocktails-caddy:local
+          APP_IMAGE=cocktails-app:local
           ALLOWED_ORIGIN=${ALLOWED_ORIGIN}
+          PUBLIC_ORIGIN=https://cock.meridew.com
           PUBLIC_PORT=8088
           STAFF_EMAIL=${STAFF_EMAIL}
           STAFF_PASSWORD=${STAFF_PASSWORD}
@@ -100,7 +98,7 @@ jobs:
         run: |
           # Bring up the Cloudflare Tunnel only once a token secret exists.
           if [ -n "${TUNNEL_TOKEN}" ]; then export COMPOSE_PROFILES=tunnel; fi
-          docker-compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
+          docker-compose -f docker-compose.yml -f docker-compose.build.yml up -d --build --remove-orphans
           docker image prune -f --filter "label=com.docker.compose.project=cocktails"
         env:
           TUNNEL_TOKEN: ${{ secrets.TUNNEL_TOKEN }}
