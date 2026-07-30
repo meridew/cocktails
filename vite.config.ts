@@ -19,6 +19,9 @@ export default defineConfig({
     // Globals faked with vi.stubGlobal (Notification, PushManager) are restored
     // between tests, so one case's fake browser can't shape the next one's.
     unstubGlobals: true,
+    // The request log in hooks.server.ts is useful in production and pure noise
+    // across a few hundred tests; keep it for failures only.
+    silent: 'passed-only',
   },
   // Svelte 5 under jsdom must resolve its *browser* build, or components render to
   // a string and nothing is mountable. Scoped to test runs so it can't affect the

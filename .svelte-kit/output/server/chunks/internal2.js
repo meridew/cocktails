@@ -1,7 +1,8 @@
-import { r as root } from './root.js';
-import './internal.js';
+import { r as root } from "./root.js";
+import "./internal.js";
 let public_env = {};
-function set_private_env(environment) {}
+function set_private_env(environment) {
+}
 function set_public_env(environment) {
   public_env = environment;
 }
@@ -9,11 +10,9 @@ let read_implementation = null;
 function set_read_implementation(fn) {
   read_implementation = fn;
 }
-function set_manifest(_) {}
-const error = ({ status, message }) =>
-  '<!doctype html>\n<html lang="en">\n	<head>\n		<meta charset="utf-8" />\n		<title>' +
-  message +
-  `</title>
+function set_manifest(_) {
+}
+const error = ({ status, message }) => '<!doctype html>\n<html lang="en">\n	<head>\n		<meta charset="utf-8" />\n		<title>' + message + `</title>
 
 		<style>
 			body {
@@ -82,50 +81,29 @@ const error = ({ status, message }) =>
 	</head>
 	<body>
 		<div class="error">
-			<span class="status">` +
-  status +
-  '</span>\n			<div class="message">\n				<h1>' +
-  message +
-  '</h1>\n			</div>\n		</div>\n	</body>\n</html>\n';
+			<span class="status">` + status + '</span>\n			<div class="message">\n				<h1>' + message + "</h1>\n			</div>\n		</div>\n	</body>\n</html>\n";
 const options = {
   app_template_contains_nonce: false,
   async: false,
-  csp: {
-    mode: 'auto',
-    directives: { 'upgrade-insecure-requests': false, 'block-all-mixed-content': false },
-    reportOnly: { 'upgrade-insecure-requests': false, 'block-all-mixed-content': false },
-  },
+  csp: { "mode": "auto", "directives": { "upgrade-insecure-requests": false, "block-all-mixed-content": false }, "reportOnly": { "upgrade-insecure-requests": false, "block-all-mixed-content": false } },
   csrf_check_origin: true,
   csrf_trusted_origins: [],
   embedded: false,
-  env_public_prefix: 'PUBLIC_',
-  env_private_prefix: '',
+  env_public_prefix: "PUBLIC_",
+  env_private_prefix: "",
   hash_routing: false,
   hooks: null,
   // added lazily, via `get_hooks`
-  preload_strategy: 'modulepreload',
+  preload_strategy: "modulepreload",
   root,
   service_worker: false,
   service_worker_options: void 0,
   server_error_boundaries: false,
   templates: {
-    app: ({ head, body, assets, nonce, env }) =>
-      '<!doctype html>\n<html lang="en">\n  <head>\n    <meta charset="UTF-8" />\n    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />\n    <meta name="description" content="Build a round, drop your name, get served." />\n    <meta name="theme-color" content="#ffe600" />\n    <!-- iOS PWA: install as a real full-screen app (required for standalone + web push) -->\n    <meta name="apple-mobile-web-app-capable" content="yes" />\n    <meta name="mobile-web-app-capable" content="yes" />\n    <meta name="apple-mobile-web-app-status-bar-style" content="default" />\n    <meta name="apple-mobile-web-app-title" content="Cocktails" />\n    <link rel="icon" type="image/svg+xml" href="' +
-      assets +
-      '/favicon.svg" />\n    <link rel="icon" type="image/png" sizes="192x192" href="' +
-      assets +
-      '/pwa-192.png" />\n    <link rel="apple-touch-icon" href="' +
-      assets +
-      '/apple-touch-icon.png" />\n    <link rel="manifest" href="' +
-      assets +
-      '/manifest.webmanifest" />\n    ' +
-      head +
-      '\n  </head>\n  <body data-sveltekit-preload-data="hover">\n    <div id="app">' +
-      body +
-      '</div>\n  </body>\n</html>\n',
-    error,
+    app: ({ head, body, assets, nonce, env }) => '<!doctype html>\n<html lang="en">\n  <head>\n    <meta charset="UTF-8" />\n    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />\n    <meta name="description" content="Build a round, drop your name, get served." />\n    <meta name="theme-color" content="#ffe600" />\n    <!-- iOS PWA: install as a real full-screen app (required for standalone + web push) -->\n    <meta name="apple-mobile-web-app-capable" content="yes" />\n    <meta name="mobile-web-app-capable" content="yes" />\n    <meta name="apple-mobile-web-app-status-bar-style" content="default" />\n    <meta name="apple-mobile-web-app-title" content="Cocktails" />\n    <link rel="icon" type="image/svg+xml" href="' + assets + '/favicon.svg" />\n    <link rel="icon" type="image/png" sizes="192x192" href="' + assets + '/pwa-192.png" />\n    <link rel="apple-touch-icon" href="' + assets + '/apple-touch-icon.png" />\n    <link rel="manifest" href="' + assets + '/manifest.webmanifest" />\n    ' + head + '\n  </head>\n  <body data-sveltekit-preload-data="hover">\n    <div id="app">' + body + "</div>\n  </body>\n</html>\n",
+    error
   },
-  version_hash: 'hq4qkf',
+  version_hash: "1i06q64"
 };
 async function get_hooks() {
   let handle;
@@ -133,6 +111,7 @@ async function get_hooks() {
   let handleError;
   let handleValidationError;
   let init;
+  ({ handle, handleFetch, handleError, handleValidationError, init } = await import("../entries/hooks.server.js"));
   let reroute;
   let transport;
   return {
@@ -142,7 +121,7 @@ async function get_hooks() {
     handleValidationError,
     init,
     reroute,
-    transport,
+    transport
   };
 }
 export {
@@ -153,5 +132,5 @@ export {
   options as o,
   public_env as p,
   read_implementation as r,
-  set_manifest as s,
+  set_manifest as s
 };

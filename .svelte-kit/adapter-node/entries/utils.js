@@ -7,13 +7,13 @@ import { format } from 'node:url';
  * @returns {number}
  */
 function parse_as_bytes(value) {
-  const multiplier =
-    {
-      K: 1024,
-      M: 1024 * 1024,
-      G: 1024 * 1024 * 1024,
-    }[value[value.length - 1]?.toUpperCase()] ?? 1;
-  return Number(multiplier != 1 ? value.substring(0, value.length - 1) : value) * multiplier;
+	const multiplier =
+		{
+			K: 1024,
+			M: 1024 * 1024,
+			G: 1024 * 1024 * 1024
+		}[value[value.length - 1]?.toUpperCase()] ?? 1;
+	return Number(multiplier != 1 ? value.substring(0, value.length - 1) : value) * multiplier;
 }
 
 /**
@@ -24,33 +24,33 @@ function parse_as_bytes(value) {
  * @throws {Error} If value is provided but invalid
  */
 function parse_origin(value) {
-  if (value === undefined) {
-    return undefined;
-  }
+	if (value === undefined) {
+		return undefined;
+	}
 
-  const trimmed = value.trim();
+	const trimmed = value.trim();
 
-  let url;
-  try {
-    url = new URL(trimmed);
-  } catch (error) {
-    throw new Error(
-      `Invalid ORIGIN: '${trimmed}'. ` +
-        `ORIGIN must be a valid URL with http:// or https:// protocol. ` +
-        `For example: 'http://localhost:3000' or 'https://my.site'`,
-      { cause: error },
-    );
-  }
+	let url;
+	try {
+		url = new URL(trimmed);
+	} catch (error) {
+		throw new Error(
+			`Invalid ORIGIN: '${trimmed}'. ` +
+				`ORIGIN must be a valid URL with http:// or https:// protocol. ` +
+				`For example: 'http://localhost:3000' or 'https://my.site'`,
+			{ cause: error }
+		);
+	}
 
-  if (url.protocol !== 'http:' && url.protocol !== 'https:') {
-    throw new Error(
-      `Invalid ORIGIN: '${trimmed}'. ` +
-        `Only http:// and https:// protocols are supported. ` +
-        `Received protocol: ${url.protocol}`,
-    );
-  }
+	if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+		throw new Error(
+			`Invalid ORIGIN: '${trimmed}'. ` +
+				`Only http:// and https:// protocols are supported. ` +
+				`Received protocol: ${url.protocol}`
+		);
+	}
 
-  return url.origin;
+	return url.origin;
 }
 
 /**
@@ -63,23 +63,23 @@ function parse_origin(value) {
  * @returns {string}
  */
 function format_listening_address(path, host, port, address) {
-  if (path) {
-    return path;
-  }
+	if (path) {
+		return path;
+	}
 
-  if (address && typeof address === 'object') {
-    return format({
-      protocol: 'http:',
-      hostname: address.address,
-      port: address.port,
-    });
-  }
+	if (address && typeof address === 'object') {
+		return format({
+			protocol: 'http:',
+			hostname: address.address,
+			port: address.port
+		});
+	}
 
-  return format({
-    protocol: 'http:',
-    hostname: host,
-    port: String(port),
-  });
+	return format({
+		protocol: 'http:',
+		hostname: host,
+		port: String(port)
+	});
 }
 
 export { format_listening_address, parse_as_bytes, parse_origin };

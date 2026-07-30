@@ -1,5 +1,5 @@
-import { clsx as clsx$1 } from 'clsx';
-import * as devalue from 'devalue';
+import { clsx as clsx$1 } from "clsx";
+import * as devalue from "devalue";
 const BROWSER = false;
 var is_array = Array.isArray;
 var index_of = Array.prototype.indexOf;
@@ -12,7 +12,8 @@ var array_prototype = Array.prototype;
 var get_prototype_of = Object.getPrototypeOf;
 var is_extensible = Object.isExtensible;
 var has_own_property = Object.prototype.hasOwnProperty;
-const noop = () => {};
+const noop = () => {
+};
 function run_all(arr) {
   for (var i = 0; i < arr.length; i++) {
     arr[i]();
@@ -31,9 +32,7 @@ function equals(value) {
   return value === this.v;
 }
 function safe_not_equal(a, b) {
-  return a != a
-    ? b == b
-    : a !== b || (a !== null && typeof a === 'object') || typeof a === 'function';
+  return a != a ? b == b : a !== b || a !== null && typeof a === "object" || typeof a === "function";
 }
 function safe_equals(value) {
   return !safe_not_equal(value, this.v);
@@ -63,16 +62,16 @@ const WAS_MARKED = 1 << 16;
 const REACTION_IS_UPDATING = 1 << 21;
 const ASYNC = 1 << 22;
 const ERROR_VALUE = 1 << 23;
-const STATE_SYMBOL = Symbol('$state');
-const LEGACY_PROPS = Symbol('legacy props');
-const ATTRIBUTES_CACHE = Symbol('attributes');
-const CLASS_CACHE = Symbol('class');
-const STYLE_CACHE = Symbol('style');
-const TEXT_CACHE = Symbol('text');
-const STALE_REACTION = new (class StaleReactionError extends Error {
-  name = 'StaleReactionError';
-  message = 'The reaction that called `getAbortSignal()` was re-run or destroyed';
-})();
+const STATE_SYMBOL = Symbol("$state");
+const LEGACY_PROPS = Symbol("legacy props");
+const ATTRIBUTES_CACHE = Symbol("attributes");
+const CLASS_CACHE = Symbol("class");
+const STYLE_CACHE = Symbol("style");
+const TEXT_CACHE = Symbol("text");
+const STALE_REACTION = new class StaleReactionError extends Error {
+  name = "StaleReactionError";
+  message = "The reaction that called `getAbortSignal()` was re-run or destroyed";
+}();
 const COMMENT_NODE = 8;
 function lifecycle_outside_component(name) {
   {
@@ -109,15 +108,15 @@ function svelte_boundary_reset_onerror() {
     throw new Error(`https://svelte.dev/e/svelte_boundary_reset_onerror`);
   }
 }
-const HYDRATION_START = '[';
-const HYDRATION_START_ELSE = '[!';
-const HYDRATION_START_FAILED = '[?';
-const HYDRATION_END = ']';
+const HYDRATION_START = "[";
+const HYDRATION_START_ELSE = "[!";
+const HYDRATION_START_FAILED = "[?";
+const HYDRATION_END = "]";
 const HYDRATION_ERROR = {};
 const ELEMENT_IS_NAMESPACED = 1;
 const ELEMENT_PRESERVE_ATTRIBUTE_CASE = 1 << 1;
 const ELEMENT_IS_INPUT = 1 << 2;
-const UNINITIALIZED = Symbol('uninitialized');
+const UNINITIALIZED = Symbol("uninitialized");
 function derived_inert() {
   {
     console.warn(`https://svelte.dev/e/derived_inert`);
@@ -143,7 +142,7 @@ function set_hydrate_node(node) {
     hydration_mismatch();
     throw HYDRATION_ERROR;
   }
-  return (hydrate_node = node);
+  return hydrate_node = node;
 }
 function hydrate_next() {
   return set_hydrate_node(/* @__PURE__ */ get_next_sibling(hydrate_node));
@@ -153,7 +152,8 @@ function next(count = 1) {
     var i = count;
     var node = hydrate_node;
     while (i--) {
-      node = /** @type {TemplateNode} */ /* @__PURE__ */ get_next_sibling(node);
+      node = /** @type {TemplateNode} */
+      /* @__PURE__ */ get_next_sibling(node);
     }
     hydrate_node = node;
   }
@@ -163,23 +163,22 @@ function skip_nodes(remove = true) {
   var node = hydrate_node;
   while (true) {
     if (node.nodeType === COMMENT_NODE) {
-      var data =
+      var data = (
         /** @type {Comment} */
-        node.data;
+        node.data
+      );
       if (data === HYDRATION_END) {
         if (depth === 0) return node;
         depth -= 1;
-      } else if (
-        data === HYDRATION_START ||
-        data === HYDRATION_START_ELSE || // "[1", "[2", etc. for if blocks
-        (data[0] === '[' && !isNaN(Number(data.slice(1))))
-      ) {
+      } else if (data === HYDRATION_START || data === HYDRATION_START_ELSE || // "[1", "[2", etc. for if blocks
+      data[0] === "[" && !isNaN(Number(data.slice(1)))) {
         depth += 1;
       }
     }
-    var next2 =
+    var next2 = (
       /** @type {TemplateNode} */
-      /* @__PURE__ */ get_next_sibling(node);
+      /* @__PURE__ */ get_next_sibling(node)
+    );
     if (remove) node.remove();
     node = next2;
   }
@@ -197,16 +196,18 @@ function push$1(props, runes = false, fn) {
     e: null,
     s: props,
     x: null,
-    r:
+    r: (
       /** @type {Effect} */
-      active_effect,
-    l: null,
+      active_effect
+    ),
+    l: null
   };
 }
 function pop$1(component) {
-  var context =
+  var context = (
     /** @type {ComponentContext} */
-    component_context;
+    component_context
+  );
   var effects = context.e;
   if (effects !== null) {
     context.e = null;
@@ -274,7 +275,7 @@ function invoke_error_boundary(error, effect) {
 }
 const STATUS_MASK = -7169;
 function set_signal_status(signal, status) {
-  signal.f = (signal.f & STATUS_MASK) | status;
+  signal.f = signal.f & STATUS_MASK | status;
 }
 function update_derived_status(derived2) {
   if ((derived2.f & CONNECTED) !== 0 || derived2.deps === null) {
@@ -292,7 +293,7 @@ function clear_marked(deps) {
     dep.f ^= WAS_MARKED;
     clear_marked(
       /** @type {Derived} */
-      dep.deps,
+      dep.deps
     );
   }
 }
@@ -479,9 +480,9 @@ class Batch {
     const roots = this.#roots;
     this.#roots = [];
     this.apply();
-    var effects = (collected_effects = []);
+    var effects = collected_effects = [];
     var render_effects = [];
-    var updates = (legacy_updates = []);
+    var updates = legacy_updates = [];
     for (const root2 of roots) {
       try {
         this.#traverse(root2, effects, render_effects);
@@ -528,10 +529,11 @@ class Batch {
     flush_queued_effects(effects);
     previous_batch = null;
     this.#deferred?.resolve();
-    var next_batch =
+    var next_batch = (
       /** @type {Batch | null} */
       /** @type {unknown} */
-      current_batch;
+      current_batch
+    );
     if (this.#pending === 0 && (this.#roots.length === 0 || next_batch !== null)) {
       this.#unlink();
     }
@@ -561,8 +563,7 @@ class Batch {
       var flags2 = effect.f;
       var is_branch = (flags2 & (BRANCH_EFFECT | ROOT_EFFECT)) !== 0;
       var is_skippable_branch = is_branch && (flags2 & CLEAN) !== 0;
-      var skip =
-        is_skippable_branch || (flags2 & INERT) !== 0 || this.#skipped_branches.has(effect);
+      var skip = is_skippable_branch || (flags2 & INERT) !== 0 || this.#skipped_branches.has(effect);
       if (!skip && effect.fn !== null) {
         if (is_branch) {
           effect.f ^= CLEAN;
@@ -625,12 +626,13 @@ class Batch {
         if ((flags2 & DERIVED) !== 0) {
           mark(
             /** @type {Derived} */
-            reaction,
+            reaction
           );
         } else {
-          var effect =
+          var effect = (
             /** @type {Effect} */
-            reaction;
+            reaction
+          );
           if (flags2 & (ASYNC | BLOCK_EFFECT) && !this.async_deriveds.has(effect)) {
             this.#maybe_dirty_effects.delete(effect);
             set_signal_status(effect, DIRTY);
@@ -683,7 +685,7 @@ class Batch {
   }
   flush() {
     try {
-      if (BROWSER);
+      if (BROWSER) ;
       is_processing = true;
       current_batch = this;
       this.#process();
@@ -716,9 +718,10 @@ class Batch {
       var sources = [];
       for (const [source3, [value, is_derived]] of this.current) {
         if (batch.current.has(source3)) {
-          var batch_value =
+          var batch_value = (
             /** @type {[any, boolean]} */
-            batch.current.get(source3)[0];
+            batch.current.get(source3)[0]
+          );
           if (is_earlier && value !== batch_value) {
             batch.current.set(source3, [value, is_derived]);
           } else {
@@ -735,7 +738,8 @@ class Batch {
       }
       if (!batch.#started) continue;
       var others = [...batch.current.keys()].filter(
-        (s) => !(/** @type {[any, boolean]} */ batch.current.get(s)[1]) && !this.current.has(s),
+        (s) => !/** @type {[any, boolean]} */
+        batch.current.get(s)[1] && !this.current.has(s)
       );
       if (others.length === 0) {
         if (is_earlier) {
@@ -760,19 +764,14 @@ class Batch {
           mark_effects(source2, others, marked, checked);
         }
         checked = /* @__PURE__ */ new Map();
-        var current_unequal = [...batch.current]
-          .filter(([c, v1]) => {
-            const v2 = this.current.get(c);
-            if (!v2) return true;
-            return v2[0] !== v1[0] || v2[1] !== v1[1];
-          })
-          .map(([c]) => c);
+        var current_unequal = [...batch.current].filter(([c, v1]) => {
+          const v2 = this.current.get(c);
+          if (!v2) return true;
+          return v2[0] !== v1[0] || v2[1] !== v1[1];
+        }).map(([c]) => c);
         if (current_unequal.length > 0) {
           for (const effect of this.#new_effects) {
-            if (
-              (effect.f & (DESTROYED | INERT | EAGER_EFFECT)) === 0 &&
-              depends_on(effect, current_unequal, checked)
-            ) {
+            if ((effect.f & (DESTROYED | INERT | EAGER_EFFECT)) === 0 && depends_on(effect, current_unequal, checked)) {
               if ((effect.f & (ASYNC | BLOCK_EFFECT)) !== 0) {
                 set_signal_status(effect, DIRTY);
                 batch.schedule(effect);
@@ -854,7 +853,7 @@ class Batch {
   }
   static ensure() {
     if (current_batch === null) {
-      const batch = (current_batch = new Batch());
+      const batch = current_batch = new Batch();
       if (!is_processing && !is_flushing_sync) {
         queue_micro_task(() => {
           if (!batch.#started) {
@@ -877,11 +876,7 @@ class Batch {
    */
   schedule(effect) {
     last_scheduled_effect = effect;
-    if (
-      effect.b?.is_pending &&
-      (effect.f & (EFFECT | RENDER_EFFECT | MANAGED_EFFECT)) !== 0 &&
-      (effect.f & REACTION_RAN) === 0
-    ) {
+    if (effect.b?.is_pending && (effect.f & (EFFECT | RENDER_EFFECT | MANAGED_EFFECT)) !== 0 && (effect.f & REACTION_RAN) === 0) {
       effect.b.defer_effect(effect);
       return;
     }
@@ -925,7 +920,7 @@ function flushSync(fn) {
   is_flushing_sync = true;
   try {
     var result;
-    if (fn);
+    if (fn) ;
     while (true) {
       flush_tasks();
       if (current_batch === null) {
@@ -957,13 +952,7 @@ function flush_queued_effects(effects) {
     if ((effect.f & (DESTROYED | INERT)) === 0 && is_dirty(effect)) {
       eager_block_effects = /* @__PURE__ */ new Set();
       update_effect(effect);
-      if (
-        effect.deps === null &&
-        effect.first === null &&
-        effect.nodes === null &&
-        effect.teardown === null &&
-        effect.ac === null
-      ) {
+      if (effect.deps === null && effect.first === null && effect.nodes === null && effect.teardown === null && effect.ac === null) {
         unlink_effect(effect);
       }
       if (eager_block_effects?.size > 0) {
@@ -1003,17 +992,13 @@ function mark_effects(value, sources, marked, checked) {
           reaction,
           sources,
           marked,
-          checked,
+          checked
         );
-      } else if (
-        (flags2 & (ASYNC | BLOCK_EFFECT)) !== 0 &&
-        (flags2 & DIRTY) === 0 &&
-        depends_on(reaction, sources, checked)
-      ) {
+      } else if ((flags2 & (ASYNC | BLOCK_EFFECT)) !== 0 && (flags2 & DIRTY) === 0 && depends_on(reaction, sources, checked)) {
         set_signal_status(reaction, DIRTY);
         schedule_effect(
           /** @type {Effect} */
-          reaction,
+          reaction
         );
       }
     }
@@ -1027,19 +1012,16 @@ function depends_on(reaction, sources, checked) {
       if (includes.call(sources, dep)) {
         return true;
       }
-      if (
-        (dep.f & DERIVED) !== 0 &&
-        depends_on(
-          /** @type {Derived} */
-          dep,
-          sources,
-          checked,
-        )
-      ) {
+      if ((dep.f & DERIVED) !== 0 && depends_on(
+        /** @type {Derived} */
+        dep,
+        sources,
+        checked
+      )) {
         checked.set(
           /** @type {Derived} */
           dep,
-          true,
+          true
         );
         return true;
       }
@@ -1164,20 +1146,23 @@ class Boundary {
     this.#anchor = node;
     this.#props = props;
     this.#children = (anchor) => {
-      var effect =
+      var effect = (
         /** @type {Effect} */
-        active_effect;
+        active_effect
+      );
       effect.b = this;
       effect.f |= BOUNDARY_EFFECT;
       children(anchor);
     };
-    this.parent = /** @type {Effect} */ active_effect.b;
+    this.parent = /** @type {Effect} */
+    active_effect.b;
     this.transform_error = transform_error ?? this.parent?.transform_error ?? ((e) => e);
     this.#effect = block(() => {
       if (hydrating) {
-        const comment =
+        const comment = (
           /** @type {Comment} */
-          this.#hydrate_open;
+          this.#hydrate_open
+        );
         hydrate_next();
         const server_rendered_pending = comment.data === HYDRATION_START_ELSE;
         const server_rendered_failed = comment.data.startsWith(HYDRATION_START_FAILED);
@@ -1214,7 +1199,8 @@ class Boundary {
       failed(
         this.#anchor,
         () => error,
-        () => () => {},
+        () => () => {
+        }
       );
     });
   }
@@ -1224,7 +1210,7 @@ class Boundary {
     this.is_pending = true;
     this.#pending_effect = branch(() => pending(this.#anchor));
     queue_micro_task(() => {
-      var fragment = (this.#offscreen_fragment = document.createDocumentFragment());
+      var fragment = this.#offscreen_fragment = document.createDocumentFragment();
       var anchor = create_text();
       fragment.append(anchor);
       this.#main_effect = this.#run(() => {
@@ -1238,11 +1224,11 @@ class Boundary {
           this.#pending_effect,
           () => {
             this.#pending_effect = null;
-          },
+          }
         );
         this.#resolve(
           /** @type {Batch} */
-          current_batch,
+          current_batch
         );
       }
     });
@@ -1256,16 +1242,17 @@ class Boundary {
         this.#children(this.#anchor);
       });
       if (this.#pending_count > 0) {
-        var fragment = (this.#offscreen_fragment = document.createDocumentFragment());
+        var fragment = this.#offscreen_fragment = document.createDocumentFragment();
         move_effect(this.#main_effect, fragment);
-        const pending =
+        const pending = (
           /** @type {(anchor: Node) => void} */
-          this.#props.pending;
+          this.#props.pending
+        );
         this.#pending_effect = branch(() => pending(this.#anchor));
       } else {
         this.#resolve(
           /** @type {Batch} */
-          current_batch,
+          current_batch
         );
       }
     } catch (error) {
@@ -1369,7 +1356,7 @@ class Boundary {
     this.#effect_pending_subscriber();
     return get(
       /** @type {Source<number>} */
-      this.#effect_pending,
+      this.#effect_pending
     );
   }
   /** @param {unknown} error */
@@ -1407,7 +1394,7 @@ class Boundary {
     if (hydrating) {
       set_hydrate_node(
         /** @type {TemplateNode} */
-        this.#hydrate_open,
+        this.#hydrate_open
       );
       next();
       set_hydrate_node(skip_nodes());
@@ -1446,22 +1433,23 @@ class Boundary {
         this.#failed_effect = this.#run(() => {
           try {
             return branch(() => {
-              var effect =
+              var effect = (
                 /** @type {Effect} */
-                active_effect;
+                active_effect
+              );
               effect.b = this;
               effect.f |= BOUNDARY_EFFECT;
               failed(
                 this.#anchor,
                 () => transformed_error,
-                () => reset,
+                () => reset
               );
             });
           } catch (error2) {
             invoke_error_boundary(
               error2,
               /** @type {Effect} */
-              this.#effect.parent,
+              this.#effect.parent
             );
             return null;
           }
@@ -1476,15 +1464,12 @@ class Boundary {
         invoke_error_boundary(e, this.#effect && this.#effect.parent);
         return;
       }
-      if (
-        result !== null &&
-        typeof result === 'object' &&
-        typeof (/** @type {any} */ result.then) === 'function'
-      ) {
+      if (result !== null && typeof result === "object" && typeof /** @type {any} */
+      result.then === "function") {
         result.then(
           handle_error_result,
           /** @param {unknown} e */
-          (e) => invoke_error_boundary(e, this.#effect && this.#effect.parent),
+          (e) => invoke_error_boundary(e, this.#effect && this.#effect.parent)
         );
       } else {
         handle_error_result(result);
@@ -1499,7 +1484,7 @@ function destroy_derived_effects(derived2) {
     for (var i = 0; i < effects.length; i += 1) {
       destroy_effect(
         /** @type {Effect} */
-        effects[i],
+        effects[i]
       );
     }
   }
@@ -1508,12 +1493,8 @@ function execute_derived(derived2) {
   var value;
   var prev_active_effect = active_effect;
   var parent = derived2.parent;
-  if (
-    !is_destroying_effect &&
-    parent !== null &&
-    derived2.v !== UNINITIALIZED && // if it was never evaluated before, it's guaranteed to fail downstream, so we try to execute instead
-    (parent.f & (DESTROYED | INERT)) !== 0
-  ) {
+  if (!is_destroying_effect && parent !== null && derived2.v !== UNINITIALIZED && // if it was never evaluated before, it's guaranteed to fail downstream, so we try to execute instead
+  (parent.f & (DESTROYED | INERT)) !== 0) {
     derived_inert();
     return derived2.v;
   }
@@ -1589,7 +1570,7 @@ function source(v, stack) {
     reactions: null,
     equals,
     rv: 0,
-    wv: 0,
+    wv: 0
   };
   return signal;
 }
@@ -1608,14 +1589,9 @@ function mutable_source(initial_value, immutable = false, trackable = true) {
   return s;
 }
 function set(source2, value, should_proxy = false) {
-  if (
-    active_reaction !== null && // since we are untracking the function inside `$inspect.with` we need to add this check
-    // to ensure we error if state is set inside an inspect effect
-    (!untracking || (active_reaction.f & EAGER_EFFECT) !== 0) &&
-    is_runes() &&
-    (active_reaction.f & (DERIVED | BLOCK_EFFECT | ASYNC | EAGER_EFFECT)) !== 0 &&
-    (current_sources === null || !current_sources.has(source2))
-  ) {
+  if (active_reaction !== null && // since we are untracking the function inside `$inspect.with` we need to add this check
+  // to ensure we error if state is set inside an inspect effect
+  (!untracking || (active_reaction.f & EAGER_EFFECT) !== 0) && is_runes() && (active_reaction.f & (DERIVED | BLOCK_EFFECT | ASYNC | EAGER_EFFECT)) !== 0 && (current_sources === null || !current_sources.has(source2))) {
     state_unsafe_mutation();
   }
   let new_value = should_proxy ? proxy(value) : value;
@@ -1627,9 +1603,10 @@ function internal_set(source2, value, updated_during_traversal = null) {
     var batch = Batch.ensure();
     batch.capture(source2, value);
     if ((source2.f & DERIVED) !== 0) {
-      const derived2 =
+      const derived2 = (
         /** @type {Derived} */
-        source2;
+        source2
+      );
       if ((source2.f & DIRTY) !== 0) {
         execute_derived(derived2);
       }
@@ -1639,11 +1616,7 @@ function internal_set(source2, value, updated_during_traversal = null) {
     }
     source2.wv = increment_write_version();
     mark_reactions(source2, DIRTY, updated_during_traversal);
-    if (
-      active_effect !== null &&
-      (active_effect.f & CLEAN) !== 0 &&
-      (active_effect.f & (BRANCH_EFFECT | ROOT_EFFECT)) === 0
-    ) {
+    if (active_effect !== null && (active_effect.f & CLEAN) !== 0 && (active_effect.f & (BRANCH_EFFECT | ROOT_EFFECT)) === 0) {
       if (untracked_writes === null) {
         set_untracked_writes([source2]);
       } else {
@@ -1691,26 +1664,25 @@ function mark_reactions(signal, status, updated_during_traversal) {
     if ((flags2 & EAGER_EFFECT) !== 0) {
       eager_effects.add(
         /** @type {Effect} */
-        reaction,
+        reaction
       );
     } else if ((flags2 & DERIVED) !== 0) {
-      var derived2 =
+      var derived2 = (
         /** @type {Derived} */
-        reaction;
+        reaction
+      );
       batch_values?.delete(derived2);
       if ((flags2 & WAS_MARKED) === 0) {
-        if (
-          flags2 & CONNECTED &&
-          (active_effect === null || (active_effect.f & REACTION_IS_UPDATING) === 0)
-        ) {
+        if (flags2 & CONNECTED && (active_effect === null || (active_effect.f & REACTION_IS_UPDATING) === 0)) {
           reaction.f |= WAS_MARKED;
         }
         mark_reactions(derived2, MAYBE_DIRTY, updated_during_traversal);
       }
     } else if (not_dirty) {
-      var effect =
+      var effect = (
         /** @type {Effect} */
-        reaction;
+        reaction
+      );
       if ((flags2 & BLOCK_EFFECT) !== 0 && eager_block_effects !== null) {
         eager_block_effects.add(effect);
       }
@@ -1723,7 +1695,7 @@ function mark_reactions(signal, status, updated_during_traversal) {
   }
 }
 function proxy(value) {
-  if (typeof value !== 'object' || value === null || STATE_SYMBOL in value) {
+  if (typeof value !== "object" || value === null || STATE_SYMBOL in value) {
     return value;
   }
   const prototype = get_prototype_of(value);
@@ -1748,25 +1720,17 @@ function proxy(value) {
     return result;
   };
   if (is_proxied_array) {
-    sources.set(
-      'length',
-      /* @__PURE__ */ state(
-        /** @type {any[]} */
-        value.length,
-      ),
-    );
+    sources.set("length", /* @__PURE__ */ state(
+      /** @type {any[]} */
+      value.length
+    ));
   }
   return new Proxy(
     /** @type {any} */
     value,
     {
       defineProperty(_, prop, descriptor) {
-        if (
-          !('value' in descriptor) ||
-          descriptor.configurable === false ||
-          descriptor.enumerable === false ||
-          descriptor.writable === false
-        ) {
+        if (!("value" in descriptor) || descriptor.configurable === false || descriptor.enumerable === false || descriptor.writable === false) {
           state_descriptors_fixed();
         }
         var s = sources.get(prop);
@@ -1817,7 +1781,7 @@ function proxy(value) {
       },
       getOwnPropertyDescriptor(target, prop) {
         var descriptor = Reflect.getOwnPropertyDescriptor(target, prop);
-        if (descriptor && 'value' in descriptor) {
+        if (descriptor && "value" in descriptor) {
           var s = sources.get(prop);
           if (s) descriptor.value = get(s);
         } else if (descriptor === void 0) {
@@ -1828,7 +1792,7 @@ function proxy(value) {
               enumerable: true,
               configurable: true,
               value: value2,
-              writable: true,
+              writable: true
             };
           }
         }
@@ -1839,11 +1803,8 @@ function proxy(value) {
           return true;
         }
         var s = sources.get(prop);
-        var has = (s !== void 0 && s.v !== UNINITIALIZED) || Reflect.has(target, prop);
-        if (
-          s !== void 0 ||
-          (active_effect !== null && (!has || get_descriptor(target, prop)?.writable))
-        ) {
+        var has = s !== void 0 && s.v !== UNINITIALIZED || Reflect.has(target, prop);
+        if (s !== void 0 || active_effect !== null && (!has || get_descriptor(target, prop)?.writable)) {
           if (s === void 0) {
             s = with_parent(() => {
               var p = has ? proxy(target[prop]) : UNINITIALIZED;
@@ -1862,14 +1823,15 @@ function proxy(value) {
       set(target, prop, value2, receiver) {
         var s = sources.get(prop);
         var has = prop in target;
-        if (is_proxied_array && prop === 'length') {
-          for (var i = value2; i < /** @type {Source<number>} */ s.v; i += 1) {
-            var other_s = sources.get(i + '');
+        if (is_proxied_array && prop === "length") {
+          for (var i = value2; i < /** @type {Source<number>} */
+          s.v; i += 1) {
+            var other_s = sources.get(i + "");
             if (other_s !== void 0) {
               set(other_s, UNINITIALIZED);
             } else if (i in target) {
               other_s = with_parent(() => /* @__PURE__ */ state(UNINITIALIZED));
-              sources.set(i + '', other_s);
+              sources.set(i + "", other_s);
             }
           }
         }
@@ -1889,10 +1851,11 @@ function proxy(value) {
           descriptor.set.call(receiver, value2);
         }
         if (!has) {
-          if (is_proxied_array && typeof prop === 'string') {
-            var ls =
+          if (is_proxied_array && typeof prop === "string") {
+            var ls = (
               /** @type {Source<number>} */
-              sources.get('length');
+              sources.get("length")
+            );
             var n = Number(prop);
             if (Number.isInteger(n) && n >= ls.v) {
               set(ls, n + 1);
@@ -1917,8 +1880,8 @@ function proxy(value) {
       },
       setPrototypeOf() {
         state_prototype_fixed();
-      },
-    },
+      }
+    }
   );
 }
 var $window;
@@ -1932,8 +1895,8 @@ function init_operations() {
   var element_prototype = Element.prototype;
   var node_prototype = Node.prototype;
   var text_prototype = Text.prototype;
-  first_child_getter = get_descriptor(node_prototype, 'firstChild').get;
-  next_sibling_getter = get_descriptor(node_prototype, 'nextSibling').get;
+  first_child_getter = get_descriptor(node_prototype, "firstChild").get;
+  next_sibling_getter = get_descriptor(node_prototype, "nextSibling").get;
   if (is_extensible(element_prototype)) {
     element_prototype[CLASS_CACHE] = void 0;
     element_prototype[ATTRIBUTES_CACHE] = null;
@@ -1944,7 +1907,7 @@ function init_operations() {
     text_prototype[TEXT_CACHE] = void 0;
   }
 }
-function create_text(value = '') {
+function create_text(value = "") {
   return document.createTextNode(value);
 }
 // @__NO_SIDE_EFFECTS__
@@ -1962,7 +1925,7 @@ function get_next_sibling(node) {
   );
 }
 function clear_text_content(node) {
-  node.textContent = '';
+  node.textContent = "";
 }
 function without_reactive_context(fn) {
   var previous_reaction = active_reaction;
@@ -2005,7 +1968,7 @@ function create_effect(type, fn) {
     prev: null,
     teardown: null,
     wv: 0,
-    ac: null,
+    ac: null
   };
   current_batch?.register_created_effect(effect);
   var e = effect;
@@ -2022,13 +1985,8 @@ function create_effect(type, fn) {
       destroy_effect(effect);
       throw e2;
     }
-    if (
-      e.deps === null &&
-      e.teardown === null &&
-      e.nodes === null &&
-      e.first === e.last && // either `null`, or a singular child
-      (e.f & EFFECT_PRESERVED) === 0
-    ) {
+    if (e.deps === null && e.teardown === null && e.nodes === null && e.first === e.last && // either `null`, or a singular child
+    (e.f & EFFECT_PRESERVED) === 0) {
       e = e.first;
       if ((type & BLOCK_EFFECT) !== 0 && (type & EFFECT_TRANSPARENT) !== 0 && e !== null) {
         e.f |= EFFECT_TRANSPARENT;
@@ -2040,14 +1998,11 @@ function create_effect(type, fn) {
     if (parent !== null) {
       push_effect(e, parent);
     }
-    if (
-      active_reaction !== null &&
-      (active_reaction.f & DERIVED) !== 0 &&
-      (type & ROOT_EFFECT) === 0
-    ) {
-      var derived2 =
+    if (active_reaction !== null && (active_reaction.f & DERIVED) !== 0 && (type & ROOT_EFFECT) === 0) {
+      var derived2 = (
         /** @type {Derived} */
-        active_reaction;
+        active_reaction
+      );
       (derived2.effects ??= []).push(e);
     }
   }
@@ -2132,15 +2087,11 @@ function destroy_block_effect_children(signal) {
 }
 function destroy_effect(effect, remove_dom = true) {
   var removed = false;
-  if (
-    (remove_dom || (effect.f & HEAD_EFFECT) !== 0) &&
-    effect.nodes !== null &&
-    effect.nodes.end !== null
-  ) {
+  if ((remove_dom || (effect.f & HEAD_EFFECT) !== 0) && effect.nodes !== null && effect.nodes.end !== null) {
     remove_effect_dom(
       effect.nodes.start,
       /** @type {TemplateNode} */
-      effect.nodes.end,
+      effect.nodes.end
     );
     removed = true;
   }
@@ -2160,16 +2111,7 @@ function destroy_effect(effect, remove_dom = true) {
   if (parent !== null && parent.first !== null) {
     unlink_effect(effect);
   }
-  effect.next =
-    effect.prev =
-    effect.teardown =
-    effect.ctx =
-    effect.deps =
-    effect.fn =
-    effect.nodes =
-    effect.ac =
-    effect.b =
-      null;
+  effect.next = effect.prev = effect.teardown = effect.ctx = effect.deps = effect.fn = effect.nodes = effect.ac = effect.b = null;
 }
 function remove_effect_dom(node, end) {
   while (node !== null) {
@@ -2221,11 +2163,10 @@ function pause_children(effect, transitions, local) {
   while (child !== null) {
     var sibling = child.next;
     if ((child.f & ROOT_EFFECT) === 0) {
-      var transparent =
-        (child.f & EFFECT_TRANSPARENT) !== 0 || // If this is a branch effect without a block effect parent,
-        // it means the parent block effect was pruned. In that case,
-        // transparency information was transferred to the branch effect.
-        ((child.f & BRANCH_EFFECT) !== 0 && (effect.f & BLOCK_EFFECT) !== 0);
+      var transparent = (child.f & EFFECT_TRANSPARENT) !== 0 || // If this is a branch effect without a block effect parent,
+      // it means the parent block effect was pruned. In that case,
+      // transparency information was transferred to the branch effect.
+      (child.f & BRANCH_EFFECT) !== 0 && (effect.f & BLOCK_EFFECT) !== 0;
       pause_children(child, transitions, transparent ? local : false);
     }
     child = sibling;
@@ -2285,32 +2226,29 @@ function is_dirty(reaction) {
     reaction.f &= ~WAS_MARKED;
   }
   if ((flags2 & MAYBE_DIRTY) !== 0) {
-    var dependencies =
+    var dependencies = (
       /** @type {Value[]} */
-      reaction.deps;
+      reaction.deps
+    );
     var length = dependencies.length;
     for (var i = 0; i < length; i++) {
       var dependency = dependencies[i];
-      if (
-        is_dirty(
-          /** @type {Derived} */
-          dependency,
-        )
-      ) {
+      if (is_dirty(
+        /** @type {Derived} */
+        dependency
+      )) {
         update_derived(
           /** @type {Derived} */
-          dependency,
+          dependency
         );
       }
       if (dependency.wv > reaction.wv) {
         return true;
       }
     }
-    if (
-      (flags2 & CONNECTED) !== 0 && // During time traveling we don't want to reset the status so that
-      // traversal of the graph in the other batches still happens
-      batch_values === null
-    ) {
+    if ((flags2 & CONNECTED) !== 0 && // During time traveling we don't want to reset the status so that
+    // traversal of the graph in the other batches still happens
+    batch_values === null) {
       set_signal_status(reaction, CLEAN);
     }
   }
@@ -2329,7 +2267,7 @@ function schedule_possible_effect_self_invalidation(signal, effect, root2 = true
         /** @type {Derived} */
         reaction,
         effect,
-        false,
+        false
       );
     } else if (effect === reaction) {
       if (root2) {
@@ -2339,7 +2277,7 @@ function schedule_possible_effect_self_invalidation(signal, effect, root2 = true
       }
       schedule_effect(
         /** @type {Effect} */
-        reaction,
+        reaction
       );
     }
   }
@@ -2354,7 +2292,8 @@ function update_reaction(reaction) {
   var previous_untracking = untracking;
   var previous_update_version = update_version;
   var flags2 = reaction.f;
-  new_deps = /** @type {null | Value[]} */ null;
+  new_deps = /** @type {null | Value[]} */
+  null;
   skipped_deps = 0;
   untracked_writes = null;
   active_reaction = (flags2 & (BRANCH_EFFECT | ROOT_EFFECT)) === 0 ? reaction : null;
@@ -2370,9 +2309,10 @@ function update_reaction(reaction) {
   }
   try {
     reaction.f |= REACTION_IS_UPDATING;
-    var fn =
+    var fn = (
       /** @type {Function} */
-      reaction.fn;
+      reaction.fn
+    );
     var result = fn();
     reaction.f |= REACTION_RAN;
     var deps = reaction.deps;
@@ -2399,18 +2339,13 @@ function update_reaction(reaction) {
       remove_reactions(reaction, skipped_deps);
       deps.length = skipped_deps;
     }
-    if (
-      is_runes() &&
-      untracked_writes !== null &&
-      !untracking &&
-      deps !== null &&
-      (reaction.f & (DERIVED | MAYBE_DIRTY | DIRTY)) === 0
-    ) {
-      for (i = 0; i < /** @type {Source[]} */ untracked_writes.length; i++) {
+    if (is_runes() && untracked_writes !== null && !untracking && deps !== null && (reaction.f & (DERIVED | MAYBE_DIRTY | DIRTY)) === 0) {
+      for (i = 0; i < /** @type {Source[]} */
+      untracked_writes.length; i++) {
         schedule_possible_effect_self_invalidation(
           untracked_writes[i],
           /** @type {Effect} */
-          reaction,
+          reaction
         );
       }
     }
@@ -2430,7 +2365,8 @@ function update_reaction(reaction) {
         if (previous_untracked_writes === null) {
           previous_untracked_writes = untracked_writes;
         } else {
-          previous_untracked_writes.push(.../** @type {Source[]} */ untracked_writes);
+          previous_untracked_writes.push(.../** @type {Source[]} */
+          untracked_writes);
         }
       }
     }
@@ -2466,16 +2402,14 @@ function remove_reaction(signal, dependency) {
       }
     }
   }
-  if (
-    reactions === null &&
-    (dependency.f & DERIVED) !== 0 && // Destroying a child effect while updating a parent effect can cause a dependency to appear
-    // to be unused, when in fact it is used by the currently-updating parent. Checking `new_deps`
-    // allows us to skip the expensive work of disconnecting and immediately reconnecting it
-    (new_deps === null || !includes.call(new_deps, dependency))
-  ) {
-    var derived2 =
+  if (reactions === null && (dependency.f & DERIVED) !== 0 && // Destroying a child effect while updating a parent effect can cause a dependency to appear
+  // to be unused, when in fact it is used by the currently-updating parent. Checking `new_deps`
+  // allows us to skip the expensive work of disconnecting and immediately reconnecting it
+  (new_deps === null || !includes.call(new_deps, dependency))) {
+    var derived2 = (
       /** @type {Derived} */
-      dependency;
+      dependency
+    );
     if ((derived2.f & CONNECTED) !== 0) {
       derived2.f ^= CONNECTED;
       derived2.f &= ~WAS_MARKED;
@@ -2512,10 +2446,10 @@ function update_effect(effect) {
     }
     execute_effect_teardown(effect);
     var teardown = update_reaction(effect);
-    effect.teardown = typeof teardown === 'function' ? teardown : null;
+    effect.teardown = typeof teardown === "function" ? teardown : null;
     effect.wv = write_version;
     var dep;
-    if (BROWSER && tracing_mode_flag && (effect.f & DIRTY) !== 0 && effect.deps !== null);
+    if (BROWSER && tracing_mode_flag && (effect.f & DIRTY) !== 0 && effect.deps !== null) ;
   } finally {
     is_updating_effect = was_updating_effect;
     active_effect = previous_effect;
@@ -2557,25 +2491,19 @@ function get(signal) {
     return old_values.get(signal);
   }
   if (is_derived) {
-    var derived2 =
+    var derived2 = (
       /** @type {Derived} */
-      signal;
+      signal
+    );
     if (is_destroying_effect) {
       var value = derived2.v;
-      if (
-        ((derived2.f & CLEAN) === 0 && derived2.reactions !== null) ||
-        depends_on_old_values(derived2)
-      ) {
+      if ((derived2.f & CLEAN) === 0 && derived2.reactions !== null || depends_on_old_values(derived2)) {
         value = execute_derived(derived2);
       }
       old_values.set(derived2, value);
       return value;
     }
-    var should_connect =
-      (derived2.f & CONNECTED) === 0 &&
-      !untracking &&
-      active_reaction !== null &&
-      (is_updating_effect || (active_reaction.f & CONNECTED) !== 0);
+    var should_connect = (derived2.f & CONNECTED) === 0 && !untracking && active_reaction !== null && (is_updating_effect || (active_reaction.f & CONNECTED) !== 0);
     var is_new = (derived2.f & REACTION_RAN) === 0;
     if (is_dirty(derived2)) {
       if (should_connect) {
@@ -2604,11 +2532,11 @@ function reconnect(derived2) {
     if ((dep.f & DERIVED) !== 0 && (dep.f & CONNECTED) === 0) {
       unfreeze_derived_effects(
         /** @type {Derived} */
-        dep,
+        dep
       );
       reconnect(
         /** @type {Derived} */
-        dep,
+        dep
       );
     }
   }
@@ -2620,13 +2548,10 @@ function depends_on_old_values(derived2) {
     if (old_values.has(dep)) {
       return true;
     }
-    if (
-      (dep.f & DERIVED) !== 0 &&
-      depends_on_old_values(
-        /** @type {Derived} */
-        dep,
-      )
-    ) {
+    if ((dep.f & DERIVED) !== 0 && depends_on_old_values(
+      /** @type {Derived} */
+      dep
+    )) {
       return true;
     }
   }
@@ -2641,29 +2566,29 @@ function untrack(fn) {
     untracking = previous_untracking;
   }
 }
-const event_symbol = Symbol('events');
+const event_symbol = Symbol("events");
 const all_registered_events = /* @__PURE__ */ new Set();
 const root_event_handles = /* @__PURE__ */ new Set();
 let last_propagated_event = null;
 function handle_event_propagation(event) {
   var handler_element = this;
-  var owner_document =
+  var owner_document = (
     /** @type {Node} */
-    handler_element.ownerDocument;
+    handler_element.ownerDocument
+  );
   var event_name = event.type;
   var path = event.composedPath?.() || [];
-  var current_target =
+  var current_target = (
     /** @type {null | Element} */
-    path[0] || event.target;
+    path[0] || event.target
+  );
   last_propagated_event = event;
   var path_idx = 0;
   var handled_at = last_propagated_event === event && event[event_symbol];
   if (handled_at) {
     var at_idx = path.indexOf(handled_at);
-    if (
-      at_idx !== -1 &&
-      (handler_element === document || handler_element === /** @type {any} */ window)
-    ) {
+    if (at_idx !== -1 && (handler_element === document || handler_element === /** @type {any} */
+    window)) {
       event[event_symbol] = handler_element;
       return;
     }
@@ -2675,13 +2600,14 @@ function handle_event_propagation(event) {
       path_idx = at_idx;
     }
   }
-  current_target = /** @type {Element} */ path[path_idx] || event.target;
+  current_target = /** @type {Element} */
+  path[path_idx] || event.target;
   if (current_target === handler_element) return;
-  define_property(event, 'currentTarget', {
+  define_property(event, "currentTarget", {
     configurable: true,
     get() {
       return current_target || owner_document;
-    },
+    }
   });
   var previous_reaction = active_reaction;
   var previous_effect = active_effect;
@@ -2694,12 +2620,10 @@ function handle_event_propagation(event) {
       if (current_target === handler_element) break;
       try {
         var delegated = current_target[event_symbol]?.[event_name];
-        if (
-          delegated != null &&
-          (!(/** @type {any} */ current_target.disabled) || // DOM could've been updated already by the time this is reached, so we check this as well
-            // -> the target could not have been disabled because it emits the event in the first place
-            event.target === current_target)
-        ) {
+        if (delegated != null && (!/** @type {any} */
+        current_target.disabled || // DOM could've been updated already by the time this is reached, so we check this as well
+        // -> the target could not have been disabled because it emits the event in the first place
+        event.target === current_target)) {
           delegated.call(current_target, event);
         }
       } catch (error) {
@@ -2711,11 +2635,10 @@ function handle_event_propagation(event) {
       }
       if (event.cancelBubble) break;
       path_idx++;
-      current_target =
-        path_idx < path.length
-          ? /** @type {Element} */
-            path[path_idx]
-          : null;
+      current_target = path_idx < path.length ? (
+        /** @type {Element} */
+        path[path_idx]
+      ) : null;
     }
     if (throw_error) {
       for (let error of other_errors) {
@@ -2733,47 +2656,48 @@ function handle_event_propagation(event) {
   }
 }
 function assign_nodes(start, end) {
-  var effect =
+  var effect = (
     /** @type {Effect} */
-    active_effect;
+    active_effect
+  );
   if (effect.nodes === null) {
     effect.nodes = { start, end, a: null, t: null };
   }
 }
 const DOM_BOOLEAN_ATTRIBUTES = [
-  'allowfullscreen',
-  'async',
-  'autofocus',
-  'autoplay',
-  'checked',
-  'controls',
-  'default',
-  'disabled',
-  'formnovalidate',
-  'indeterminate',
-  'inert',
-  'ismap',
-  'loop',
-  'multiple',
-  'muted',
-  'nomodule',
-  'novalidate',
-  'open',
-  'playsinline',
-  'readonly',
-  'required',
-  'reversed',
-  'seamless',
-  'selected',
-  'webkitdirectory',
-  'defer',
-  'disablepictureinpicture',
-  'disableremoteplayback',
+  "allowfullscreen",
+  "async",
+  "autofocus",
+  "autoplay",
+  "checked",
+  "controls",
+  "default",
+  "disabled",
+  "formnovalidate",
+  "indeterminate",
+  "inert",
+  "ismap",
+  "loop",
+  "multiple",
+  "muted",
+  "nomodule",
+  "novalidate",
+  "open",
+  "playsinline",
+  "readonly",
+  "required",
+  "reversed",
+  "seamless",
+  "selected",
+  "webkitdirectory",
+  "defer",
+  "disablepictureinpicture",
+  "disableremoteplayback"
 ];
 function is_boolean_attribute(name) {
   return DOM_BOOLEAN_ATTRIBUTES.includes(name);
 }
-const PASSIVE_EVENTS = ['touchstart', 'touchmove'];
+const PASSIVE_EVENTS = ["touchstart", "touchmove"];
 function is_passive_event(name) {
   return PASSIVE_EVENTS.includes(name);
 }
@@ -2788,10 +2712,8 @@ function hydrate(component, options) {
   const previous_hydrate_node = hydrate_node;
   try {
     var anchor = /* @__PURE__ */ get_first_child(target);
-    while (
-      anchor &&
-      (anchor.nodeType !== COMMENT_NODE || /** @type {Comment} */ anchor.data !== HYDRATION_START)
-    ) {
+    while (anchor && (anchor.nodeType !== COMMENT_NODE || /** @type {Comment} */
+    anchor.data !== HYDRATION_START)) {
       anchor = /* @__PURE__ */ get_next_sibling(anchor);
     }
     if (!anchor) {
@@ -2800,7 +2722,7 @@ function hydrate(component, options) {
     set_hydrating(true);
     set_hydrate_node(
       /** @type {Comment} */
-      anchor,
+      anchor
     );
     const instance = _mount(component, { ...options, anchor });
     set_hydrating(false);
@@ -2809,14 +2731,11 @@ function hydrate(component, options) {
       instance
     );
   } catch (error) {
-    if (
-      error instanceof Error &&
-      error.message.split('\n').some((line) => line.startsWith('https://svelte.dev/e/'))
-    ) {
+    if (error instanceof Error && error.message.split("\n").some((line) => line.startsWith("https://svelte.dev/e/"))) {
       throw error;
     }
     if (error !== HYDRATION_ERROR) {
-      console.warn('Failed to hydrate: ', error);
+      console.warn("Failed to hydrate: ", error);
     }
     if (options.recover === false) {
       hydration_failed();
@@ -2831,10 +2750,7 @@ function hydrate(component, options) {
   }
 }
 const listeners = /* @__PURE__ */ new Map();
-function _mount(
-  Component,
-  { target, anchor, props = {}, events, context, intro = true, transformError },
-) {
+function _mount(Component, { target, anchor, props = {}, events, context, intro = true, transformError }) {
   init_operations();
   var component = void 0;
   var unmount2 = component_root(() => {
@@ -2843,13 +2759,15 @@ function _mount(
       /** @type {TemplateNode} */
       anchor_node,
       {
-        pending: () => {},
+        pending: () => {
+        }
       },
       (anchor_node2) => {
         push$1({});
-        var ctx =
+        var ctx = (
           /** @type {ComponentContext} */
-          component_context;
+          component_context
+        );
         if (context) ctx.c = context;
         if (events) {
           props.$$events = events;
@@ -2858,25 +2776,21 @@ function _mount(
           assign_nodes(
             /** @type {TemplateNode} */
             anchor_node2,
-            null,
+            null
           );
         }
         component = Component(anchor_node2, props) || {};
         if (hydrating) {
           active_effect.nodes.end = hydrate_node;
-          if (
-            hydrate_node === null ||
-            hydrate_node.nodeType !== COMMENT_NODE ||
-            /** @type {Comment} */
-            hydrate_node.data !== HYDRATION_END
-          ) {
+          if (hydrate_node === null || hydrate_node.nodeType !== COMMENT_NODE || /** @type {Comment} */
+          hydrate_node.data !== HYDRATION_END) {
             hydration_mismatch();
             throw HYDRATION_ERROR;
           }
         }
         pop$1();
       },
-      transformError,
+      transformError
     );
     var registered_events = /* @__PURE__ */ new Set();
     var event_handle = (events2) => {
@@ -2906,12 +2820,14 @@ function _mount(
     return () => {
       for (var event_name of registered_events) {
         for (const node of [target, document]) {
-          var counts =
+          var counts = (
             /** @type {Map<string, number>} */
-            listeners.get(node);
-          var count =
+            listeners.get(node)
+          );
+          var count = (
             /** @type {number} */
-            counts.get(event_name);
+            counts.get(event_name)
+          );
           if (--count == 0) {
             node.removeEventListener(event_name, handle_event_propagation);
             counts.delete(event_name);
@@ -2947,7 +2863,7 @@ function asClassComponent$1(component) {
     constructor(options) {
       super({
         component,
-        ...options,
+        ...options
       });
     }
   };
@@ -2970,7 +2886,7 @@ class Svelte4Component {
       return s;
     };
     const props = new Proxy(
-      { ...(options.props || {}), $$events: {} },
+      { ...options.props || {}, $$events: {} },
       {
         get(target, prop) {
           return get(sources.get(prop) ?? add_source(prop, Reflect.get(target, prop)));
@@ -2983,8 +2899,8 @@ class Svelte4Component {
         set(target, prop, value) {
           set(sources.get(prop) ?? add_source(prop, value), value);
           return Reflect.set(target, prop, value);
-        },
-      },
+        }
+      }
     );
     this.#instance = (options.hydrate ? hydrate : mount)(options.component, {
       target: options.target,
@@ -2993,14 +2909,14 @@ class Svelte4Component {
       context: options.context,
       intro: options.intro ?? false,
       recover: options.recover,
-      transformError: options.transformError,
+      transformError: options.transformError
     });
     if (!options?.props?.$$host || options.sync === false) {
       flushSync();
     }
     this.#events = props.$$events;
     for (const key of Object.keys(this.#instance)) {
-      if (key === '$set' || key === '$destroy' || key === '$on') continue;
+      if (key === "$set" || key === "$destroy" || key === "$on") continue;
       define_property(this, key, {
         get() {
           return this.#instance[key];
@@ -3009,14 +2925,13 @@ class Svelte4Component {
         set(value) {
           this.#instance[key] = value;
         },
-        enumerable: true,
+        enumerable: true
       });
     }
-    this.#instance.$set =
-      /** @param {Record<string, any>} next */
-      (next2) => {
-        Object.assign(props, next2);
-      };
+    this.#instance.$set = /** @param {Record<string, any>} next */
+    (next2) => {
+      Object.assign(props, next2);
+    };
     this.#instance.$destroy = () => {
       unmount(this.#instance);
     };
@@ -3037,7 +2952,7 @@ class Svelte4Component {
     return () => {
       this.#events[event] = this.#events[event].filter(
         /** @param {any} fn */
-        (fn) => fn !== cb,
+        (fn) => fn !== cb
       );
     };
   }
@@ -3048,62 +2963,58 @@ class Svelte4Component {
 const ATTR_REGEX = /[&"<]/g;
 const CONTENT_REGEX = /[&<]/g;
 function escape_html(value, is_attr) {
-  const str = String(value ?? '');
+  const str = String(value ?? "");
   const pattern = is_attr ? ATTR_REGEX : CONTENT_REGEX;
   pattern.lastIndex = 0;
-  let escaped = '';
+  let escaped = "";
   let last = 0;
   while (pattern.test(str)) {
     const i = pattern.lastIndex - 1;
     const ch = str[i];
-    escaped += str.substring(last, i) + (ch === '&' ? '&amp;' : ch === '"' ? '&quot;' : '&lt;');
+    escaped += str.substring(last, i) + (ch === "&" ? "&amp;" : ch === '"' ? "&quot;" : "&lt;");
     last = i + 1;
   }
   return escaped + str.substring(last);
 }
 const replacements = {
   translate: /* @__PURE__ */ new Map([
-    [true, 'yes'],
-    [false, 'no'],
-  ]),
+    [true, "yes"],
+    [false, "no"]
+  ])
 };
 function attr(name, value, is_boolean = false) {
-  if (name === 'hidden' && value !== 'until-found') {
+  if (name === "hidden" && value !== "until-found") {
     is_boolean = true;
   }
-  if (value == null || (!value && is_boolean)) return '';
-  const normalized =
-    (has_own_property.call(replacements, name) && replacements[name].get(value)) || value;
+  if (value == null || !value && is_boolean) return "";
+  const normalized = has_own_property.call(replacements, name) && replacements[name].get(value) || value;
   const assignment = is_boolean ? `=""` : `="${escape_html(normalized, true)}"`;
   return ` ${name}${assignment}`;
 }
 function clsx(value) {
-  if (typeof value === 'object') {
+  if (typeof value === "object") {
     return clsx$1(value);
   } else {
-    return value ?? '';
+    return value ?? "";
   }
 }
-const whitespace = [...' 	\n\r\f \v\uFEFF'];
+const whitespace = [..." 	\n\r\f \v\uFEFF"];
 function to_class(value, hash, directives) {
-  var classname = value == null ? '' : '' + value;
+  var classname = value == null ? "" : "" + value;
   if (hash) {
-    classname = classname ? classname + ' ' + hash : hash;
+    classname = classname ? classname + " " + hash : hash;
   }
   if (directives) {
     for (var key of Object.keys(directives)) {
       if (directives[key]) {
-        classname = classname ? classname + ' ' + key : key;
+        classname = classname ? classname + " " + key : key;
       } else if (classname.length) {
         var len = key.length;
         var a = 0;
         while ((a = classname.indexOf(key, a)) >= 0) {
           var b = a + len;
-          if (
-            (a === 0 || whitespace.includes(classname[a - 1])) &&
-            (b === classname.length || whitespace.includes(classname[b]))
-          ) {
-            classname = (a === 0 ? '' : classname.substring(0, a)) + classname.substring(b + 1);
+          if ((a === 0 || whitespace.includes(classname[a - 1])) && (b === classname.length || whitespace.includes(classname[b]))) {
+            classname = (a === 0 ? "" : classname.substring(0, a)) + classname.substring(b + 1);
           } else {
             a = b;
           }
@@ -3111,28 +3022,28 @@ function to_class(value, hash, directives) {
       }
     }
   }
-  return classname === '' ? null : classname;
+  return classname === "" ? null : classname;
 }
 function append_styles(styles, important = false) {
-  var separator = important ? ' !important;' : ';';
-  var css = '';
+  var separator = important ? " !important;" : ";";
+  var css = "";
   for (var key of Object.keys(styles)) {
     var value = styles[key];
-    if (value != null && value !== '') {
-      css += ' ' + key + ': ' + value + separator;
+    if (value != null && value !== "") {
+      css += " " + key + ": " + value + separator;
     }
   }
   return css;
 }
 function to_css_name(name) {
-  if (name[0] !== '-' || name[1] !== '-') {
+  if (name[0] !== "-" || name[1] !== "-") {
     return name.toLowerCase();
   }
   return name;
 }
 function to_style(value, styles) {
   if (styles) {
-    var new_style = '';
+    var new_style = "";
     var normal_styles;
     var important_styles;
     if (Array.isArray(styles)) {
@@ -3142,9 +3053,7 @@ function to_style(value, styles) {
       normal_styles = styles;
     }
     if (value) {
-      value = String(value)
-        .replaceAll(/\s*\/\*.*?\*\/\s*/g, '')
-        .trim();
+      value = String(value).replaceAll(/\s*\/\*.*?\*\/\s*/g, "").trim();
       var in_str = false;
       var in_apo = 0;
       var in_comment = false;
@@ -3161,34 +3070,34 @@ function to_style(value, styles) {
       for (var i = 0; i < len; i++) {
         var c = value[i];
         if (in_comment) {
-          if (c === '/' && value[i - 1] === '*') {
+          if (c === "/" && value[i - 1] === "*") {
             in_comment = false;
           }
         } else if (in_str) {
           if (in_str === c) {
             in_str = false;
           }
-        } else if (c === '/' && value[i + 1] === '*') {
+        } else if (c === "/" && value[i + 1] === "*") {
           in_comment = true;
         } else if (c === '"' || c === "'") {
           in_str = c;
-        } else if (c === '(') {
+        } else if (c === "(") {
           in_apo++;
-        } else if (c === ')') {
+        } else if (c === ")") {
           in_apo--;
         }
         if (!in_comment && in_str === false && in_apo === 0) {
-          if (c === ':' && name_index === -1) {
+          if (c === ":" && name_index === -1) {
             name_index = i;
-          } else if (c === ';' || i === len - 1) {
+          } else if (c === ";" || i === len - 1) {
             if (name_index !== -1) {
               var name = to_css_name(value.substring(start_index, name_index).trim());
               if (!reserved_names.includes(name)) {
-                if (c !== ';') {
+                if (c !== ";") {
                   i++;
                 }
                 var property = value.substring(start_index, i).trim();
-                new_style += ' ' + property + ';';
+                new_style += " " + property + ";";
               }
             }
             start_index = i + 1;
@@ -3204,7 +3113,7 @@ function to_style(value, styles) {
       new_style += append_styles(important_styles, true);
     }
     new_style = new_style.trim();
-    return new_style === '' ? null : new_style;
+    return new_style === "" ? null : new_style;
   }
   return value == null ? null : String(value);
 }
@@ -3219,28 +3128,28 @@ function await_invalid() {
   const error = new Error(`await_invalid
 Encountered asynchronous work while rendering synchronously.
 https://svelte.dev/e/await_invalid`);
-  error.name = 'Svelte error';
+  error.name = "Svelte error";
   throw error;
 }
 function invalid_csp() {
   const error = new Error(`invalid_csp
 \`csp.nonce\` was set while \`csp.hash\` was \`true\`. These options cannot be used simultaneously.
 https://svelte.dev/e/invalid_csp`);
-  error.name = 'Svelte error';
+  error.name = "Svelte error";
   throw error;
 }
 function invalid_id_prefix() {
   const error = new Error(`invalid_id_prefix
 The \`idPrefix\` option cannot include \`--\`.
 https://svelte.dev/e/invalid_id_prefix`);
-  error.name = 'Svelte error';
+  error.name = "Svelte error";
   throw error;
 }
 function server_context_required() {
   const error = new Error(`server_context_required
 Could not resolve \`render\` context.
 https://svelte.dev/e/server_context_required`);
-  error.name = 'Svelte error';
+  error.name = "Svelte error";
   throw error;
 }
 var ssr_context = null;
@@ -3249,9 +3158,10 @@ function set_ssr_context(v) {
 }
 function getContext(key) {
   const context_map = get_or_init_context_map();
-  const result =
+  const result = (
     /** @type {T} */
-    context_map.get(key);
+    context_map.get(key)
+  );
   return result;
 }
 function setContext(key, context) {
@@ -3262,13 +3172,14 @@ function get_or_init_context_map(name) {
   if (ssr_context === null) {
     lifecycle_outside_component();
   }
-  return (ssr_context.c ??= new Map(get_parent_context(ssr_context) || void 0));
+  return ssr_context.c ??= new Map(get_parent_context(ssr_context) || void 0);
 }
 function push(fn) {
   ssr_context = { p: ssr_context, c: null, r: null };
 }
 function pop() {
-  ssr_context = /** @type {SSRContext} */ ssr_context.p;
+  ssr_context = /** @type {SSRContext} */
+  ssr_context.p;
 }
 function get_parent_context(ssr_context2) {
   let parent = ssr_context2.p;
@@ -3296,26 +3207,25 @@ function get_render_context() {
 let als = null;
 let text_encoder;
 let crypto;
-const obfuscated_import = (module_name) =>
-  import(
-    /* @vite-ignore */
-    module_name
-  );
+const obfuscated_import = (module_name) => import(
+  /* @vite-ignore */
+  module_name
+);
 async function sha256(data) {
   text_encoder ??= new TextEncoder();
-  crypto ??= globalThis.crypto?.subtle?.digest
-    ? globalThis.crypto
-    : // @ts-ignore - we don't install node types in the prod build
-      // don't use import('node:crypto') directly because static analysers will think we rely on node when we don't
-      (await obfuscated_import('node:crypto')).webcrypto;
-  const hash_buffer = await crypto.subtle.digest('SHA-256', text_encoder.encode(data));
+  crypto ??= globalThis.crypto?.subtle?.digest ? globalThis.crypto : (
+    // @ts-ignore - we don't install node types in the prod build
+    // don't use import('node:crypto') directly because static analysers will think we rely on node when we don't
+    (await obfuscated_import("node:crypto")).webcrypto
+  );
+  const hash_buffer = await crypto.subtle.digest("SHA-256", text_encoder.encode(data));
   return base64_encode(hash_buffer);
 }
 function base64_encode(bytes) {
   if (globalThis.Buffer) {
-    return globalThis.Buffer.from(bytes).toString('base64');
+    return globalThis.Buffer.from(bytes).toString("base64");
   }
-  let binary = '';
+  let binary = "";
   for (let i = 0; i < bytes.length; i++) {
     binary += String.fromCharCode(bytes[i]);
   }
@@ -3381,14 +3291,14 @@ class Renderer {
     this.#parent = parent;
     this.global = global;
     this.local = parent ? { ...parent.local } : { select_value: void 0 };
-    this.type = parent ? parent.type : 'body';
+    this.type = parent ? parent.type : "body";
   }
   /**
    * @param {(renderer: Renderer) => void} fn
    */
   head(fn) {
     const head = new Renderer(this.global, this);
-    head.type = 'head';
+    head.type = "head";
     this.#out.push(head);
     head.child(fn);
   }
@@ -3467,14 +3377,14 @@ class Renderer {
       ...ssr_context,
       p: parent,
       c: null,
-      r: child,
+      r: child
     });
     const result = fn(child);
     set_ssr_context(parent);
     if (result instanceof Promise) {
       result.catch(noop);
       result.finally(() => set_ssr_context(null)).catch(noop);
-      if (child.global.mode === 'sync') {
+      if (child.global.mode === "sync") {
         await_invalid();
       }
       child.promise = result;
@@ -3497,20 +3407,20 @@ class Renderer {
       child.#boundary = {
         failed: props.failed,
         transformError: this.global.transformError,
-        context: parent_context,
+        context: parent_context
       };
     }
     set_ssr_context({
       ...ssr_context,
       p: parent_context,
       c: null,
-      r: child,
+      r: child
     });
     try {
       const result = children_fn(child);
       set_ssr_context(parent_context);
       if (result instanceof Promise) {
-        if (child.global.mode === 'sync') {
+        if (child.global.mode === "sync") {
           await_invalid();
         }
         result.catch(noop);
@@ -3524,17 +3434,16 @@ class Renderer {
       child.#out.length = 0;
       child.#boundary = null;
       if (result instanceof Promise) {
-        if (this.global.mode === 'sync') {
+        if (this.global.mode === "sync") {
           await_invalid();
         }
-        child.promise =
-          /** @type {Promise<unknown>} */
-          result.then((transformed) => {
-            set_ssr_context(parent_context);
-            child.#out.push(Renderer.#serialize_failed_boundary(transformed));
-            failed_snippet(child, transformed, noop);
-            child.#out.push(BLOCK_CLOSE);
-          });
+        child.promise = /** @type {Promise<unknown>} */
+        result.then((transformed) => {
+          set_ssr_context(parent_context);
+          child.#out.push(Renderer.#serialize_failed_boundary(transformed));
+          failed_snippet(child, transformed, noop);
+          child.#out.push(BLOCK_CLOSE);
+        });
         child.promise.catch(noop);
       } else {
         child.#out.push(Renderer.#serialize_failed_boundary(result));
@@ -3573,7 +3482,7 @@ class Renderer {
       renderer.local.select_value = value;
       fn(renderer);
     });
-    this.push(`${is_rich ? '<!>' : ''}</select>`);
+    this.push(`${is_rich ? "<!>" : ""}</select>`);
   }
   /**
    * @param {Record<string, any>} attrs
@@ -3587,28 +3496,28 @@ class Renderer {
   option(attrs, body, css_hash, classes, styles, flags2, is_rich) {
     this.#out.push(`<option${attributes(attrs, css_hash, classes, styles, flags2)}`);
     const close = (renderer, value, { head, body: body2 }) => {
-      if (has_own_property.call(attrs, 'value')) {
+      if (has_own_property.call(attrs, "value")) {
         value = attrs.value;
       }
       if (value === this.local.select_value) {
         renderer.#out.push(' selected=""');
       }
-      renderer.#out.push(`>${body2}${is_rich ? '<!>' : ''}</option>`);
+      renderer.#out.push(`>${body2}${is_rich ? "<!>" : ""}</option>`);
       if (head) {
         renderer.head((child) => child.push(head));
       }
     };
-    if (typeof body === 'function') {
+    if (typeof body === "function") {
       this.child((renderer) => {
         const r = new Renderer(this.global, this);
         body(r);
-        if (this.global.mode === 'async') {
+        if (this.global.mode === "async") {
           return r.#collect_content_async().then((content) => {
-            close(renderer, content.body.replaceAll('<!---->', ''), content);
+            close(renderer, content.body.replaceAll("<!---->", ""), content);
           });
         } else {
           const content = r.#collect_content();
-          close(renderer, content.body.replaceAll('<!---->', ''), content);
+          close(renderer, content.body.replaceAll("<!---->", ""), content);
         }
       });
     } else {
@@ -3626,7 +3535,7 @@ class Renderer {
     this.child((renderer) => {
       const r = new Renderer(renderer.global, renderer);
       fn(r);
-      if (renderer.global.mode === 'async') {
+      if (renderer.global.mode === "async") {
         return r.#collect_content_async().then((content) => {
           close(content.head);
         });
@@ -3640,7 +3549,7 @@ class Renderer {
    * @param {string | (() => Promise<string>)} content
    */
   push(content) {
-    if (typeof content === 'function') {
+    if (typeof content === "function") {
       this.child(async (renderer) => renderer.push(await content()));
     } else {
       this.#out.push(content);
@@ -3663,7 +3572,7 @@ class Renderer {
    */
   copy() {
     const copy = new Renderer(this.global, this.#parent);
-    copy.#out = this.#out.map((item) => (item instanceof Renderer ? item.copy() : item));
+    copy.#out = this.#out.map((item) => item instanceof Renderer ? item.copy() : item);
     copy.promise = this.promise;
     return copy;
   }
@@ -3674,7 +3583,7 @@ class Renderer {
   subsume(other) {
     if (this.global.mode !== other.global.mode) {
       throw new Error(
-        "invariant: A renderer cannot switch modes. If you're seeing this, there's a compiler bug. File an issue!",
+        "invariant: A renderer cannot switch modes. If you're seeing this, there's a compiler bug. File an issue!"
       );
     }
     this.local = other.local;
@@ -3703,7 +3612,7 @@ class Renderer {
    */
   static #serialize_failed_boundary(error) {
     var json = JSON.stringify(error);
-    var escaped = json.replace(/>/g, '\\u003e').replace(/</g, '\\u003c');
+    var escaped = json.replace(/>/g, "\\u003e").replace(/</g, "\\u003c");
     return `<!--${HYDRATION_START_FAILED}${escaped}-->`;
   }
   /**
@@ -3716,32 +3625,33 @@ class Renderer {
    */
   static render(component, options = {}) {
     let sync;
-    const result =
+    const result = (
       /** @type {RenderOutput} */
-      {};
+      {}
+    );
     Object.defineProperties(result, {
       html: {
         get: () => {
           return (sync ??= Renderer.#render(component, options)).body;
-        },
+        }
       },
       head: {
         get: () => {
           return (sync ??= Renderer.#render(component, options)).head;
-        },
+        }
       },
       body: {
         get: () => {
           return (sync ??= Renderer.#render(component, options)).body;
-        },
+        }
       },
       hashes: {
         value: {
-          script: '',
-        },
+          script: ""
+        }
       },
       then: {
-        value:
+        value: (
           /**
            * this is not type-safe, but honestly it's the best I can do right now, and it's a straightforward function.
            *
@@ -3752,17 +3662,18 @@ class Renderer {
            */
           (onfulfilled, onrejected) => {
             {
-              const result2 = (sync ??= Renderer.#render(component, options));
+              const result2 = sync ??= Renderer.#render(component, options);
               const user_result = onfulfilled({
                 head: result2.head,
                 body: result2.body,
                 html: result2.body,
-                hashes: { script: [] },
+                hashes: { script: [] }
               });
               return Promise.resolve(user_result);
             }
-          },
-      },
+          }
+        )
+      }
     });
     return result;
   }
@@ -3785,7 +3696,7 @@ class Renderer {
    */
   *#traverse_components() {
     for (const child of this.#out) {
-      if (typeof child !== 'string') {
+      if (typeof child !== "string") {
         yield* child.#traverse_components();
       }
     }
@@ -3819,7 +3730,7 @@ class Renderer {
   static #render(component, options) {
     var previous_context = ssr_context;
     try {
-      const renderer = Renderer.#open_render('sync', component, options);
+      const renderer = Renderer.#open_render("sync", component, options);
       const content = renderer.#collect_content();
       return Renderer.#close_render(content, renderer);
     } finally {
@@ -3838,7 +3749,7 @@ class Renderer {
   static async #render_async(component, options) {
     const previous_context = ssr_context;
     try {
-      const renderer = Renderer.#open_render('async', component, options);
+      const renderer = Renderer.#open_render("async", component, options);
       const content = await renderer.#collect_content_async();
       const hydratables = await renderer.#collect_hydratables();
       if (hydratables !== null) {
@@ -3855,9 +3766,9 @@ class Renderer {
    * @param {AccumulatedContent} content
    * @returns {AccumulatedContent}
    */
-  #collect_content(content = { head: '', body: '' }) {
+  #collect_content(content = { head: "", body: "" }) {
     for (const item of this.#out) {
-      if (typeof item === 'string') {
+      if (typeof item === "string") {
         content[this.type] += item;
       } else if (item instanceof Renderer) {
         item.#collect_content(content);
@@ -3870,14 +3781,14 @@ class Renderer {
    * @param {AccumulatedContent} content
    * @returns {Promise<AccumulatedContent>}
    */
-  async #collect_content_async(content = { head: '', body: '' }) {
+  async #collect_content_async(content = { head: "", body: "" }) {
     await this.promise;
     for (const item of this.#out) {
-      if (typeof item === 'string') {
+      if (typeof item === "string") {
         content[this.type] += item;
       } else if (item instanceof Renderer) {
         if (item.#boundary) {
-          const boundary_content = { head: '', body: '' };
+          const boundary_content = { head: "", body: "" };
           try {
             await item.#collect_content_async(boundary_content);
             content.head += boundary_content.head;
@@ -3906,7 +3817,7 @@ class Renderer {
   async #collect_hydratables() {
     const ctx = get_render_context().hydratable;
     for (const [_, key] of ctx.unresolved_promises) {
-      unresolved_hydratable(key, ctx.lookup.get(key)?.stack ?? '<missing stack trace>');
+      unresolved_hydratable(key, ctx.lookup.get(key)?.stack ?? "<missing stack trace>");
     }
     for (const comparison of ctx.comparisons) {
       await comparison;
@@ -3921,7 +3832,7 @@ class Renderer {
    * @returns {Renderer}
    */
   static #open_render(mode, component, options) {
-    if (options.idPrefix?.includes('--')) {
+    if (options.idPrefix?.includes("--")) {
       invalid_id_prefix();
     }
     var previous_context = ssr_context;
@@ -3929,10 +3840,10 @@ class Renderer {
       const renderer = new Renderer(
         new SSRState(
           mode,
-          options.idPrefix ? options.idPrefix + '-' : '',
+          options.idPrefix ? options.idPrefix + "-" : "",
           options.csp,
-          options.transformError,
-        ),
+          options.transformError
+        )
       );
       const context = { p: null, c: options.context ?? null, r: renderer };
       set_ssr_context(context);
@@ -3962,8 +3873,8 @@ class Renderer {
       head,
       body,
       hashes: {
-        script: renderer.global.csp.script_hashes,
-      },
+        script: renderer.global.csp.script_hashes
+      }
     };
   }
   /**
@@ -3992,13 +3903,13 @@ class Renderer {
 				${prelude}
 
 				for (const [k, v] of [
-					${entries.join(',\n					')}
+					${entries.join(",\n					")}
 				]) {
 					h.set(k, v);
 				}
 			}
 		`;
-    let csp_attr = '';
+    let csp_attr = "";
     if (this.global.csp.nonce) {
       csp_attr = ` nonce="${this.global.csp.nonce}"`;
     } else if (this.global.csp.hash) {
@@ -4025,21 +3936,19 @@ class SSRState {
    */
   transformError;
   /** @type {{ path: number[], value: string }} */
-  #title = { path: [], value: '' };
+  #title = { path: [], value: "" };
   /**
    * @param {'sync' | 'async'} mode
    * @param {string} id_prefix
    * @param {Csp} csp
    * @param {((error: unknown) => unknown) | undefined} [transformError]
    */
-  constructor(mode, id_prefix = '', csp = { hash: false }, transformError) {
+  constructor(mode, id_prefix = "", csp = { hash: false }, transformError) {
     this.mode = mode;
     this.csp = { ...csp, script_hashes: [] };
-    this.transformError =
-      transformError ??
-      ((error) => {
-        throw error;
-      });
+    this.transformError = transformError ?? ((error) => {
+      throw error;
+    });
     let uid2 = 1;
     this.uid = () => `${id_prefix}s${uid2++}`;
   }
@@ -4064,8 +3973,7 @@ class SSRState {
     }
   }
 }
-const INVALID_ATTR_NAME_CHAR_REGEX =
-  /[\s'">/=\u{FDD0}-\u{FDEF}\u{FFFE}\u{FFFF}\u{1FFFE}\u{1FFFF}\u{2FFFE}\u{2FFFF}\u{3FFFE}\u{3FFFF}\u{4FFFE}\u{4FFFF}\u{5FFFE}\u{5FFFF}\u{6FFFE}\u{6FFFF}\u{7FFFE}\u{7FFFF}\u{8FFFE}\u{8FFFF}\u{9FFFE}\u{9FFFF}\u{AFFFE}\u{AFFFF}\u{BFFFE}\u{BFFFF}\u{CFFFE}\u{CFFFF}\u{DFFFE}\u{DFFFF}\u{EFFFE}\u{EFFFF}\u{FFFFE}\u{FFFFF}\u{10FFFE}\u{10FFFF}]/u;
+const INVALID_ATTR_NAME_CHAR_REGEX = /[\s'">/=\u{FDD0}-\u{FDEF}\u{FFFE}\u{FFFF}\u{1FFFE}\u{1FFFF}\u{2FFFE}\u{2FFFF}\u{3FFFE}\u{3FFFF}\u{4FFFE}\u{4FFFF}\u{5FFFE}\u{5FFFF}\u{6FFFE}\u{6FFFF}\u{7FFFE}\u{7FFFF}\u{8FFFE}\u{8FFFF}\u{9FFFE}\u{9FFFF}\u{AFFFE}\u{AFFFF}\u{BFFFE}\u{BFFFF}\u{CFFFE}\u{CFFFF}\u{DFFFE}\u{DFFFF}\u{EFFFE}\u{EFFFF}\u{FFFFE}\u{FFFFF}\u{10FFFE}\u{10FFFF}]/u;
 function render(component, options = {}) {
   if (options.csp?.hash && options.csp.nonce) {
     invalid_csp();
@@ -4073,7 +3981,7 @@ function render(component, options = {}) {
   return Renderer.render(
     /** @type {Component<Props>} */
     component,
-    options,
+    options
   );
 }
 function attributes(attrs, css_hash, classes, styles, flags2 = 0) {
@@ -4086,22 +3994,22 @@ function attributes(attrs, css_hash, classes, styles, flags2 = 0) {
   if (css_hash || classes) {
     attrs.class = to_class(attrs.class, css_hash, classes);
   }
-  let attr_str = '';
+  let attr_str = "";
   let name;
   const is_html = (flags2 & ELEMENT_IS_NAMESPACED) === 0;
   const lowercase = (flags2 & ELEMENT_PRESERVE_ATTRIBUTE_CASE) === 0;
   const is_input = (flags2 & ELEMENT_IS_INPUT) !== 0;
   for (name of Object.keys(attrs)) {
-    if (typeof attrs[name] === 'function') continue;
-    if (name[0] === '$' && name[1] === '$') continue;
-    if (name === '' || INVALID_ATTR_NAME_CHAR_REGEX.test(name)) continue;
+    if (typeof attrs[name] === "function") continue;
+    if (name[0] === "$" && name[1] === "$") continue;
+    if (name === "" || INVALID_ATTR_NAME_CHAR_REGEX.test(name)) continue;
     var value = attrs[name];
     var lower = name.toLowerCase();
     if (lowercase) name = lower;
-    if (lower.length > 2 && lower.startsWith('on')) continue;
+    if (lower.length > 2 && lower.startsWith("on")) continue;
     if (is_input) {
-      if (name === 'defaultvalue' || name === 'defaultchecked') {
-        name = name === 'defaultvalue' ? 'value' : 'checked';
+      if (name === "defaultvalue" || name === "defaultchecked") {
+        name = name === "defaultvalue" ? "value" : "checked";
         if (attrs[name]) continue;
       }
     }
@@ -4110,9 +4018,10 @@ function attributes(attrs, css_hash, classes, styles, flags2 = 0) {
   return attr_str;
 }
 function once(get_value) {
-  let value =
+  let value = (
     /** @type {V} */
-    UNINITIALIZED;
+    UNINITIALIZED
+  );
   return () => {
     if (value === UNINITIALIZED) {
       value = get_value();
@@ -4123,7 +4032,7 @@ function once(get_value) {
 function derived(fn) {
   const get_value = ssr_context === null ? fn : once(fn);
   let updated_value;
-  return function (new_value) {
+  return function(new_value) {
     if (arguments.length === 0) {
       return updated_value ?? get_value();
     }
@@ -4140,13 +4049,13 @@ function asClassComponent(component) {
       {},
       {
         css: {
-          value: { code: '', map: null },
+          value: { code: "", map: null }
         },
         head: {
-          get: () => result.head,
+          get: () => result.head
         },
         html: {
-          get: () => result.body,
+          get: () => result.body
         },
         then: {
           /**
@@ -4162,13 +4071,13 @@ function asClassComponent(component) {
               const user_result = onfulfilled({
                 css: munged.css,
                 head: munged.head,
-                html: munged.html,
+                html: munged.html
               });
               return Promise.resolve(user_result);
             }
-          },
-        },
-      },
+          }
+        }
+      }
     );
     return munged;
   };
@@ -4184,56 +4093,56 @@ function Root($$renderer, $$props) {
       components = [],
       form,
       data_0 = null,
-      data_1 = null,
+      data_1 = null
     } = $$props;
     {
-      setContext('__svelte__', stores);
+      setContext("__svelte__", stores);
     }
     {
       stores.page.set(page);
     }
     const Pyramid_1 = derived(() => constructors[1]);
     if (constructors[1]) {
-      $$renderer2.push('<!--[0-->');
+      $$renderer2.push("<!--[0-->");
       const Pyramid_0 = constructors[0];
       if (Pyramid_0) {
-        $$renderer2.push('<!--[-->');
+        $$renderer2.push("<!--[-->");
         Pyramid_0($$renderer2, {
           data: data_0,
           form,
           params: page.params,
           children: ($$renderer3) => {
             if (Pyramid_1()) {
-              $$renderer3.push('<!--[-->');
+              $$renderer3.push("<!--[-->");
               Pyramid_1()($$renderer3, { data: data_1, form, params: page.params });
-              $$renderer3.push('<!--]-->');
+              $$renderer3.push("<!--]-->");
             } else {
-              $$renderer3.push('<!--[!-->');
-              $$renderer3.push('<!--]-->');
+              $$renderer3.push("<!--[!-->");
+              $$renderer3.push("<!--]-->");
             }
           },
-          $$slots: { default: true },
+          $$slots: { default: true }
         });
-        $$renderer2.push('<!--]-->');
+        $$renderer2.push("<!--]-->");
       } else {
-        $$renderer2.push('<!--[!-->');
-        $$renderer2.push('<!--]-->');
+        $$renderer2.push("<!--[!-->");
+        $$renderer2.push("<!--]-->");
       }
     } else {
-      $$renderer2.push('<!--[-1-->');
+      $$renderer2.push("<!--[-1-->");
       const Pyramid_0 = constructors[0];
       if (Pyramid_0) {
-        $$renderer2.push('<!--[-->');
+        $$renderer2.push("<!--[-->");
         Pyramid_0($$renderer2, { data: data_0, form, params: page.params });
-        $$renderer2.push('<!--]-->');
+        $$renderer2.push("<!--]-->");
       } else {
-        $$renderer2.push('<!--[!-->');
-        $$renderer2.push('<!--]-->');
+        $$renderer2.push("<!--[!-->");
+        $$renderer2.push("<!--]-->");
       }
     }
     $$renderer2.push(`<!--]--> `);
     {
-      $$renderer2.push('<!--[-1-->');
+      $$renderer2.push("<!--[-1-->");
     }
     $$renderer2.push(`<!--]-->`);
   });
@@ -4245,5 +4154,5 @@ export {
   getContext as g,
   noop as n,
   root as r,
-  safe_not_equal as s,
+  safe_not_equal as s
 };

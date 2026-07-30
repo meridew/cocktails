@@ -25,16 +25,16 @@ const port_header = env('PORT_HEADER', '').toLowerCase();
 const body_size_limit = parse_as_bytes(env('BODY_SIZE_LIMIT', '512K'));
 
 if (isNaN(body_size_limit)) {
-  throw new Error(
-    `Invalid BODY_SIZE_LIMIT: '${env('BODY_SIZE_LIMIT')}'. Please provide a numeric value.`,
-  );
+	throw new Error(
+		`Invalid BODY_SIZE_LIMIT: '${env('BODY_SIZE_LIMIT')}'. Please provide a numeric value.`
+	);
 }
 
 const asset_dir = `${dir}/client${BASE}`;
 
 await server.init({
-  env: /** @type {Record<string, string>} */ (process.env),
-  read: (file) => createReadableStream(`${asset_dir}/${file}`),
+	env: /** @type {Record<string, string>} */ (process.env),
+	read: (file) => createReadableStream(`${asset_dir}/${file}`)
 });
 
 /**
@@ -42,146 +42,146 @@ await server.init({
  * @param {boolean} client
  */
 function serve(path, client = false) {
-  return fs__default.existsSync(path)
-    ? sirv(path, {
-        etag: true,
-        gzip: PRECOMPRESS,
-        brotli: PRECOMPRESS,
-        setHeaders: client
-          ? (res, pathname) => {
-              // only apply to build directory, not e.g. version.json
-              if (
-                pathname.startsWith(`/${manifest.appPath}/immutable/`) &&
-                res.statusCode === 200
-              ) {
-                res.setHeader('cache-control', 'public,max-age=31536000,immutable');
-              }
-            }
-          : undefined,
-      })
-    : undefined;
+	return fs__default.existsSync(path)
+		? sirv(path, {
+				etag: true,
+				gzip: PRECOMPRESS,
+				brotli: PRECOMPRESS,
+				setHeaders: client
+					? (res, pathname) => {
+							// only apply to build directory, not e.g. version.json
+							if (
+								pathname.startsWith(`/${manifest.appPath}/immutable/`) &&
+								res.statusCode === 200
+							) {
+								res.setHeader('cache-control', 'public,max-age=31536000,immutable');
+							}
+						}
+					: undefined
+			})
+		: undefined;
 }
 
 // required because the static file server ignores trailing slashes
 /** @returns {import('polka').Middleware} */
 function serve_prerendered() {
-  const handler = serve(path.join(dir, 'prerendered'));
+	const handler = serve(path.join(dir, 'prerendered'));
 
-  return (req, res, next) => {
-    let { pathname, search, query } = parse(req);
+	return (req, res, next) => {
+		let { pathname, search, query } = parse(req);
 
-    try {
-      pathname = decodeURIComponent(pathname);
-    } catch {
-      // ignore invalid URI
-    }
+		try {
+			pathname = decodeURIComponent(pathname);
+		} catch {
+			// ignore invalid URI
+		}
 
-    if (prerendered.has(pathname)) {
-      return handler?.(req, res, next);
-    }
+		if (prerendered.has(pathname)) {
+			return handler?.(req, res, next);
+		}
 
-    // remove or add trailing slash as appropriate
-    let location = pathname.at(-1) === '/' ? pathname.slice(0, -1) : pathname + '/';
-    if (prerendered.has(location)) {
-      if (query) location += search;
-      res.writeHead(308, { location }).end();
-    } else {
-      void next();
-    }
-  };
+		// remove or add trailing slash as appropriate
+		let location = pathname.at(-1) === '/' ? pathname.slice(0, -1) : pathname + '/';
+		if (prerendered.has(location)) {
+			if (query) location += search;
+			res.writeHead(308, { location }).end();
+		} else {
+			void next();
+		}
+	};
 }
 
 /** @type {import('polka').Middleware} */
 const ssr = async (req, res) => {
-  /** @type {Request} */
-  let request;
+	/** @type {Request} */
+	let request;
 
-  try {
-    request = await getRequest({
-      base: origin || get_origin(req.headers),
-      request: req,
-      bodySizeLimit: body_size_limit,
-    });
-  } catch {
-    res.statusCode = 400;
-    res.end('Bad Request');
-    return;
-  }
+	try {
+		request = await getRequest({
+			base: origin || get_origin(req.headers),
+			request: req,
+			bodySizeLimit: body_size_limit
+		});
+	} catch {
+		res.statusCode = 400;
+		res.end('Bad Request');
+		return;
+	}
 
-  const response = await server.respond(request, {
-    platform: { req },
-    getClientAddress: () => {
-      if (address_header) {
-        if (!(address_header in req.headers)) {
-          throw new Error(
-            `Address header was specified with ${
-              env_prefix + 'ADDRESS_HEADER'
-            }=${address_header} but is absent from request`,
-          );
-        }
+	const response = await server.respond(request, {
+		platform: { req },
+		getClientAddress: () => {
+			if (address_header) {
+				if (!(address_header in req.headers)) {
+					throw new Error(
+						`Address header was specified with ${
+							env_prefix + 'ADDRESS_HEADER'
+						}=${address_header} but is absent from request`
+					);
+				}
 
-        const value = /** @type {string} */ (req.headers[address_header]) || '';
+				const value = /** @type {string} */ (req.headers[address_header]) || '';
 
-        if (address_header === 'x-forwarded-for') {
-          const addresses = value.split(',');
+				if (address_header === 'x-forwarded-for') {
+					const addresses = value.split(',');
 
-          if (xff_depth < 1) {
-            throw new Error(`${env_prefix + 'XFF_DEPTH'} must be a positive integer`);
-          }
+					if (xff_depth < 1) {
+						throw new Error(`${env_prefix + 'XFF_DEPTH'} must be a positive integer`);
+					}
 
-          if (xff_depth > addresses.length) {
-            throw new Error(
-              `${env_prefix + 'XFF_DEPTH'} is ${xff_depth}, but only found ${
-                addresses.length
-              } addresses`,
-            );
-          }
-          return addresses[addresses.length - xff_depth].trim();
-        }
+					if (xff_depth > addresses.length) {
+						throw new Error(
+							`${env_prefix + 'XFF_DEPTH'} is ${xff_depth}, but only found ${
+								addresses.length
+							} addresses`
+						);
+					}
+					return addresses[addresses.length - xff_depth].trim();
+				}
 
-        return value;
-      }
+				return value;
+			}
 
-      return (
-        req.connection?.remoteAddress ||
-        // @ts-expect-error
-        req.connection?.socket?.remoteAddress ||
-        req.socket?.remoteAddress ||
-        // @ts-expect-error
-        req.info?.remoteAddress
-      );
-    },
-  });
+			return (
+				req.connection?.remoteAddress ||
+				// @ts-expect-error
+				req.connection?.socket?.remoteAddress ||
+				req.socket?.remoteAddress ||
+				// @ts-expect-error
+				req.info?.remoteAddress
+			);
+		}
+	});
 
-  // Reverse proxies such as nginx buffer responses by default (ignoring
-  // `cache-control`), which breaks streaming responses like server-sent events.
-  // `X-Accel-Buffering: no` opts out of that buffering and is a no-op on proxies
-  // that don't recognise it. See https://github.com/sveltejs/kit/issues/15790
-  if (response.headers.get('content-type') === 'text/event-stream') {
-    response.headers.set('x-accel-buffering', 'no');
-  }
+	// Reverse proxies such as nginx buffer responses by default (ignoring
+	// `cache-control`), which breaks streaming responses like server-sent events.
+	// `X-Accel-Buffering: no` opts out of that buffering and is a no-op on proxies
+	// that don't recognise it. See https://github.com/sveltejs/kit/issues/15790
+	if (response.headers.get('content-type') === 'text/event-stream') {
+		response.headers.set('x-accel-buffering', 'no');
+	}
 
-  await setResponse(res, response);
+	await setResponse(res, response);
 };
 
 /** @param {import('polka').Middleware[]} handlers */
 function sequence(handlers) {
-  /** @type {import('polka').Middleware} */
-  return (req, res, next) => {
-    /**
-     * @param {number} i
-     * @returns {ReturnType<import('polka').Middleware>}
-     */
-    function handle(i) {
-      if (i < handlers.length) {
-        return handlers[i](req, res, () => handle(i + 1));
-      } else {
-        return next();
-      }
-    }
+	/** @type {import('polka').Middleware} */
+	return (req, res, next) => {
+		/**
+		 * @param {number} i
+		 * @returns {ReturnType<import('polka').Middleware>}
+		 */
+		function handle(i) {
+			if (i < handlers.length) {
+				return handlers[i](req, res, () => handle(i + 1));
+			} else {
+				return next();
+			}
+		}
 
-    return handle(0);
-  };
+		return handle(0);
+	};
 }
 
 /**
@@ -190,15 +190,15 @@ function sequence(handlers) {
  * @returns {string | undefined}
  */
 function normalise_header(name, value) {
-  if (!name) return undefined;
-  if (Array.isArray(value)) {
-    if (value.length === 0) return undefined;
-    if (value.length === 1) return value[0];
-    throw new Error(
-      `Multiple values provided for ${name} header where only one expected: ${value}`,
-    );
-  }
-  return value;
+	if (!name) return undefined;
+	if (Array.isArray(value)) {
+		if (value.length === 0) return undefined;
+		if (value.length === 1) return value[0];
+		throw new Error(
+			`Multiple values provided for ${name} header where only one expected: ${value}`
+		);
+	}
+	return value;
 }
 
 /**
@@ -206,40 +206,40 @@ function normalise_header(name, value) {
  * @returns {string}
  */
 function get_origin(headers) {
-  const protocol = decodeURIComponent(
-    normalise_header(protocol_header, headers[protocol_header]) || 'https',
-  );
+	const protocol = decodeURIComponent(
+		normalise_header(protocol_header, headers[protocol_header]) || 'https'
+	);
 
-  // this helps us avoid host injections through the protocol header
-  if (protocol.includes(':')) {
-    throw new Error(
-      `The ${protocol_header} header specified ${protocol} which is an invalid because it includes \`:\`. It should only contain the protocol scheme (e.g. \`https\`)`,
-    );
-  }
+	// this helps us avoid host injections through the protocol header
+	if (protocol.includes(':')) {
+		throw new Error(
+			`The ${protocol_header} header specified ${protocol} which is an invalid because it includes \`:\`. It should only contain the protocol scheme (e.g. \`https\`)`
+		);
+	}
 
-  const host =
-    normalise_header(host_header, headers[host_header]) ||
-    normalise_header('host', headers['host']);
-  if (!host) {
-    const header_names = host_header ? `${host_header} or host headers` : 'host header';
-    throw new Error(
-      `Could not determine host. The request must have a value provided by the ${header_names}`,
-    );
-  }
+	const host =
+		normalise_header(host_header, headers[host_header]) ||
+		normalise_header('host', headers['host']);
+	if (!host) {
+		const header_names = host_header ? `${host_header} or host headers` : 'host header';
+		throw new Error(
+			`Could not determine host. The request must have a value provided by the ${header_names}`
+		);
+	}
 
-  const port = normalise_header(port_header, headers[port_header]);
-  if (port && isNaN(+port)) {
-    throw new Error(
-      `The ${port_header} header specified ${port} which is an invalid port because it is not a number. The value should only contain the port number (e.g. 443)`,
-    );
-  }
+	const port = normalise_header(port_header, headers[port_header]);
+	if (port && isNaN(+port)) {
+		throw new Error(
+			`The ${port_header} header specified ${port} which is an invalid port because it is not a number. The value should only contain the port number (e.g. 443)`
+		);
+	}
 
-  return port ? `${protocol}://${host}:${port}` : `${protocol}://${host}`;
+	return port ? `${protocol}://${host}:${port}` : `${protocol}://${host}`;
 }
 
 const handler = sequence(
-  /** @type {(import('sirv').RequestHandler | import('polka').Middleware)[]} */
-  ([serve(path.join(dir, 'client'), true), serve_prerendered(), ssr].filter(Boolean)),
+	/** @type {(import('sirv').RequestHandler | import('polka').Middleware)[]} */
+	([serve(path.join(dir, 'client'), true), serve_prerendered(), ssr].filter(Boolean))
 );
 
 export { handler };

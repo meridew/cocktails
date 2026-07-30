@@ -26,7 +26,7 @@ export const options = {
 		app: ({ head, body, assets, nonce, env }) => "<!doctype html>\n<html lang=\"en\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0, viewport-fit=cover\" />\n    <meta name=\"description\" content=\"Build a round, drop your name, get served.\" />\n    <meta name=\"theme-color\" content=\"#ffe600\" />\n    <!-- iOS PWA: install as a real full-screen app (required for standalone + web push) -->\n    <meta name=\"apple-mobile-web-app-capable\" content=\"yes\" />\n    <meta name=\"mobile-web-app-capable\" content=\"yes\" />\n    <meta name=\"apple-mobile-web-app-status-bar-style\" content=\"default\" />\n    <meta name=\"apple-mobile-web-app-title\" content=\"Cocktails\" />\n    <link rel=\"icon\" type=\"image/svg+xml\" href=\"" + assets + "/favicon.svg\" />\n    <link rel=\"icon\" type=\"image/png\" sizes=\"192x192\" href=\"" + assets + "/pwa-192.png\" />\n    <link rel=\"apple-touch-icon\" href=\"" + assets + "/apple-touch-icon.png\" />\n    <link rel=\"manifest\" href=\"" + assets + "/manifest.webmanifest\" />\n    " + head + "\n  </head>\n  <body data-sveltekit-preload-data=\"hover\">\n    <div id=\"app\">" + body + "</div>\n  </body>\n</html>\n",
 		error
 	},
-	version_hash: "t56igk"
+	version_hash: "qv6855"
 };
 
 export async function get_hooks() {
@@ -35,7 +35,7 @@ export async function get_hooks() {
 	let handleError;
 	let handleValidationError;
 	let init;
-	
+	({ handle, handleFetch, handleError, handleValidationError, init } = await import("../../../src/hooks.server.ts"));
 
 	let reroute;
 	let transport;

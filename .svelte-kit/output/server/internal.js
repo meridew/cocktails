@@ -1,6 +1,6 @@
-import './chunks/root.js';
-import { s, e, f } from './chunks/internal.js';
-import { g, o, s as s2, a, b, c } from './chunks/internal2.js';
+import "./chunks/root.js";
+import { s, e, f } from "./chunks/internal.js";
+import { g, o, s as s2, a, b, c } from "./chunks/internal2.js";
 export {
   g as get_hooks,
   o as options,
@@ -10,5 +10,5 @@ export {
   f as set_prerendering,
   a as set_private_env,
   b as set_public_env,
-  c as set_read_implementation,
+  c as set_read_implementation
 };

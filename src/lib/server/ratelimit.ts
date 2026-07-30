@@ -7,7 +7,9 @@
  * party app. (If this ever runs multi-instance, swap the Map for a shared store
  * behind this same interface.)
  */
+import { json, type RequestEvent } from '@sveltejs/kit';
 import { now } from './db';
+import { clientIp } from './http';
 
 export interface RateLimiterOptions {
   /** Countable events allowed per window before the key is limited. */
@@ -64,4 +66,25 @@ export function createRateLimiter({
       hits.delete(key);
     },
   };
+}
+
+/**
+ * Throttle for the unauthenticated write endpoints.
+ *
+ * Without it, a loop against POST /api/orders both spams the bar with pushes and —
+ * once the order cap is reached — evicts the party's real queue.
+ *
+ * Returns the 429 to send back, or null to continue. That shape means the guard
+ * reads the same way as the auth ones at the top of a handler, instead of being a
+ * middleware registration several files away from what it protects.
+ */
+const writeLimiter = createRateLimiter({ max: 30, windowMs: 60 * 1000 });
+
+export function rateLimitWrites(event: RequestEvent): Response | null {
+  const ip = clientIp(event);
+  if (writeLimiter.isLimited(ip)) {
+    return json({ ok: false, error: 'slow down — too many requests' }, { status: 429 });
+  }
+  writeLimiter.record(ip);
+  return null;
 }

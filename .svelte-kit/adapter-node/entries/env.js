@@ -6,20 +6,20 @@ import { fileURLToPath } from 'node:url';
 const dir = path.dirname(fileURLToPath(import.meta.url));
 
 const expected = new Set([
-  'SOCKET_PATH',
-  'HOST',
-  'PORT',
-  'ORIGIN',
-  'XFF_DEPTH',
-  'ADDRESS_HEADER',
-  'PROTOCOL_HEADER',
-  'HOST_HEADER',
-  'PORT_HEADER',
-  'BODY_SIZE_LIMIT',
-  'SHUTDOWN_TIMEOUT',
-  'IDLE_TIMEOUT',
-  'KEEP_ALIVE_TIMEOUT',
-  'HEADERS_TIMEOUT',
+	'SOCKET_PATH',
+	'HOST',
+	'PORT',
+	'ORIGIN',
+	'XFF_DEPTH',
+	'ADDRESS_HEADER',
+	'PROTOCOL_HEADER',
+	'HOST_HEADER',
+	'PORT_HEADER',
+	'BODY_SIZE_LIMIT',
+	'SHUTDOWN_TIMEOUT',
+	'IDLE_TIMEOUT',
+	'KEEP_ALIVE_TIMEOUT',
+	'HEADERS_TIMEOUT'
 ]);
 
 const expected_unprefixed = new Set(['LISTEN_PID', 'LISTEN_FDS']);
@@ -27,16 +27,16 @@ const expected_unprefixed = new Set(['LISTEN_PID', 'LISTEN_FDS']);
 const env_prefix = ENV_PREFIX;
 
 if (env_prefix) {
-  for (const name in process.env) {
-    if (name.startsWith(env_prefix)) {
-      const unprefixed = name.slice(env_prefix.length);
-      if (!expected.has(unprefixed)) {
-        throw new Error(
-          `You should change envPrefix (${env_prefix}) to avoid conflicts with existing environment variables — unexpectedly saw ${name}`,
-        );
-      }
-    }
-  }
+	for (const name in process.env) {
+		if (name.startsWith(env_prefix)) {
+			const unprefixed = name.slice(env_prefix.length);
+			if (!expected.has(unprefixed)) {
+				throw new Error(
+					`You should change envPrefix (${env_prefix}) to avoid conflicts with existing environment variables — unexpectedly saw ${name}`
+				);
+			}
+		}
+	}
 }
 
 /**
@@ -44,9 +44,9 @@ if (env_prefix) {
  * @param {any} [fallback]
  */
 function env(name, fallback) {
-  const prefix = expected_unprefixed.has(name) ? '' : env_prefix;
-  const prefixed = prefix + name;
-  return prefixed in process.env ? process.env[prefixed] : fallback;
+	const prefix = expected_unprefixed.has(name) ? '' : env_prefix;
+	const prefixed = prefix + name;
+	return prefixed in process.env ? process.env[prefixed] : fallback;
 }
 
 const integer_regexp = /^\d+$/;
@@ -59,9 +59,9 @@ const integer_regexp = /^\d+$/;
  * @returns {never}
  */
 function parsing_error(name, value, description) {
-  throw new Error(
-    `Invalid value for environment variable ${name}: ${JSON.stringify(value)} (${description})`,
-  );
+	throw new Error(
+		`Invalid value for environment variable ${name}: ${JSON.stringify(value)} (${description})`
+	);
 }
 
 /**
@@ -71,29 +71,29 @@ function parsing_error(name, value, description) {
  * @returns {number | undefined}
  */
 function timeout_env(name, fallback) {
-  const raw = env(name, fallback);
-  if (!raw) {
-    return fallback;
-  }
+	const raw = env(name, fallback);
+	if (!raw) {
+		return fallback;
+	}
 
-  if (!integer_regexp.test(raw)) {
-    parsing_error(name, raw, 'should be a non-negative integer');
-  }
+	if (!integer_regexp.test(raw)) {
+		parsing_error(name, raw, 'should be a non-negative integer');
+	}
 
-  const parsed = Number.parseInt(raw, 10);
+	const parsed = Number.parseInt(raw, 10);
 
-  // We don't technically need to check `Number.isNaN` because the value already passed the regexp test.
-  // However, just in case there's some new codepath introduced somewhere down the line, it's probably good
-  // to stick this in here.
-  if (Number.isNaN(parsed)) {
-    parsing_error(name, raw, 'should be a non-negative integer');
-  }
+	// We don't technically need to check `Number.isNaN` because the value already passed the regexp test.
+	// However, just in case there's some new codepath introduced somewhere down the line, it's probably good
+	// to stick this in here.
+	if (Number.isNaN(parsed)) {
+		parsing_error(name, raw, 'should be a non-negative integer');
+	}
 
-  if (parsed < 0) {
-    parsing_error(name, raw, 'should be a non-negative integer');
-  }
+	if (parsed < 0) {
+		parsing_error(name, raw, 'should be a non-negative integer');
+	}
 
-  return parsed;
+	return parsed;
 }
 
 export { dir, env, env_prefix, timeout_env };
