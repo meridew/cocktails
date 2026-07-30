@@ -2,6 +2,71 @@
 
 Things deliberately deferred — revisit before they block a phase.
 
+## 🩹 Concessions made in phases 0–2
+
+Written down because each one is a place the code is quieter than the truth.
+Ordered by how much it would cost to be wrong.
+
+### 1. A guest cannot choose their party — `ensureLiveEvent()`
+
+`POST /api/orders` puts the drink in whatever event is `status = 'live'`, newest
+first. With **two live events, guests order into the wrong party**, and nothing
+errors.
+
+This is a real hole in the thing phase 2 claimed to close. The isolation suite
+passes because it only ever has one live event while each host is being built, so it
+proves the _staff_ side and not the guest side. Phase 2's honest claim is "two hosts
+cannot see each other's data", not "two parties can run at once".
+
+**Fix:** the guest's entry point has to name the event — a code in the QR link — with
+`liveEvent()` only as the single-party fallback. Do this before two hosts ever run
+simultaneously; until then the behaviour is correct by accident.
+
+### 2. Signing up leads nowhere
+
+Phase 1 and phase 2 don't join up. A verified account has no event, no staff row and
+no way into a bar. There is no "create my event" endpoint, and `staff.userId` — the
+column that links an account to a membership — is **never written**. It exists in the
+schema and nothing sets it.
+
+**Fix:** an endpoint for a host to create an event, which also writes their `staff`
+row as owner with `userId` set. Small, and it's what makes the feature real.
+
+### 3. The capability model was not widened as promised
+
+`permissions.ts` says the actor becomes an event membership in phase 2 and the call
+sites won't change. The call sites didn't change — but the widening didn't happen
+either. `can()` still keys off `staff.role` alone, not the account-role × event-role
+pair §5 describes. There is no `operator` vs `host` distinction yet.
+
+Harmless today (one axis, two roles) and the shape is right, but the comment is
+currently a promise rather than a description.
+
+### 4. `event.hostUserId` is nullable, and the default event is owned by nobody
+
+Deliberate — see the plan — but it leaves a permanent "The party" event with a null
+owner. Once hosts exist, either it should be claimable or event creation should
+require a host and the default should be dropped.
+
+### 5. `staffByIdUnscoped` is guarded by its name, not by the type system
+
+The unscoped lookup is genuinely needed when resolving a session from a token we
+already trust. But the plan's principle is "the type system is the defence, not
+care", and a name is care. A branded `TrustedStaffId` type would make it real.
+
+### 6. Smaller, but real
+
+- `inventory` exists and nothing reads it. Phase 3 wires it up.
+- **No UI** for events, inventory or sign-up. All of the above is API-only.
+- `Staff` now carries `eventId` to the client — defensible, but a server concept in a
+  client-facing shape.
+- The tenancy migration uses `ALTER TABLE ... ADD COLUMN NOT NULL`, which only
+  succeeds on an **empty** table. Same wipe-first caveat as below.
+- Tests call `ensureLiveEvent()` inline, which creates an event as a side effect.
+  Works; not elegant.
+- The two tenancy migrations were collapsed by hand-editing `_journal.json`. Correct
+  on a green field, wrong once anything has shipped.
+
 ## ⛔ Waiting on a human
 
 Per [`PLATFORM-PLAN.md`](PLATFORM-PLAN.md) §0, work that needs a browser login is
