@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { Capacitor } from '@capacitor/core';
+  import { dialog } from './dialog';
 
   // The Chrome/Android "you can install this PWA" event.
   type BIPEvent = Event & {
@@ -66,6 +67,7 @@
     aria-modal="true"
     aria-label="How to install"
     tabindex="-1"
+    use:dialog={{ onclose: () => (showTip = false) }}
     onclick={() => (showTip = false)}
   >
     <div class="install-tip-card" role="document">

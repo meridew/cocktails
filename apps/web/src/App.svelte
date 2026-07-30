@@ -44,8 +44,10 @@
 
   // background party-popper cannon
   let cannon = $state<HTMLCanvasElement>();
-  // the mobile order sheet — kept interactive while its background is inert
+  // The mobile order sheet spans two siblings — the rail and its click-to-dismiss
+  // backdrop — and both must stay interactive while the rest goes inert.
   let orderRail = $state<HTMLElement>();
+  let orderBackdrop = $state<HTMLElement>();
   $effect(() => {
     if (cannon) return startBackgroundCannon(cannon);
   });
@@ -55,7 +57,7 @@
   $effect(() => {
     if (!orderOpen) return;
     if (window.matchMedia('(min-width: 900px)').matches) return;
-    const release = lockBackground(orderRail);
+    const release = lockBackground(orderRail, orderBackdrop);
     const prev = document.activeElement as HTMLElement | null;
     queueMicrotask(() => document.getElementById('name')?.focus());
     return () => {
@@ -248,6 +250,7 @@
 <div
   class="order-backdrop"
   class:open={orderOpen}
+  bind:this={orderBackdrop}
   onclick={() => (orderOpen = false)}
   onkeydown={(e) => e.key === 'Escape' && (orderOpen = false)}
   role="button"
@@ -256,7 +259,12 @@
 ></div>
 
 {#if selected}
-  <Configurator drink={selected} onadd={(n) => addLine(n)} onclose={() => (selected = null)} />
+  <!-- Keyed by drink: picking a different drink must start from that drink's own
+       defaults, so we want a fresh component rather than a reused one carrying
+       the previous selections. Configurator relies on this. -->
+  {#key selected.name}
+    <Configurator drink={selected} onadd={(n) => addLine(n)} onclose={() => (selected = null)} />
+  {/key}
 {/if}
 {#if showBartender}
   <Bartender onclose={() => (showBartender = false)} />

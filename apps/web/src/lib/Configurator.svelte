@@ -12,6 +12,11 @@
     onclose: () => void;
   } = $props();
 
+  // Reading `drink` once is deliberate: the parent keys this component per drink,
+  // so a different drink mounts a fresh instance rather than reusing this one.
+  // Without that guarantee a changed prop would render the new drink's axes
+  // against the old drink's selections (e.g. a Wine `colour` tag on a Margarita).
+  // svelte-ignore state_referenced_locally
   let config = $state<Config>(defaultConfig(drink));
   let axes = $derived(visibleAxes(drink, config));
   let line = $derived(buildLine(drink, config));

@@ -217,7 +217,13 @@ app.patch('/api/orders/:id', requireStaff, async (c) => {
 
 // ---- bartender: delete one ----
 app.delete('/api/orders/:id', requireStaff, (c) => {
-  return c.json({ ok: deleteOrder(c.req.param('id')) });
+  // 404 rather than `200 {ok:false}` so the client can tell "already gone" from a
+  // real failure. Previously the generic error path rendered the nonsense
+  // "Something went wrong (HTTP 200)." when two bartenders deleted the same row.
+  if (!deleteOrder(c.req.param('id'))) {
+    return c.json({ ok: false, error: 'not found' }, 404);
+  }
+  return c.json({ ok: true } satisfies OkResponse);
 });
 
 // ---- bartender: bulk clear ----

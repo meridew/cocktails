@@ -22,6 +22,13 @@ export class Unauthorized extends Error {
   }
 }
 
+/** The resource is already gone — usually not an error the user needs to see. */
+export class NotFound extends Error {
+  constructor() {
+    super('not found');
+  }
+}
+
 async function req<T>(path: string, init: RequestInit = {}, token?: string): Promise<T> {
   const headers = new Headers(init.headers);
   if (init.body) headers.set('Content-Type', 'application/json');
@@ -36,6 +43,7 @@ async function req<T>(path: string, init: RequestInit = {}, token?: string): Pro
   }
 
   if (res.status === 401) throw new Unauthorized();
+  if (res.status === 404) throw new NotFound();
   const data = (await res.json().catch(() => ({}))) as T & { ok?: boolean; error?: string };
   if (!res.ok || data?.ok === false) {
     throw new Error(
@@ -44,8 +52,6 @@ async function req<T>(path: string, init: RequestInit = {}, token?: string): Pro
   }
   return data;
 }
-
-export const health = () => req<{ ok: true; now: number }>('/health');
 
 export const createOrder = (input: NewOrderInput) =>
   req<OrderCreatedResponse>('/orders', {

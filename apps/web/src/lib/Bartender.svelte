@@ -8,6 +8,7 @@
     login,
     logout,
     Unauthorized,
+    NotFound,
   } from './api';
   import { dialog } from './dialog';
   import { storage } from './storage';
@@ -43,8 +44,16 @@
   );
   let waiting = $derived(orders.filter((o) => o.status !== 'done').length);
 
+  /**
+   * Bumped on every sign-out. A poll or mutation that was already in flight
+   * compares the generation it started under and discards its result, so a
+   * response landing after logout can't resurrect the signed-in view.
+   */
+  let generation = 0;
+
   /** Drop the session locally (expired token, sign-out, or auth error). */
   function signedOut(msg = '') {
+    generation += 1;
     unlocked = false;
     token = '';
     storage.remove(TOKEN_KEY);
@@ -53,14 +62,22 @@
   }
 
   async function fetchOrders() {
+    // Skip while a mutation is in flight: `orders = r.orders` would otherwise
+    // overwrite the optimistic merge with a snapshot taken before the PATCH
+    // committed, making a status visibly revert for up to one poll interval.
+    if (busy.size > 0) return;
+
+    const started = generation;
     try {
       const r = await listOrders(token);
+      if (started !== generation) return; // signed out while this was in flight
       orders = r.orders;
       unlocked = true;
       loaded = true;
       gateErr = '';
       connErr = '';
     } catch (e) {
+      if (started !== generation) return;
       if (e instanceof Unauthorized) signedOut('Session expired — sign in again.');
       else connErr = 'Reconnecting…';
     }
@@ -103,14 +120,20 @@
     }
   }
 
-  /** Run a mutation with in-flight guard + error handling. */
+  /**
+   * Run a mutation with an in-flight guard and one error path. `id` scopes the
+   * guard to a row; bulk actions pass a sentinel so they share the same handling
+   * rather than re-implementing it.
+   */
   async function withBusy(id: string, fn: () => Promise<void>) {
     if (busy.has(id)) return;
     busy.add(id);
     connErr = '';
+    const started = generation;
     try {
       await fn();
     } catch (e) {
+      if (started !== generation) return; // signed out mid-flight
       if (e instanceof Unauthorized) signedOut('Signed out — sign in again.');
       else connErr = (e as Error).message || "That didn't go through — try again.";
     } finally {
@@ -121,24 +144,28 @@
   function act(o: Order, status: OrderStatus) {
     return withBusy(o.id, async () => {
       const r = await setStatus(o.id, status, token);
-      // merge the authoritative result to avoid a poll flicker
+      // Merge the authoritative row so the next poll doesn't flicker.
       orders = orders.map((x) => (x.id === o.id ? r.order : x));
     });
   }
+
   function del(o: Order) {
     return withBusy(o.id, async () => {
-      await deleteOrder(o.id, token);
+      try {
+        await deleteOrder(o.id, token);
+      } catch (e) {
+        // Another bartender already deleted it — the goal is met either way.
+        if (!(e instanceof NotFound)) throw e;
+      }
       orders = orders.filter((x) => x.id !== o.id);
     });
   }
-  async function clearDone() {
-    try {
+
+  function clearDone() {
+    return withBusy('__bulk', async () => {
       await clearOrders('done', token);
       orders = orders.filter((o) => o.status !== 'done');
-    } catch (e) {
-      if (e instanceof Unauthorized) signedOut('Signed out — sign in again.');
-      else connErr = "Couldn't clear — try again.";
-    }
+    });
   }
 
   function ago(ts: number): string {

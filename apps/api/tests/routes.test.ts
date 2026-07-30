@@ -291,11 +291,17 @@ describe('staff order management', () => {
     assert.equal(missing.status, 404);
   });
 
-  test('DELETE removes an order', async () => {
+  test('DELETE removes an order, and 404s when it is already gone', async () => {
     const id = await placeOrder('Doomed');
     const res = await app.request(`/api/orders/${id}`, { method: 'DELETE', headers: auth() });
     assert.equal(res.status, 200);
     assert.deepEqual(await res.json(), { ok: true });
+
+    // Deleting twice (two bartenders, or a double tap) must report "not found"
+    // rather than `200 {ok:false}`, which rendered "Something went wrong (HTTP 200)."
+    const again = await app.request(`/api/orders/${id}`, { method: 'DELETE', headers: auth() });
+    assert.equal(again.status, 404);
+    assert.deepEqual(await again.json(), { ok: false, error: 'not found' });
   });
 
   test('clear removes done orders, or all of them', async () => {

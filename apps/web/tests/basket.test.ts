@@ -26,6 +26,18 @@ describe('basket store', () => {
     );
   });
 
+  test('addLine also clamps, so repeated taps cannot exceed the max', () => {
+    // setQty clamped but addLine did not, so the count could pass the bound and
+    // then be silently reduced by the server.
+    for (let i = 0; i < LIMITS.maxQty + 20; i++) addLine('Mojito');
+    assert.equal(basket.items[0]?.qty, LIMITS.maxQty);
+  });
+
+  test('addLine stops at the per-order item cap', () => {
+    for (let i = 0; i < LIMITS.maxItemsPerOrder + 10; i++) addLine(`Drink ${i}`);
+    assert.equal(basket.items.length, LIMITS.maxItemsPerOrder);
+  });
+
   test('setQty clamps to the shared max quantity', () => {
     addLine('Mojito');
     setQty('Mojito', 500);

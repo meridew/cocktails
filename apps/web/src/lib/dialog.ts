@@ -10,15 +10,21 @@
 import type { Action } from 'svelte/action';
 
 /**
- * Inert every sibling of `keep` inside #app; returns an undo fn. Only touches
- * elements that aren't already inert, so stacked locks nest and unwind cleanly.
+ * Inert every sibling inside #app except the ones passed in; returns an undo fn.
+ * Only touches elements that aren't already inert, so stacked locks nest and
+ * unwind cleanly.
+ *
+ * Takes several exemptions because an overlay can span more than one sibling —
+ * the mobile order sheet is a rail *plus* its click-to-dismiss backdrop, and
+ * inerting the backdrop silently kills tap-outside-to-close.
  */
-export function lockBackground(keep?: HTMLElement): () => void {
+export function lockBackground(...keep: (HTMLElement | undefined)[]): () => void {
   const app = document.getElementById('app');
   if (!app) return () => {};
+  const exempt = keep.filter((el): el is HTMLElement => !!el);
   const locked = Array.from(app.children).filter(
     (el): el is HTMLElement =>
-      el instanceof HTMLElement && el !== keep && !el.hasAttribute('inert'),
+      el instanceof HTMLElement && !exempt.includes(el) && !el.hasAttribute('inert'),
   );
   for (const el of locked) el.setAttribute('inert', '');
   return () => {
@@ -34,10 +40,15 @@ export const dialog: Action<HTMLElement, { onclose?: () => void } | undefined> =
   const prev = document.activeElement as HTMLElement | null;
   const release = lockBackground(node);
 
+  // `offsetParent` is null for position:fixed elements, so filtering on it
+  // silently drops any fixed control (e.g. a sticky action bar) from the trap.
+  const isVisible = (el: HTMLElement): boolean =>
+    typeof el.checkVisibility === 'function'
+      ? el.checkVisibility()
+      : el.offsetWidth > 0 || el.offsetHeight > 0 || el.getClientRects().length > 0;
+
   const focusables = () =>
-    Array.from(node.querySelectorAll<HTMLElement>(FOCUSABLE)).filter(
-      (el) => el.offsetParent !== null,
-    );
+    Array.from(node.querySelectorAll<HTMLElement>(FOCUSABLE)).filter(isVisible);
 
   queueMicrotask(() => (focusables()[0] ?? node).focus());
 
