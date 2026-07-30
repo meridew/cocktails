@@ -140,6 +140,9 @@
     <p class="bt-gate-msg">Enter bar PIN</p>
     <Keypad length={PIN_LENGTH} label="Bar PIN" disabled={busy} {busy} onsubmit={submitPin} />
     <button type="button" class="bt-gate-alt" onclick={goto('join')}> Helping out tonight? </button>
+    <!-- The host's door. It lives here because this is where anyone wanting to run
+         a bar already arrives — /host was otherwise reachable only by typing it. -->
+    <a class="bt-gate-alt" href="/host">It's my party</a>
   {:else if mode === 'join'}
     <p class="bt-gate-msg">Got a join code?</p>
     <p class="bt-gate-hint">Ask whoever’s running the bar — they can show you one.</p>

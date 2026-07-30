@@ -836,3 +836,146 @@
   text-align: center;
   color: #ffe600;
 }
+
+/* ---- the host's door -------------------------------------------------------
+   Deliberately plain next to the guest menu's neon. A host uses this twice: once
+   to sign up and once a party to open the bar. Legibility on a phone in a kitchen
+   beats personality, and the loud styling is the thing guests came for. */
+.host {
+  max-width: 34rem;
+  margin: 0 auto;
+  padding: 1.25rem 1rem 3rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+.host-h1 {
+  margin: 0.25rem 0 0;
+  font-size: 1.6rem;
+  line-height: 1.15;
+}
+.host-quiet {
+  margin: 0;
+  opacity: 0.75;
+  line-height: 1.45;
+}
+.host-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  margin: 0.4rem 0;
+}
+.host-label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.85rem;
+  opacity: 0.85;
+}
+.host-input {
+  /* 16px minimum: anything smaller makes iOS Safari zoom the whole page on
+     focus, which reads as the layout breaking. */
+  font-size: 16px;
+  padding: 0.7rem 0.8rem;
+  border-radius: 0.6rem;
+  border: 2px solid rgb(255 255 255 / 0.25);
+  background: rgb(0 0 0 / 0.35);
+  color: inherit;
+}
+.host-input:focus-visible {
+  outline: 3px solid var(--neon, #ff2fb9);
+  outline-offset: 2px;
+}
+.host-go,
+.host-alt {
+  font: inherit;
+  font-weight: 700;
+  /* 44px is the smallest reliable touch target; this is used one-handed while
+     holding something. */
+  min-height: 44px;
+  padding: 0.7rem 1rem;
+  border-radius: 0.6rem;
+  cursor: pointer;
+}
+.host-go {
+  border: none;
+  background: var(--neon, #ff2fb9);
+  color: #10021a;
+}
+.host-go:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+.host-alt {
+  border: 2px solid rgb(255 255 255 / 0.3);
+  background: transparent;
+  color: inherit;
+}
+.host-parties {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.host-party {
+  border: 2px solid rgb(255 255 255 / 0.2);
+  border-radius: 0.75rem;
+  padding: 0.8rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.host-party-main {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.host-party-name {
+  font-weight: 800;
+  font-size: 1.05rem;
+}
+.host-party-status {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  opacity: 0.7;
+}
+.host-party-acts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.host-party-acts > * {
+  flex: 1 1 10rem;
+}
+.host-link {
+  font-size: 0.75rem;
+  opacity: 0.65;
+  /* Long ids must wrap rather than push the card wider than the phone. */
+  overflow-wrap: anywhere;
+}
+.host-bad,
+.host-good {
+  margin: 0;
+  padding: 0.6rem 0.75rem;
+  border-radius: 0.5rem;
+  font-size: 0.9rem;
+}
+.host-bad {
+  background: rgb(255 60 60 / 0.18);
+  border: 1px solid rgb(255 60 60 / 0.5);
+}
+.host-good {
+  background: rgb(60 255 160 / 0.14);
+  border: 1px solid rgb(60 255 160 / 0.45);
+}
+
+/* `.bt-gate-alt` was button-only until the host's door joined it as a link. */
+a.bt-gate-alt {
+  display: block;
+  text-align: center;
+  text-decoration: none;
+}

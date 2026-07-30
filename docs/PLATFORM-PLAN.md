@@ -387,7 +387,7 @@ doing Drizzle before tenancy: do the structural work while already in there.
 _Gate: `tests/host-loop.test.ts` — sign up → verify → create → open the bar → guests
 order, with **two events live at once**, which the isolation suite cannot set up._
 
-### Phase 2.6 — the missing door: auth and host UI
+### ~~Phase 2.6 — the missing door: auth and host UI~~ ✅ done, 30 Jul 2026
 
 **A gap in this plan, spotted by Dan on 30 Jul 2026.** Every phase here is written in
 terms of endpoints, and phase 1's gate — "sign up → verify → sign in → reset, end to
@@ -407,8 +407,19 @@ So, before phase 3:
 3. **Create your party**, and **open its bar** — the two endpoints from phase 2.5,
    with a face.
 
-_Gate: a person with a browser and no terminal can sign up, verify, create an event
-and reach its bar screen._
+_Gate: **met**, and walked in a browser rather than asserted — sign up → follow the
+emailed link → verified and signed in → create a party → open its bar → a guest order
+at that party's link appears in it._
+
+**One thing the walk caught that no test would have.** Sign-up with verification
+required deliberately issues no session, so the screen fell straight back to "signed
+out" and redrew the form the host had just submitted — the same "it dumped me back at
+the login screen with no idea what happened" that made the ask-to-help flow feel
+broken. Signing up is a thing that _happened_; the screen has to say so, and now does,
+without depending on a session that by design doesn't exist yet.
+
+`/host` is reachable from the bar door ("It's my party"), because it was otherwise
+findable only by typing the URL.
 
 ### Phase 3 — inventory and the generator
 

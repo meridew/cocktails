@@ -15,6 +15,7 @@ import type {
   StaffRequestCreated,
   JoinCodeResponse,
   JoinResponse,
+  Staff,
 } from '$lib/shared';
 import { currentEventId } from './party';
 
@@ -125,6 +126,84 @@ export const setItemProgress = (id: string, index: number, made: number) =>
     method: 'PATCH',
     body: JSON.stringify({ index, made }),
   });
+
+// ---- host accounts ----
+
+/**
+ * Account calls, deliberately **not** routed through `req`.
+ *
+ * `req` treats a 401 as "your bar session expired" and signs the staff session out.
+ * Here a 401 means "wrong password" — and a bartender who mistypes a host password
+ * must not be thrown off the queue they're working. Different credential, different
+ * failure, different handler.
+ *
+ * Better Auth authenticates by cookie, which a same-origin fetch sends anyway.
+ */
+async function account<T>(path: string, body?: unknown): Promise<T> {
+  let res: Response;
+  try {
+    res = await fetch(`${BASE}/account${path}`, {
+      method: body === undefined ? 'GET' : 'POST',
+      headers: body === undefined ? {} : { 'Content-Type': 'application/json' },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+  } catch {
+    throw new Error("Can't reach the bar — check your connection.");
+  }
+  const data = (await res.json().catch(() => ({}))) as T & { message?: string };
+  if (!res.ok) {
+    // Better Auth puts its reason in `message`; it's usually fit to show.
+    throw new Error(data?.message || `Something went wrong (HTTP ${res.status}).`);
+  }
+  return data;
+}
+
+export interface AccountUser {
+  id: string;
+  name: string;
+  email: string;
+  emailVerified: boolean;
+}
+
+/** `callbackURL` is where the emailed link lands them — back here, not the menu. */
+export const signUp = (name: string, email: string, password: string) =>
+  account<{ user: AccountUser }>('/sign-up/email', {
+    name,
+    email,
+    password,
+    callbackURL: '/host?verified',
+  });
+
+export const signInToAccount = (email: string, password: string) =>
+  account<{ user: AccountUser }>('/sign-in/email', { email, password });
+
+export const signOutOfAccount = () => account<unknown>('/sign-out', {});
+
+/** Who's signed in, or null. Used to decide which half of /host to render. */
+export const currentAccount = () =>
+  account<{ user: AccountUser } | null>('/get-session').catch(() => null);
+
+export const resendVerification = (email: string) =>
+  account<unknown>('/send-verification-email', { email, callbackURL: '/host?verified' });
+
+// ---- the host's own parties ----
+
+export interface Party {
+  id: string;
+  name: string;
+  status: string;
+  startsAt: number | null;
+  createdAt: number;
+}
+
+export const myParties = () => req<{ ok: true; events: Party[] }>('/events');
+
+export const createParty = (name: string) =>
+  req<{ ok: true; event: Party }>('/events', { method: 'POST', body: JSON.stringify({ name }) });
+
+/** Trade the account session for a bar session at a party you're staff on. */
+export const openBar = (eventId: string) =>
+  req<{ ok: true; token: string; staff: Staff }>(`/events/${eventId}/bar`, { method: 'POST' });
 
 // ---- staff auth ----
 
