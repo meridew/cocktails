@@ -1,7 +1,11 @@
 name: deploy (NAS)
 
-# Push -> GitHub cloud runner typechecks/builds (free, gates prod) -> if green,
-# the self-hosted NAS runner builds + deploys. Nothing inbound; no GHCR.
+# One job on the NAS runner: gate, then build + deploy. Nothing inbound; no GHCR.
+#
+# The gate used to run as a separate job on a GitHub-hosted runner, which cost a
+# second checkout, a second `npm ci`, and ~15s of VM provisioning on every push —
+# to re-prove something the Docker build proves again moments later. Merging them
+# removes that, and takes GitHub-hosted usage to zero.
 on:
   push:
     branches: [modernise, main]
@@ -12,11 +16,14 @@ on:
 
 concurrency:
   group: nas-deploy
-  cancel-in-progress: false # queue deploys so each build+up completes atomically
+  # Supersede an in-flight deploy rather than queueing behind it: pushing twice in
+  # quick succession should land the *second* one, not wait out the first. (This was
+  # deliberately false when the site had to stay up; it doesn't.)
+  cancel-in-progress: true
 
 jobs:
-  check:
-    runs-on: ubuntu-latest
+  deploy:
+    runs-on: [self-hosted, nas]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -24,23 +31,12 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
+
       # Deliberately no VAPID_* env here: with the keys unset, push.ts is inert and
       # the suite makes zero outbound requests. Adding them would make the
       # order-status tests hit real push services and flake.
-      - name: Format check
-        run: npm run format:check
-      - name: Typecheck + svelte-check
-        run: npm run check
-      - name: Test
-        run: npm test
-      - name: Build web
-        run: npm -w @cocktails/web run build
-
-  deploy:
-    needs: check
-    runs-on: [self-hosted, nas]
-    steps:
-      - uses: actions/checkout@v4
+      - name: Gate
+        run: npm run format:check && npm run check && npm test
 
       - name: Write infra/.env
         run: |
@@ -68,6 +64,7 @@ jobs:
           VAPID_SUBJECT: mailto:bar@meridew.com
           ALLOWED_ORIGIN: https://cock.meridew.com,capacitor://localhost,https://localhost
 
+      # The web image builds the client, so there's no separate build step above.
       - name: Build + deploy
         working-directory: infra
         run: |

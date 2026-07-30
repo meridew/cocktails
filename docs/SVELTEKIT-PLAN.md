@@ -7,7 +7,7 @@
 > **Operating assumptions.** The app has no users, downtime is free, and one person
 > works in this repo. So this plan optimises for the **simplest end state**, not for a
 > safe transition — there is nothing to transition. Where an earlier draft hedged to
-> protect a live service, it now doesn't. See §10 for what that specifically buys.
+> protect a live service, it now doesn't. See §12 for what that specifically buys.
 
 ---
 
@@ -120,11 +120,13 @@ So: **delete the machinery, write the schema as it would be written today.**
 - `subscriptions` — the `(device_id, endpoint, role)` primary key is already correct;
   it just gets declared directly rather than reached by rebuild.
 
-**The cost, stated plainly:** with no migration mechanism, any future schema change
-means wiping the database. That is the right trade _until there's a party on the
-calendar with real orders in it_ — at which point a forward-only numbered migration
-runner goes back in, which is far simpler than the detect-then-act code being
-deleted. **Revisit before first real use.**
+**Standing permission:** the database may be wiped at any time, without asking,
+until Dan says otherwise. So there is no migration mechanism at all — a schema
+change is a `CREATE TABLE` edit plus `npm run db:reset` (§9).
+
+**The trigger to undo this:** the first party with real orders in it. At that point a
+forward-only numbered migration runner goes in — far simpler than the detect-then-act
+code being deleted here. Until then, migrations are pure cost.
 
 ## 6. Infrastructure: four containers → two
 
@@ -167,7 +169,49 @@ So `adapter-node` only, for now. The Capacitor deps stay in place; adding
 `adapter-static` with `fallback: 'index.html'` is a five-line change whenever the
 native build is actually attempted, and `VITE_API_BASE` already exists for it.
 
-## 9. Phases
+## 9. The local loop
+
+The point of all this: **deploying should not be part of iterating.** Deploy when Dan
+wants it on his phone; do everything else locally.
+
+`npm run dev` already runs against the real SQLite file, with real VAPID keys and the
+real PIN, on `localhost` — a secure context, so service workers and Web Push both
+work. That was already true and under-used. Two gaps close it:
+
+| Command                      | What it's for                                                                                      |
+| ---------------------------- | -------------------------------------------------------------------------------------------------- |
+| `npm run db:reset`           | Empty schema, seeded admin. One command instead of a pile of hand-written `fetch` calls.           |
+| `npm run db:seed <scenario>` | A known state: `busy` (orders across all four statuses), `helper-pending`, `join-code`.            |
+| `npm run preview`            | The **built** output, served by `node build/index.js` — the production artifact, minus the tunnel. |
+
+That last row is the one the migration unlocks. Today the built bundle can only be
+checked by deploying, because production is nginx + a separate API + Caddy and Docker
+isn't installed on the dev machine. After the migration it's one Node process, and
+running it locally is identical to running it on the NAS.
+
+**Dev-only capability overrides** go in at the same time: `?permission=default` and
+`?platform=ios`, honoured only under `import.meta.env.DEV`, so push and install
+states that a desktop browser can't otherwise produce become drivable. (The test
+browser has notifications permanently denied — that cost a lot of round-trips this
+session before it was recognised as an environment limit.)
+
+## 10. CI
+
+Deploys currently average ~150s (95–256s observed). The fat, and what's done about
+it:
+
+| Fat                                                                                                             | Fix                                                                                                                          | Status             |
+| --------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | ------------------ |
+| Two jobs — gate on a GitHub-hosted runner, deploy on the NAS: two checkouts, two `npm ci`, ~15s VM provisioning | One job on the NAS runner                                                                                                    | ✅ done            |
+| `cancel-in-progress: false`, queueing deploys that are already obsolete                                         | `true` — supersede                                                                                                           | ✅ done            |
+| Three images rebuilt per deploy (nginx+client, api, caddy)                                                      | One image (§6)                                                                                                               | with the migration |
+| A whole GitHub round-trip when only the live site needs refreshing                                              | `npm run deploy:nas` — ssh + compose directly (verified working: key present, docker at `/usr/local/bin/docker`, needs sudo) | with the migration |
+
+Note the gate job was GitHub-hosted, so that was the only _billed_ usage; the deploy
+runner is self-hosted and free. Merging the jobs takes billed usage to zero, but the
+thing actually worth optimising was wall-clock, not billing.
+
+## 11. Phases
 
 Branch `sveltekit` off `modernise` — **only** so the NAS doesn't collect twenty
 failed deploys, not to keep anything alive. Merge when it works.
@@ -181,11 +225,11 @@ failed deploys, not to keep anything alive. Merge when it works.
    rest stay dialogs. Change the push deep-link from `/?bartender` to `/bar`. _Gate:
    web tests green._
 5. **Service worker + manifest.** _Gate: build output has a SW; push still fires._
-6. **Infra** — single container, drop Caddy (§6), deploy, verify (§11), merge.
+6. **Infra** — single container, drop Caddy (§6), deploy, verify (§13), merge.
 7. **Delete** `apps/`, `packages/`, `dev.mjs`, the proxy config, the Caddyfile, and
    the workspace wiring.
 
-## 10. What the "no users" assumption actually buys
+## 12. What the "no users" assumption actually buys
 
 Recorded so it's obvious what to re-add if the assumption stops holding:
 
@@ -198,7 +242,7 @@ Recorded so it's obvious what to re-add if the assumption stops holding:
 | `/?bartender` → `/bar` redirect         | No notifications are in flight                      | Never              |
 | Capacitor build target                  | Never been exercised; no SDK, no Mac                | First native build |
 
-## 11. Verification before merge
+## 13. Verification before merge
 
 Not a gated ceremony — just the list of things that must work:
 
@@ -208,7 +252,7 @@ Not a gated ceremony — just the list of things that must work:
 - `/bar` loads directly and on refresh
 - both `npm run check` and the full test suite are clean
 
-## 12. Out of scope
+## 14. Out of scope
 
 | Not doing            | Why                                                                             |
 | -------------------- | ------------------------------------------------------------------------------- |
