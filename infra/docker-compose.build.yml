@@ -1,8 +1,0 @@
-# Build the image locally rather than pulling one. Usage from infra/:
-#   docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
-services:
-  app:
-    build:
-      context: ..
-      dockerfile: Dockerfile
-    image: cocktails-app:local

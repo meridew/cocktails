@@ -75,6 +75,32 @@ Per [`PLATFORM-PLAN.md`](PLATFORM-PLAN.md) §0, work that needs a browser login 
 stubbed behind an interface and logged here rather than stopping the plan. Each entry
 says what is needed, who can do it, and what it unblocks.
 
+### Cloudflare tunnel — repoint it at the Mac
+
+**Blocks:** the public site. Until this is done, `cock.meridew.com` still reaches the
+NAS and whatever build is on it; the Mac serves the current code on the LAN only.
+
+The tunnel's ingress rule lives in the Cloudflare dashboard, not this repo. Two ways:
+
+1. **Reuse the existing tunnel** — point its Public Hostname at
+   `http://192.168.1.9:3100`, and nothing else changes.
+2. **Run cloudflared on the Mac** (installed, not configured) — needs the tunnel
+   token from the dashboard. Then it dials out from the Mac itself and the NAS is
+   out of the path entirely. This is the tidier end state.
+
+Also unset: **`STAFF_PIN`** in `~/.config/cocktails/env` on the Mac. Empty means PIN
+sign-in is simply off; email + password still works. Set it and
+`launchctl kickstart -k gui/$(id -u)/com.meridew.cocktails`.
+
+### Litestream → R2 — the backup half of phase 4
+
+**Blocks:** having backups at all. Litestream 0.5.15 is installed on the Mac and
+configured with nothing.
+
+Needs an R2 bucket and an API token from the Cloudflare dashboard. The plan is
+explicit that an untested backup is not a backup, so this isn't done until a restore
+into a scratch path has been diffed against the live database.
+
 ### Real email — Entra app registration
 
 **Blocks:** nothing yet. Accounts work end to end; the messages go to the server log

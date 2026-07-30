@@ -404,7 +404,7 @@ which is why the interactive flow should come _after_ the inventory proves the p
 _Gate: the ported engine agrees with the old one on a fixture set of ingredient
 combinations._
 
-### Phase 4 — move to the Mac, natively
+### Phase 4 — move to the Mac, natively — ⏳ mostly done, 30 Jul 2026
 
 No code change; this is the host move, and it can be done any time after phase 0.
 

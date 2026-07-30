@@ -1,0 +1,90 @@
+name: gate + deploy (Mac)
+
+# Push gates. Deploying is a separate, manual act:
+#
+#     gh workflow run "gate + deploy (Mac)" --ref main -f deploy=true
+#
+# Both jobs run on the Mac mini, which is also the host. That would have been a bad
+# idea on the NAS — a 4-core Synology sharing memory with two VMs, SQL Server and
+# Plex, where merging the gate onto the box was tried and took 472s at load average
+# 74. The M4 runs the same gate in about ten seconds, so the argument reversed.
+#
+# There is no Docker here. The app is a launchd service running node directly; a
+# deploy is a fetch, a build and a restart. See docs/PLATFORM-PLAN.md §2.
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
+  workflow_dispatch:
+    inputs:
+      deploy:
+        description: 'Restart the live service with this commit (otherwise just gate)'
+        type: boolean
+        default: false
+
+concurrency:
+  group: mac-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gate:
+    runs-on: [self-hosted, mac]
+    steps:
+      - uses: actions/checkout@v4
+
+      # No setup-node: the Mac's Node is pinned by Homebrew to the major version
+      # package.json asks for. Installing a second one per run would be slower and
+      # would hide a mismatch between CI and the thing actually serving traffic.
+      - name: Node version matches package.json
+        run: |
+          eval "$(/opt/homebrew/bin/brew shellenv)"
+          node --version
+          npm --version
+
+      - name: Install
+        run: |
+          eval "$(/opt/homebrew/bin/brew shellenv)"
+          npm ci
+
+      - name: Format, typecheck, test
+        run: |
+          eval "$(/opt/homebrew/bin/brew shellenv)"
+          npm run format:check
+          npm run check
+          npm test
+
+  deploy:
+    needs: gate
+    if: github.event_name == 'workflow_dispatch' && inputs.deploy
+    runs-on: [self-hosted, mac]
+    steps:
+      # Deliberately not a checkout: the live tree is ~/apps/cocktails, which is what
+      # launchd runs. The runner's own workspace is a different directory, and
+      # building there would gate one copy while serving another.
+      - name: Update, build and restart
+        run: |
+          set -e
+          eval "$(/opt/homebrew/bin/brew shellenv)"
+          cd "$HOME/apps/cocktails"
+          git fetch --quiet origin
+          git reset --hard --quiet "${{ github.sha }}"
+          npm ci
+          npm run build
+          launchctl kickstart -k "gui/$(id -u)/com.meridew.cocktails"
+
+      - name: Wait for it to answer
+        run: |
+          set -e
+          PORT=$(grep '^PORT=' "$HOME/.config/cocktails/env" | cut -d= -f2)
+          for i in $(seq 1 20); do
+            if curl -fsS -m 3 "http://127.0.0.1:${PORT}/api/health" >/dev/null; then
+              echo "healthy on :${PORT} after ${i}s"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "service did not come back — check ~/Library/Logs/cocktails.log"
+          tail -30 "$HOME/Library/Logs/cocktails.log" || true
+          exit 1
