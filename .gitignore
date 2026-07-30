@@ -25,3 +25,7 @@ build/
 # SvelteKit generated output
 .svelte-kit/
 build/
+
+# The Graph certificate is handed over out-of-band, not carried here. Its
+# private half lives only on the Mac at ~/.config/cocktails/graph-key.pem.
+graph-cert.pem
