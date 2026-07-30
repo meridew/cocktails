@@ -45,9 +45,16 @@ interface OrderRow {
 
 export interface StaffRow {
   id: string;
-  email: string;
-  password_hash: string;
+  display_name: string;
+  /** null for helpers (they have no password to sign in with) */
+  email: string | null;
+  password_hash: string | null;
+  device_id: string | null;
   role: string;
+  status: string;
+  claim_hash: string | null;
+  claim_expires_at: number | null;
+  approved_by: string | null;
   created_at: number;
 }
 
@@ -127,12 +134,22 @@ export function createDb(dbPath: string) {
       -- registering one role overwrote the other and silently killed its pushes.
       PRIMARY KEY (device_id, endpoint, role)
     );
+    -- email and password_hash are NULLABLE on purpose: an approved helper has
+    -- neither (their identity is a device, their credential is a session), while
+    -- an admin has both so they can sign in from any device. SQLite allows many
+    -- NULLs under a UNIQUE index, so several helpers can coexist without emails.
     CREATE TABLE IF NOT EXISTS staff (
-      id            TEXT PRIMARY KEY,
-      email         TEXT NOT NULL UNIQUE,
-      password_hash TEXT NOT NULL,
-      role          TEXT NOT NULL DEFAULT 'bartender',
-      created_at    INTEGER NOT NULL
+      id                TEXT PRIMARY KEY,
+      display_name      TEXT NOT NULL DEFAULT '',
+      email             TEXT UNIQUE,
+      password_hash     TEXT,
+      device_id         TEXT,
+      role              TEXT NOT NULL DEFAULT 'bartender',
+      status            TEXT NOT NULL DEFAULT 'active',
+      claim_hash        TEXT,
+      claim_expires_at  INTEGER,
+      approved_by       TEXT,
+      created_at        INTEGER NOT NULL
     );
     CREATE TABLE IF NOT EXISTS staff_sessions (
       token_hash TEXT PRIMARY KEY,
@@ -156,6 +173,12 @@ export function createDb(dbPath: string) {
   addColumn('orders', 'user_id', 'user_id TEXT'); // nullable → anonymous orders stay valid
   addColumn('subscriptions', 'transport', "transport TEXT NOT NULL DEFAULT 'webpush'");
   addColumn('subscriptions', 'platform', "platform TEXT NOT NULL DEFAULT 'web'");
+  addColumn('staff', 'display_name', "display_name TEXT NOT NULL DEFAULT ''");
+  addColumn('staff', 'device_id', 'device_id TEXT');
+  addColumn('staff', 'status', "status TEXT NOT NULL DEFAULT 'active'");
+  addColumn('staff', 'claim_hash', 'claim_hash TEXT');
+  addColumn('staff', 'claim_expires_at', 'claim_expires_at INTEGER');
+  addColumn('staff', 'approved_by', 'approved_by TEXT');
 
   /**
    * Widen the subscriptions primary key to include `role`.
@@ -194,6 +217,55 @@ export function createDb(dbPath: string) {
     `);
   }
 
+  /**
+   * Relax `staff.email` / `staff.password_hash` to nullable.
+   *
+   * An approved helper has neither — their identity is a device and their
+   * credential is a session. SQLite can't drop a NOT NULL constraint, so this
+   * rebuilds the table, guarded on the constraint still being present so it stays
+   * idempotent. Runs after addColumn above, so the new columns exist to copy.
+   */
+  const isNotNull = (table: string, column: string): boolean =>
+    (db.prepare(`PRAGMA table_info(${table})`).all() as { name: string; notnull: number }[]).some(
+      (r) => r.name === column && r.notnull === 1,
+    );
+
+  if (isNotNull('staff', 'email')) {
+    db.exec(`
+      BEGIN IMMEDIATE;
+      CREATE TABLE staff_migrated (
+        id                TEXT PRIMARY KEY,
+        display_name      TEXT NOT NULL DEFAULT '',
+        email             TEXT UNIQUE,
+        password_hash     TEXT,
+        device_id         TEXT,
+        role              TEXT NOT NULL DEFAULT 'bartender',
+        status            TEXT NOT NULL DEFAULT 'active',
+        claim_hash        TEXT,
+        claim_expires_at  INTEGER,
+        approved_by       TEXT,
+        created_at        INTEGER NOT NULL
+      );
+      INSERT INTO staff_migrated
+        (id, display_name, email, password_hash, device_id, role, status,
+         claim_hash, claim_expires_at, approved_by, created_at)
+        SELECT id, display_name, email, password_hash, device_id, role, status,
+               claim_hash, claim_expires_at, approved_by, created_at
+        FROM staff;
+      DROP TABLE staff;
+      ALTER TABLE staff_migrated RENAME TO staff;
+      COMMIT;
+    `);
+  }
+
+  // Existing rows predate display_name; fall back to the email's local part so the
+  // admin list is readable rather than showing a blank name.
+  db.exec(`
+    UPDATE staff
+       SET display_name = COALESCE(NULLIF(substr(email, 1, instr(email, '@') - 1), ''), 'Staff')
+     WHERE display_name = ''
+  `);
+
   // ---- orders ----
   const stInsertOrder = db.prepare(
     `INSERT INTO orders (id, name, items, note, status, device_id, created_at, updated_at)
@@ -229,19 +301,55 @@ export function createDb(dbPath: string) {
   const stSubsByRole = db.prepare(`SELECT * FROM subscriptions WHERE role = ?`);
   const stDeleteSub = db.prepare(`DELETE FROM subscriptions WHERE device_id = ? AND endpoint = ?`);
 
-  // ---- staff auth ----
+  // ---- staff ----
   const stInsertStaff = db.prepare(
-    `INSERT INTO staff (id, email, password_hash, role, created_at) VALUES (?, ?, ?, ?, ?)`,
+    `INSERT INTO staff
+       (id, display_name, email, password_hash, device_id, role, status,
+        claim_hash, claim_expires_at, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   );
   const stStaffByEmail = db.prepare(`SELECT * FROM staff WHERE email = ?`);
   const stStaffById = db.prepare(`SELECT * FROM staff WHERE id = ?`);
+  const stStaffByClaim = db.prepare(`SELECT * FROM staff WHERE claim_hash = ?`);
+  const stStaffPendingDevice = db.prepare(
+    `SELECT * FROM staff WHERE device_id = ? AND status = 'pending'`,
+  );
+  const stListStaff = db.prepare(
+    // Pending first (that's what needs action), then newest.
+    `SELECT * FROM staff
+      ORDER BY (status = 'pending') DESC, created_at DESC, rowid DESC`,
+  );
+  const stCountPending = db.prepare(`SELECT COUNT(*) AS n FROM staff WHERE status = 'pending'`);
   const stUpdateStaffPw = db.prepare(`UPDATE staff SET password_hash = ? WHERE id = ?`);
+  const stSetStaffStatus = db.prepare(
+    `UPDATE staff SET status = ?, approved_by = COALESCE(?, approved_by) WHERE id = ?`,
+  );
+  const stEnsureAdmin = db.prepare(
+    `UPDATE staff SET role = 'admin', status = 'active' WHERE id = ?`,
+  );
+  const stClearClaim = db.prepare(
+    `UPDATE staff SET claim_hash = NULL, claim_expires_at = NULL WHERE id = ?`,
+  );
+  const stSetClaim = db.prepare(
+    `UPDATE staff SET claim_hash = ?, claim_expires_at = ? WHERE id = ?`,
+  );
+  const stDeleteStaff = db.prepare(`DELETE FROM staff WHERE id = ?`);
+  const stRevokeHelpers = db.prepare(
+    `UPDATE staff SET status = 'revoked' WHERE role <> 'admin' AND status = 'active'`,
+  );
+  const stDeleteSessionsFor = db.prepare(`DELETE FROM staff_sessions WHERE staff_id = ?`);
+  const stDeleteHelperSessions = db.prepare(
+    `DELETE FROM staff_sessions WHERE staff_id IN (SELECT id FROM staff WHERE role <> 'admin')`,
+  );
   const stInsertSession = db.prepare(
     `INSERT INTO staff_sessions (token_hash, staff_id, expires_at, created_at) VALUES (?, ?, ?, ?)`,
   );
   const stSessionByHash = db.prepare(`SELECT * FROM staff_sessions WHERE token_hash = ?`);
   const stDeleteSession = db.prepare(`DELETE FROM staff_sessions WHERE token_hash = ?`);
   const stPurgeSessions = db.prepare(`DELETE FROM staff_sessions WHERE expires_at < ?`);
+  const stPurgeStalePending = db.prepare(
+    `DELETE FROM staff WHERE status = 'pending' AND claim_expires_at < ?`,
+  );
 
   return {
     /** Escape hatch for tests (PRAGMA inspection). Not for application use. */
@@ -336,12 +444,91 @@ export function createDb(dbPath: string) {
       return (stStaffById.get(id) as StaffRow | undefined) ?? null;
     },
 
-    createStaff(s: { id: string; email: string; passwordHash: string; role: string }): void {
-      stInsertStaff.run(s.id, s.email, s.passwordHash, s.role, now());
+    /** Look up the pending request a device already has, so it can't queue several. */
+    pendingStaffForDevice(deviceId: string): StaffRow | null {
+      return (stStaffPendingDevice.get(deviceId) as StaffRow | undefined) ?? null;
+    },
+
+    staffByClaim(claimHash: string): StaffRow | null {
+      return (stStaffByClaim.get(claimHash) as StaffRow | undefined) ?? null;
+    },
+
+    listStaff(): StaffRow[] {
+      return stListStaff.all() as unknown as StaffRow[];
+    },
+
+    countPendingStaff(): number {
+      return (stCountPending.get() as { n: number }).n;
+    },
+
+    createStaff(s: {
+      id: string;
+      displayName: string;
+      email?: string | null;
+      passwordHash?: string | null;
+      deviceId?: string | null;
+      role: string;
+      status: string;
+      claimHash?: string | null;
+      claimExpiresAt?: number | null;
+    }): void {
+      stInsertStaff.run(
+        s.id,
+        s.displayName,
+        s.email ?? null,
+        s.passwordHash ?? null,
+        s.deviceId ?? null,
+        s.role,
+        s.status,
+        s.claimHash ?? null,
+        s.claimExpiresAt ?? null,
+        now(),
+      );
     },
 
     updateStaffPassword(id: string, passwordHash: string): void {
       stUpdateStaffPw.run(passwordHash, id);
+    },
+
+    /** Promote the env-configured account so an admin can never be locked out. */
+    ensureAdmin(id: string): void {
+      stEnsureAdmin.run(id);
+    },
+
+    setStaffStatus(id: string, status: string, approvedBy: string | null = null): void {
+      stSetStaffStatus.run(status, approvedBy, id);
+    },
+
+    /** Consume a claim secret so an approval can only be collected once. */
+    clearStaffClaim(id: string): void {
+      stClearClaim.run(id);
+    },
+
+    /** Re-issue a claim secret (asking again from the same device). */
+    setStaffClaim(id: string, claimHash: string, expiresAt: number): void {
+      stSetClaim.run(claimHash, expiresAt, id);
+    },
+
+    deleteStaff(id: string): void {
+      stDeleteStaff.run(id);
+      stDeleteSessionsFor.run(id);
+    },
+
+    /** End the party: revoke every helper and kill their sessions. Admins survive. */
+    revokeAllHelpers(): void {
+      stRevokeHelpers.run();
+      stDeleteHelperSessions.run();
+    },
+
+    /** Revocation must be immediate, so drop the sessions too. */
+    revokeStaff(id: string): void {
+      stSetStaffStatus.run('revoked', null, id);
+      stDeleteSessionsFor.run(id);
+    },
+
+    /** Drop abandoned requests whose claim window has passed. */
+    purgeStalePendingStaff(): void {
+      stPurgeStalePending.run(now());
     },
 
     createStaffSession(tokenHash: string, staffId: string, expiresAt: number): void {
@@ -399,9 +586,25 @@ export const deleteSubscription: Db['deleteSubscription'] = (dev, endpoint) =>
 
 export const staffByEmail: Db['staffByEmail'] = (email) => d().staffByEmail(email);
 export const staffById: Db['staffById'] = (id) => d().staffById(id);
+export const staffByClaim: Db['staffByClaim'] = (hash) => d().staffByClaim(hash);
+export const pendingStaffForDevice: Db['pendingStaffForDevice'] = (deviceId) =>
+  d().pendingStaffForDevice(deviceId);
+export const listStaff: Db['listStaff'] = () => d().listStaff();
+export const countPendingStaff: Db['countPendingStaff'] = () => d().countPendingStaff();
 export const createStaff: Db['createStaff'] = (s) => d().createStaff(s);
 export const updateStaffPassword: Db['updateStaffPassword'] = (id, hash) =>
   d().updateStaffPassword(id, hash);
+export const ensureAdmin: Db['ensureAdmin'] = (id) => d().ensureAdmin(id);
+export const setStaffStatus: Db['setStaffStatus'] = (id, status, approvedBy) =>
+  d().setStaffStatus(id, status, approvedBy);
+export const clearStaffClaim: Db['clearStaffClaim'] = (id) => d().clearStaffClaim(id);
+export const setStaffClaim: Db['setStaffClaim'] = (id, hash, expiresAt) =>
+  d().setStaffClaim(id, hash, expiresAt);
+export const deleteStaff: Db['deleteStaff'] = (id) => d().deleteStaff(id);
+export const revokeStaff: Db['revokeStaff'] = (id) => d().revokeStaff(id);
+export const revokeAllHelpers: Db['revokeAllHelpers'] = () => d().revokeAllHelpers();
+export const purgeStalePendingStaff: Db['purgeStalePendingStaff'] = () =>
+  d().purgeStalePendingStaff();
 export const createStaffSession: Db['createStaffSession'] = (hash, staffId, expiresAt) =>
   d().createStaffSession(hash, staffId, expiresAt);
 export const staffSession: Db['staffSession'] = (hash) => d().staffSession(hash);

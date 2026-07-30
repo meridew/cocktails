@@ -21,17 +21,25 @@ import type {
   LoginResponse,
   MeResponse,
   Staff,
+  StaffClaimResponse,
+  StaffListResponse,
+  StaffRequestCreated,
 } from '@cocktails/shared';
 import { config } from './config.ts';
 import {
   clearOrders,
   createOrder,
   deleteOrder,
+  deleteStaff,
   listOrders,
+  listStaff,
   now,
   orderDeviceId,
+  revokeAllHelpers,
+  revokeStaff,
   saveSubscription,
   setOrderStatus,
+  staffById,
 } from './db.ts';
 import {
   isAllowedPushEndpoint,
@@ -41,7 +49,19 @@ import {
   vapidPublicKey,
   type PushPayload,
 } from './push.ts';
-import { login, logout, loginBlocked, noteLoginAttempt, sessionStaff } from './auth.ts';
+import {
+  approveStaff,
+  claimBlocked,
+  claimStaffAccess,
+  login,
+  logout,
+  loginBlocked,
+  noteClaimAttempt,
+  noteLoginAttempt,
+  requestStaffAccess,
+  sessionStaff,
+  toStaff,
+} from './auth.ts';
 import { bearerToken, clientIp } from './http.ts';
 import { createRateLimiter } from './ratelimit.ts';
 
@@ -162,6 +182,19 @@ const requireStaff: MiddlewareHandler<AppEnv> = async (c, next) => {
   await next();
 };
 
+/**
+ * Admin-only guard, for deciding who else gets in. 403 rather than 401 so a
+ * signed-in bartender learns they're authenticated but not permitted — and can't
+ * promote themselves.
+ */
+const requireAdmin: MiddlewareHandler<AppEnv> = async (c, next) => {
+  const staff = sessionStaff(bearer(c));
+  if (!staff) return c.json({ ok: false, error: 'unauthorized' }, 401);
+  if (staff.role !== 'admin') return c.json({ ok: false, error: 'admin only' }, 403);
+  c.set('staff', staff);
+  await next();
+};
+
 app.get('/api/health', (c) => c.json({ ok: true, now: now() }));
 
 // ---- public: VAPID key so a client can subscribe to Web Push ----
@@ -189,6 +222,72 @@ app.post('/api/auth/logout', requireStaff, (c) => {
 });
 app.get('/api/auth/me', requireStaff, (c) => {
   return c.json({ ok: true, staff: c.get('staff') } satisfies MeResponse);
+});
+
+// ---- staff: ask to help, and collect the decision ----
+// Public, because someone asking to help has no credential yet. The claim secret
+// returned here is what proves, later, that this device made the request.
+app.post('/api/staff/requests', rateLimitWrites, async (c) => {
+  const body = await c.req.json().catch(() => ({}) as Record<string, unknown>);
+  const name = cleanStr(body?.name, 60);
+  const deviceId = cleanStr(body?.deviceId, 80);
+  if (!name || !deviceId) {
+    return c.json({ ok: false, error: 'name and deviceId required' }, 422);
+  }
+  const claim = requestStaffAccess({ name, deviceId });
+  return c.json({ ok: true, claim } satisfies StaffRequestCreated);
+});
+
+app.post('/api/staff/claim', async (c) => {
+  const ip = clientIp(c);
+  if (claimBlocked(ip)) return c.json({ ok: false, error: 'slow down' }, 429);
+  noteClaimAttempt(ip);
+  const body = await c.req.json().catch(() => ({}) as Record<string, unknown>);
+  const claim = typeof body?.claim === 'string' ? body.claim : '';
+  const result = claimStaffAccess(claim);
+  return c.json({ ok: true, ...result } satisfies StaffClaimResponse);
+});
+
+// ---- staff administration (admins only) ----
+app.get('/api/staff', requireAdmin, (c) => {
+  return c.json({ ok: true, staff: listStaff().map(toStaff) } satisfies StaffListResponse);
+});
+
+app.post('/api/staff/:id/approve', requireAdmin, (c) => {
+  const admin = c.get('staff');
+  if (!approveStaff(c.req.param('id'), admin.id)) {
+    return c.json({ ok: false, error: 'no pending request' }, 404);
+  }
+  return c.json({ ok: true } satisfies OkResponse);
+});
+
+// Denying removes the row outright: there's nothing worth keeping about a request
+// that was never granted, and it keeps the admin's list clean.
+app.delete('/api/staff/:id', requireAdmin, (c) => {
+  const target = staffById(c.req.param('id'));
+  if (!target) return c.json({ ok: false, error: 'not found' }, 404);
+  if (target.role === 'admin') {
+    return c.json({ ok: false, error: 'cannot remove an admin' }, 403);
+  }
+  deleteStaff(target.id);
+  return c.json({ ok: true } satisfies OkResponse);
+});
+
+app.post('/api/staff/:id/revoke', requireAdmin, (c) => {
+  const target = staffById(c.req.param('id'));
+  if (!target) return c.json({ ok: false, error: 'not found' }, 404);
+  // Guarding this is what stops an admin locking themselves out of their own bar.
+  if (target.role === 'admin') {
+    return c.json({ ok: false, error: 'cannot revoke an admin' }, 403);
+  }
+  revokeStaff(target.id);
+  return c.json({ ok: true } satisfies OkResponse);
+});
+
+/** End of the party: every helper loses access immediately. Admins are untouched. */
+app.post('/api/staff/revoke-all', requireAdmin, (c) => {
+  revokeAllHelpers();
+  return c.json({ ok: true } satisfies OkResponse);
 });
 
 // ---- public: place an order ----

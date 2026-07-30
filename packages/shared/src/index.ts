@@ -9,6 +9,7 @@
  */
 export * from './limits.ts';
 export * from './orders.ts';
+export * from './staff.ts';
 export * from './push.ts';
 export * from './api.ts';
 export * from './sanitise.ts';

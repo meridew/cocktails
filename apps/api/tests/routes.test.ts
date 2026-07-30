@@ -11,7 +11,7 @@
  */
 import { test, describe, before } from 'node:test';
 import assert from 'node:assert/strict';
-import { LIMITS } from '@cocktails/shared';
+import { LIMITS, type Staff } from '@cocktails/shared';
 import { app } from '../src/app.ts';
 import { hashPassword } from '../src/auth.ts';
 import { createStaff, genId } from '../src/db.ts';
@@ -41,9 +41,11 @@ async function placeOrder(name = 'Guest', deviceId?: string): Promise<string> {
 before(async () => {
   createStaff({
     id: genId(),
+    displayName: 'Routes Admin',
     email: STAFF.email,
     passwordHash: await hashPassword(STAFF.password),
-    role: 'bartender',
+    role: 'admin',
+    status: 'active',
   });
   const res = await app.request('/api/auth/login', json(STAFF));
   assert.equal(res.status, 200, 'fixture login should succeed');
@@ -117,10 +119,11 @@ describe('auth routes', () => {
 
     const me = await app.request('/api/auth/me', { headers: auth(scoped) });
     assert.equal(me.status, 200);
-    assert.deepEqual((await me.json()) as unknown, {
-      ok: true,
-      staff: { email: STAFF.email, role: 'bartender' },
-    });
+    const body = (await me.json()) as { ok: boolean; staff: Staff };
+    assert.equal(body.ok, true);
+    assert.equal(body.staff.email, STAFF.email);
+    assert.equal(body.staff.role, 'admin');
+    assert.equal(body.staff.status, 'active');
 
     const out = await app.request('/api/auth/logout', { method: 'POST', headers: auth(scoped) });
     assert.equal(out.status, 200);

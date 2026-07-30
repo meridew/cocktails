@@ -10,17 +10,19 @@
     setStatus,
     deleteOrder,
     clearOrders,
+    listStaff,
     Unauthorized,
     NotFound,
   } from './api.ts';
   import { dialog } from './dialog.ts';
   import { enablePush, pushSupported, pushState, refreshPushState } from './push.svelte';
-  import { session, signOut } from './session.svelte';
+  import { hydrateSession, session, signOut } from './session.svelte';
   import StaffGate from './StaffGate.svelte';
+  import StaffAdmin from './StaffAdmin.svelte';
   import OrderCard from './OrderCard.svelte';
   import { SvelteSet } from 'svelte/reactivity';
-  import { STATUS_META } from '@cocktails/shared';
-  import type { Order, OrderStatus } from '@cocktails/shared';
+  import { canApproveStaff, STATUS_META } from '@cocktails/shared';
+  import type { Order, OrderStatus, Staff } from '@cocktails/shared';
 
   let { onclose }: { onclose: () => void } = $props();
 
@@ -37,6 +39,13 @@
 
   let signedIn = $derived(session.signedIn);
   let notify = $derived(pushState('bartender'));
+
+  // Staff administration, admins only.
+  let isAdmin = $derived(canApproveStaff(session.staff));
+  let showStaff = $state(false);
+  let staff = $state<Staff[]>([]);
+  let staffLoaded = $state(false);
+  let pendingCount = $derived(staff.filter((s) => s.status === 'pending').length);
 
   let sorted = $derived(
     [...orders]
@@ -67,9 +76,26 @@
     }
   }
 
+  /** Admins also poll the staff list, so a new request shows up without a refresh. */
+  async function fetchStaff() {
+    if (!canApproveStaff(session.staff)) return;
+    const started = session.generation;
+    try {
+      const r = await listStaff();
+      if (started !== session.generation) return;
+      staff = r.staff;
+      staffLoaded = true;
+    } catch {
+      /* transient, or a 401 that api.ts already handled */
+    }
+  }
+
   function startPolling() {
     stopPolling();
-    timer = setInterval(fetchOrders, POLL_MS);
+    timer = setInterval(() => {
+      void fetchOrders();
+      void fetchStaff();
+    }, POLL_MS);
   }
   function stopPolling() {
     if (timer) clearInterval(timer);
@@ -78,9 +104,13 @@
 
   /** Load the queue and begin polling; also reconciles the bar's push state. */
   async function begin() {
+    // Recover the role first: a reload keeps the token but not who we are, and
+    // the admin controls depend on knowing.
+    await hydrateSession();
     await fetchOrders();
     if (!session.signedIn) return;
     startPolling();
+    void fetchStaff();
     void refreshPushState('bartender');
   }
 
@@ -129,7 +159,10 @@
   async function handleSignOut() {
     stopPolling();
     orders = [];
+    staff = [];
     loaded = false;
+    staffLoaded = false;
+    showStaff = false;
     await signOut();
   }
 
@@ -156,6 +189,20 @@
     </div>
     <div class="bt-tools">
       {#if signedIn}
+        {#if isAdmin}
+          <!-- The badge is why an admin doesn't have to keep checking. -->
+          <button
+            type="button"
+            class="bt-chip"
+            aria-pressed={showStaff}
+            aria-label={pendingCount
+              ? `Bar staff — ${pendingCount} request${pendingCount === 1 ? '' : 's'} waiting`
+              : 'Bar staff'}
+            onclick={() => (showStaff = !showStaff)}
+          >
+            Staff{#if pendingCount}<b class="bt-chip-badge">{pendingCount}</b>{/if}
+          </button>
+        {/if}
         <button
           type="button"
           class="bt-chip"
@@ -194,6 +241,13 @@
 
   {#if !signedIn}
     <StaffGate onsignedin={begin} />
+  {:else if showStaff && isAdmin}
+    <StaffAdmin
+      {staff}
+      loaded={staffLoaded}
+      onchanged={fetchStaff}
+      onclose={() => (showStaff = false)}
+    />
   {:else}
     <div class="bartender-list">
       {#each sorted as o (o.id)}

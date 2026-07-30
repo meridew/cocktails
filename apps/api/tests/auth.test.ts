@@ -35,9 +35,11 @@ const sha256 = (s: string): string => createHash('sha256').update(s).digest('hex
 async function makeStaff(email: string, password = `pw-${email}`) {
   createStaff({
     id: genId(),
+    displayName: email.split('@')[0] ?? 'Helper',
     email,
     passwordHash: await hashPassword(password),
-    role: 'bartender',
+    role: 'admin',
+    status: 'active',
   });
   return { email, password };
 }
@@ -79,7 +81,13 @@ describe('sessions', () => {
     const { email, password } = await makeStaff('session@local');
     const result = await login(email, password);
     assert.ok(result);
-    assert.deepEqual(sessionStaff(result.token), { email, role: 'bartender' });
+    const resolved = sessionStaff(result.token);
+    assert.ok(resolved);
+    assert.equal(resolved.email, email);
+    assert.equal(resolved.role, 'admin');
+    assert.equal(resolved.status, 'active');
+    assert.ok(resolved.id, 'the session should resolve to a staff id');
+    assert.ok(resolved.name, 'a display name is always present');
   });
 
   test('the raw token is never stored — only its sha256', async () => {
@@ -157,7 +165,7 @@ describe('seedStaff', () => {
       first.password_hash,
       'an unchanged password must not be re-hashed',
     );
-    assert.equal(await verifyPassword(config.staff.password, second.password_hash), true);
+    assert.equal(await verifyPassword(config.staff.password, second.password_hash ?? ''), true);
   });
 
   test('rotates the stored password when the env value differs', async () => {
@@ -174,7 +182,7 @@ describe('seedStaff', () => {
     await seedStaff();
     const after = staffByEmail(config.staff.email);
     assert.ok(after);
-    assert.equal(await verifyPassword(config.staff.password, after.password_hash), true);
+    assert.equal(await verifyPassword(config.staff.password, after.password_hash ?? ''), true);
   });
 });
 

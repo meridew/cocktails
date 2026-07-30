@@ -8,6 +8,10 @@ import type {
   OrderListResponse,
   OkResponse,
   LoginResponse,
+  MeResponse,
+  StaffClaimResponse,
+  StaffListResponse,
+  StaffRequestCreated,
 } from '@cocktails/shared';
 
 // Same-origin by default: dev → Vite proxy, prod → Caddy, both route /api.
@@ -99,6 +103,33 @@ export const login = (email: string, password: string) =>
   req<LoginResponse>('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) });
 
 export const logout = () => req<OkResponse>('/auth/logout', { method: 'POST' });
+
+/** Who the current session belongs to — used to recover role/name after a reload. */
+export const me = () => req<MeResponse>('/auth/me');
+
+// ---- staff: asking to help, and administering who's in ----
+
+export const requestStaffAccess = (name: string, deviceId: string) =>
+  req<StaffRequestCreated>('/staff/requests', {
+    method: 'POST',
+    body: JSON.stringify({ name, deviceId }),
+  });
+
+export const claimStaffAccess = (claim: string) =>
+  req<StaffClaimResponse>('/staff/claim', { method: 'POST', body: JSON.stringify({ claim }) });
+
+export const listStaff = () => req<StaffListResponse>('/staff');
+
+export const approveStaff = (id: string) =>
+  req<OkResponse>(`/staff/${id}/approve`, { method: 'POST' });
+
+/** Deny a pending request, or remove a helper entirely. */
+export const removeStaff = (id: string) => req<OkResponse>(`/staff/${id}`, { method: 'DELETE' });
+
+export const revokeStaff = (id: string) =>
+  req<OkResponse>(`/staff/${id}/revoke`, { method: 'POST' });
+
+export const revokeAllHelpers = () => req<OkResponse>('/staff/revoke-all', { method: 'POST' });
 
 // ---- Web Push ----
 

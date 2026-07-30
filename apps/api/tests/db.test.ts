@@ -136,6 +136,62 @@ describe('schema + migrations', () => {
     assert.doesNotThrow(() => openTempDb(path), 'a second migration pass must not throw');
   });
 
+  test('relaxes staff.email/password_hash to nullable, keeping the admin row', () => {
+    const path = tempDbPath();
+
+    // The original schema required both, which a device-approved helper can't satisfy.
+    const old = new DatabaseSync(path);
+    old.exec(`
+      CREATE TABLE staff (
+        id            TEXT PRIMARY KEY,
+        email         TEXT NOT NULL UNIQUE,
+        password_hash TEXT NOT NULL,
+        role          TEXT NOT NULL DEFAULT 'bartender',
+        created_at    INTEGER NOT NULL
+      );
+    `);
+    old
+      .prepare(`INSERT INTO staff (id, email, password_hash, role, created_at) VALUES (?,?,?,?,?)`)
+      .run('admin1', 'bar@meridew.com', 'salt:hash', 'bartender', 1000);
+    old.close();
+
+    const migrated = openTempDb(path);
+    const info = migrated.raw.prepare(`PRAGMA table_info(staff)`).all() as {
+      name: string;
+      notnull: number;
+    }[];
+    const notNull = (col: string) => info.find((r) => r.name === col)?.notnull === 1;
+    assert.equal(notNull('email'), false, 'email must become nullable');
+    assert.equal(notNull('password_hash'), false, 'password_hash must become nullable');
+    assert.ok(info.some((r) => r.name === 'status'));
+    assert.ok(info.some((r) => r.name === 'claim_hash'));
+
+    // The existing account survived, and got a readable display name.
+    const admin = migrated.staffByEmail('bar@meridew.com');
+    assert.ok(admin, 'the pre-existing account must survive the rebuild');
+    assert.equal(admin.password_hash, 'salt:hash');
+    assert.equal(admin.status, 'active');
+    assert.equal(admin.display_name, 'bar', 'falls back to the email local part');
+
+    // And a passwordless, email-less helper can now be stored alongside it.
+    migrated.createStaff({
+      id: 'helper1',
+      displayName: 'Sarah',
+      deviceId: 'dev-1',
+      role: 'bartender',
+      status: 'pending',
+    });
+    migrated.createStaff({
+      id: 'helper2',
+      displayName: 'Tom',
+      deviceId: 'dev-2',
+      role: 'bartender',
+      status: 'pending',
+    });
+    // Two NULL emails must not collide under the UNIQUE index.
+    assert.equal(migrated.listStaff().length, 3);
+  });
+
   test('rebuilds the subscriptions primary key to include role, keeping rows', () => {
     const path = tempDbPath();
 

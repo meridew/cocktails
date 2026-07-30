@@ -1,5 +1,6 @@
-/** Response envelopes and the staff-auth payloads the API and client agree on. */
+/** Response envelopes the API and client agree on. */
 import type { Order } from './orders.ts';
+import type { Staff } from './staff.ts';
 
 export interface OkResponse {
   ok: true;
@@ -15,12 +16,6 @@ export interface OrderCreatedResponse {
   ok: true;
   id: string;
   order: Order;
-}
-
-/** A logged-in staff member (no secrets). */
-export interface Staff {
-  email: string;
-  role: string;
 }
 
 export interface LoginResponse {
