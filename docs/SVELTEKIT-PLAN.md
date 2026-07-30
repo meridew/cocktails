@@ -1,9 +1,13 @@
 # SvelteKit migration plan
 
-**Status:** approved in principle, not started.
-**Shape:** full collapse — one SvelteKit app, no npm workspaces.
-**Prerequisite:** ✅ done — Vitest is in place (`apps/web/vitest.config.ts`), which is
-the runner SvelteKit uses anyway.
+**Status:** approved, not started.
+**Shape:** full collapse — one SvelteKit app, no npm workspaces, no separate API.
+**Prerequisite:** ✅ done — Vitest is in place, which is the runner SvelteKit uses.
+
+> **Operating assumptions.** The app has no users, downtime is free, and one person
+> works in this repo. So this plan optimises for the **simplest end state**, not for a
+> safe transition — there is nothing to transition. Where an earlier draft hedged to
+> protect a live service, it now doesn't. See §10 for what that specifically buys.
 
 ---
 
@@ -11,18 +15,20 @@ the runner SvelteKit uses anyway.
 
 The stack is already pure TypeScript on Vite 6 — 67 TS/Svelte files, 5 JS (all
 config). Nothing needs "moving to TypeScript". What needs fixing is what's
-**bespoke**, because bespoke is what neither of us should be spending thought on:
+**bespoke**, because bespoke is what shouldn't need thinking about:
 
-| Friction                                                                                    | Cost today                                                          | Fixed by                      |
-| ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- | ----------------------------- |
-| API runs on Node's native TS execution (`node src/server.ts`)                               | Forces `.ts` extensions in every import; outside mainstream tooling | Standard Vite/SvelteKit build |
-| Two apps, two dev servers, `concurrently`, a Vite proxy, and `dev.mjs` pinning the API port | A port-collision hack exists purely to stop them fighting           | One dev server                |
-| No router — one page with stacked overlays                                                  | A 3D menu would have to become _another overlay_                    | File-based routing            |
-| Client/server split across an npm workspace                                                 | `packages/shared` exists only so two apps can agree                 | One project, `$lib/shared`    |
+| Friction                                                                | Fixed by                   |
+| ----------------------------------------------------------------------- | -------------------------- |
+| API on Node's native TS execution — forces `.ts` extensions             | Standard Vite build        |
+| Two apps, two dev servers, `concurrently`, a proxy, `dev.mjs` port hack | One dev server             |
+| No router — one page with stacked overlays                              | File-based routing         |
+| `packages/shared` workspace so two apps can agree                       | One project, `$lib/shared` |
+| Two test runners                                                        | Vitest only                |
+| Four containers (web · api · caddy · cloudflared)                       | Two (§6)                   |
+| 110 lines of in-place SQLite migration machinery                        | Deleted (§5)               |
 
-Be honest about what this **isn't**: a runtime improvement. We don't need SSR — this
-is an offline-capable PWA, and the app routes will run `ssr = false`. The win is a
-single mainstream toolchain, a router, and a documented testing story.
+This is a DX play, not a runtime one. No SSR is needed — it's an offline-capable
+PWA, so app routes run `ssr = false`.
 
 ## 2. Target structure
 
@@ -30,180 +36,191 @@ single mainstream toolchain, a router, and a documented testing story.
 cocktails/
 ├── src/
 │   ├── routes/
-│   │   ├── +layout.svelte            app shell: appbar, tabbar, dialogs
-│   │   ├── +layout.ts                export const ssr = false, prerender = false
-│   │   ├── +page.svelte              the drinks menu
+│   │   ├── +layout.svelte            shell: appbar, tabbar, dialogs
+│   │   ├── +layout.ts                ssr = false
+│   │   ├── +page.svelte              drinks menu
 │   │   ├── bar/+page.svelte          bartender queue — a real route
-│   │   ├── menu-3d/+page.svelte      three.js, its own lazy chunk
-│   │   └── api/…/+server.ts          the endpoints (§3)
+│   │   ├── menu-3d/+page.svelte      three.js, lazy chunk (later)
+│   │   └── api/…/+server.ts          endpoints (§3)
 │   ├── lib/
-│   │   ├── server/                   db · auth · notify · push · ratelimit · http · config
-│   │   ├── components/               OrderCard · Keypad · StaffGate · BarMenu · …
+│   │   ├── server/                   db · auth · notify · push · ratelimit · config
+│   │   ├── components/               OrderCard · Keypad · StaffGate · …
 │   │   ├── stores/                   basket · view · session · favourites · push · staffRequest
 │   │   └── shared/                   limits · orders · staff · api · sanitise
 │   ├── app.css · neo.css             unchanged (neo.css stays a verbatim port)
-│   └── service-worker.ts             SvelteKit's own SW entry point
-├── static/                           icons, manifest assets
-├── tests/                            unit + component (Vitest)
-├── e2e/                              Playwright, optional (§7)
-├── svelte.config.js                  adapter chosen by env (§5)
-└── infra/                            Dockerfile + compose, largely unchanged
+│   └── service-worker.ts
+├── static/ · tests/ · infra/
+└── svelte.config.js
 ```
 
-`$lib/server/*` is enforced by SvelteKit: importing it from client code is a build
-error. That's a stronger guarantee than the current convention.
+`$lib/server/*` is compiler-enforced: importing it from client code is a build
+error. Stronger than the current convention.
 
 ## 3. Endpoint map
 
-25 endpoints. Hono `app.<verb>('/path')` → a `+server.ts` exporting `GET`/`POST`/
+25 endpoints. Hono `app.<verb>('/path')` → `+server.ts` exporting `GET`/`POST`/
 `PATCH`/`DELETE`. Params become `[id]` directories.
 
-| Today                                               | Becomes                                             |
-| --------------------------------------------------- | --------------------------------------------------- |
-| `GET /api/health`                                   | `routes/api/health/+server.ts`                      |
-| `GET /api/push/key`                                 | `routes/api/push/key/+server.ts`                    |
-| `POST /api/auth/login` · `pin` · `logout`, `GET me` | `routes/api/auth/{login,pin,logout,me}/+server.ts`  |
-| `GET,POST /api/orders`                              | `routes/api/orders/+server.ts`                      |
-| `POST /api/orders/clear`                            | `routes/api/orders/clear/+server.ts`                |
-| `PATCH,DELETE /api/orders/:id`                      | `routes/api/orders/[id]/+server.ts`                 |
-| `POST /api/orders/:id/bump`                         | `routes/api/orders/[id]/bump/+server.ts`            |
-| `PATCH /api/orders/:id/progress`                    | `routes/api/orders/[id]/progress/+server.ts`        |
-| `GET /api/staff`                                    | `routes/api/staff/+server.ts`                       |
-| `POST /api/staff/requests` · `claim` · `join`       | `routes/api/staff/{requests,claim,join}/+server.ts` |
-| `POST,DELETE /api/staff/join-code`                  | `routes/api/staff/join-code/+server.ts`             |
-| `POST /api/staff/revoke-all`                        | `routes/api/staff/revoke-all/+server.ts`            |
-| `DELETE /api/staff/:id`                             | `routes/api/staff/[id]/+server.ts`                  |
-| `POST /api/staff/:id/{approve,revoke}`              | `routes/api/staff/[id]/{approve,revoke}/+server.ts` |
-| `POST,DELETE /api/subscriptions`                    | `routes/api/subscriptions/+server.ts`               |
+| Today                                               | Becomes                                      |
+| --------------------------------------------------- | -------------------------------------------- |
+| `GET /api/health`                                   | `api/health/+server.ts`                      |
+| `GET /api/push/key`                                 | `api/push/key/+server.ts`                    |
+| `POST /api/auth/login` · `pin` · `logout`, `GET me` | `api/auth/{login,pin,logout,me}/+server.ts`  |
+| `GET,POST /api/orders`                              | `api/orders/+server.ts`                      |
+| `POST /api/orders/clear`                            | `api/orders/clear/+server.ts`                |
+| `PATCH,DELETE /api/orders/:id`                      | `api/orders/[id]/+server.ts`                 |
+| `POST /api/orders/:id/bump`                         | `api/orders/[id]/bump/+server.ts`            |
+| `PATCH /api/orders/:id/progress`                    | `api/orders/[id]/progress/+server.ts`        |
+| `GET /api/staff`                                    | `api/staff/+server.ts`                       |
+| `POST /api/staff/requests` · `claim` · `join`       | `api/staff/{requests,claim,join}/+server.ts` |
+| `POST,DELETE /api/staff/join-code`                  | `api/staff/join-code/+server.ts`             |
+| `POST /api/staff/revoke-all`                        | `api/staff/revoke-all/+server.ts`            |
+| `DELETE /api/staff/:id`                             | `api/staff/[id]/+server.ts`                  |
+| `POST /api/staff/:id/{approve,revoke}`              | `api/staff/[id]/{approve,revoke}/+server.ts` |
+| `POST,DELETE /api/subscriptions`                    | `api/subscriptions/+server.ts`               |
 
-**Middleware.** Hono's `app.use` chain has no direct equivalent per-route, so it
-moves to `hooks.server.ts` (`handle`): CORS, body limit, security headers, request
-logging. `requireStaff` / `requireAdmin` become small helpers called at the top of
-each handler — more explicit than middleware, and it keeps the guard visible in the
-file it protects. **`handleError`** replaces `app.onError`.
+**No handler extraction.** An earlier draft split each endpoint into a handler plus
+a thin wrapper so the existing tests could keep calling them in-process. That
+protected the tests at the cost of the end state — two files per endpoint is more
+indirection, not less. `+server.ts` exports plain functions; tests import and call
+them with a constructed `RequestEvent` (§7).
+
+**Middleware** moves to `hooks.server.ts`: CORS, body limit, security headers,
+request logging, and `handleError` in place of `app.onError`. `requireStaff` /
+`requireAdmin` become helpers called at the top of each handler — more explicit than
+a middleware chain, and the guard stays visible in the file it protects.
 
 ## 4. What moves unchanged
 
-Roughly 80% of the code is untouched by this:
+Roughly 80% of the code:
 
-- **Every server module** — `db.ts`, `auth.ts`, `notify.ts`, `push.ts`, `ratelimit.ts`,
-  `http.ts`, `config.ts`. They're already free of Hono except for `clientIp(c)`,
-  which takes a context shape and needs one adapter for SvelteKit's `RequestEvent`.
-- **Every component and rune store.** They're plain Svelte 5.
-- **`neo.css`** — verbatim, as always. `app.css` likewise.
-- **The shared package's contents**, moving from `packages/shared/src/*` to
-  `src/lib/shared/*`. Import specifiers change from `@cocktails/shared` to
-  `$lib/shared`; that's a mechanical find-and-replace.
+- **Server modules** — `db.ts` (minus §5), `auth.ts`, `notify.ts`, `push.ts`,
+  `ratelimit.ts`, `config.ts`. Hono-free already, except `clientIp()` which needs
+  one adapter for `RequestEvent`.
+- **Every component and rune store** — plain Svelte 5.
+- **`neo.css`** — verbatim, as always.
+- **Shared contents** — `packages/shared/src/*` → `src/lib/shared/*`, with
+  `@cocktails/shared` → `$lib/shared` as a mechanical find-and-replace.
 - **SQLite via `node:sqlite`** — a Node built-in, fine under `adapter-node`.
 
-What genuinely changes: 25 route wrappers, the middleware chain, the import
-specifiers, and the API tests' entry point.
+## 5. Schema: rewritten, not migrated
 
-## 5. Two build targets
+**The single biggest simplification.** `db.ts` carries ~110 lines of idempotent
+migration machinery — `addColumn`, `tableColumns`, `primaryKeyColumns`, `isNotNull`,
+and two full table-rebuild blocks — plus tests that open a pre-seeded file to prove a
+deployed database still opens. All of it exists to upgrade a **live** database in
+place. Production currently holds one admin row and two test orders.
 
-The current `build` / `build:native` split survives, and it's the one genuinely
-fiddly part.
+So: **delete the machinery, write the schema as it would be written today.**
 
-- **Web / NAS** → `@sveltejs/adapter-node`. Produces a Node server that serves both
-  the app and `/api`. Same Docker container, same Caddy in front, same tunnel. Caddy
-  no longer needs to route `/api` separately to a second service.
-- **Capacitor** → `@sveltejs/adapter-static` with `fallback: 'index.html'` and
-  `ssr = false`, built with `VITE_API_BASE` pointing at `https://cock.meridew.com/api`
-  exactly as today. The `api/` routes are simply absent from that build.
+- `staff` — a clean `CREATE TABLE` instead of nullable columns reached via table
+  rebuild. Replace the `approved_by = 'join-code'` sentinel (a hack from this
+  session) with a real `joined_via` column.
+- `orders` — drop `user_id`, added for an accounts feature that isn't happening.
+- `subscriptions` — the `(device_id, endpoint, role)` primary key is already correct;
+  it just gets declared directly rather than reached by rebuild.
 
-Adapters are selected in `svelte.config.js` from an env var, so `npm run build` and
-`npm run build:native` keep their current meaning.
+**The cost, stated plainly:** with no migration mechanism, any future schema change
+means wiping the database. That is the right trade _until there's a party on the
+calendar with real orders in it_ — at which point a forward-only numbered migration
+runner goes back in, which is far simpler than the detect-then-act code being
+deleted. **Revisit before first real use.**
 
-**Service worker.** SvelteKit has first-class SW support (`src/service-worker.ts`
-with `$service-worker` bindings). We currently use `vite-plugin-pwa` +
-`injectManifest` + Workbox for precaching _and_ Web Push. Decision deferred to
-implementation: either keep vite-plugin-pwa (it supports SvelteKit) or move to
-SvelteKit's native SW and keep the Workbox imports. **Keeping vite-plugin-pwa is the
-lower-risk default** — the push handler and the manifest both already work.
+## 6. Infrastructure: four containers → two
 
-## 6. Porting the tests — the safety net
+`adapter-node` serves the app **and** `/api` from one process, so `web` and `api`
+merge. Once that's true, **Caddy stops earning its place**: it was doing static file
+serving (adapter-node does that) and security headers (`hooks.server.ts` does that).
+`cloudflared` points straight at the Node server.
 
-235 tests exist and they are what makes this tractable. Port them **first**, against
-the new structure, and treat green as the definition of done.
+```
+before:  cloudflared → caddy → { web, api }        4 containers, 2 caddy volumes
+after:   cloudflared → app                         2 containers
+```
 
-- **Web (55, Vitest)** — unchanged apart from import paths. They already run under
-  the runner SvelteKit uses.
-- **API (180, `node:test` × 14 files)** — these drive Hono via `app.request()`, which
-  disappears. Two options:
-  1. **Recommended:** keep the handler bodies as exported functions in
-     `$lib/server/handlers/*`, with `+server.ts` as a one-line wrapper. Tests call
-     the handlers directly with a fake `RequestEvent`. Fast, no server, and it
-     preserves the current in-process character.
-  2. Run a real dev server and hit it over HTTP. More faithful, much slower, and it
-     makes the suite stateful.
+The Caddyfile, its two volumes, and the LAN `:8088` port mapping go. Keeping the LAN
+port is optional — if kept, `clientIp()` must still prefer `cf-connecting-ip`,
+because that path bypasses Cloudflare and can't be trusted to set `x-forwarded-for`.
 
-  Either way they move to Vitest for one runner, keeping `node:assert`.
+## 7. Tests
 
-- **Migration tests** (`db.test.ts` opens a pre-seeded file to exercise the SQLite
-  migrations) must keep working — that's the guarantee that a NAS database from
-  before the migration still opens afterwards. **Non-negotiable.**
+**One runner: Vitest.** `node:test` goes entirely. Assertions stay on
+`node:assert/strict`, so nothing about how they read changes.
 
-## 7. Optional, once landed
+- **Web (55)** — already Vitest. Import paths only.
+- **API (180, 14 files)** — rewritten to call the exported route functions with a
+  constructed `RequestEvent` (`{ request, params, url, getClientAddress, locals }`).
+  A small `tests/event.ts` helper builds one. Same in-process character, no server.
+- **`db.test.ts`'s migration cases are deleted** along with the machinery they cover.
+  The schema tests (PK shape, nullability, constraints) stay — they now assert the
+  declared schema rather than the result of a rebuild.
 
-- **Playwright** for the handful of genuinely end-to-end things (install prompt,
-  service-worker update, push delivery). Small suite, run on demand, not in CI.
-- **`npm run seed <scenario>`** — a dev fixture command. Deferred from this round;
-  still worth it.
-- **Dev-only capability overrides** (`?permission=default&platform=ios`) to make
-  push/platform states drivable. Also deferred.
+**Green is the definition of done for each phase.**
 
-## 8. Phasing
+## 8. Deferred: the Capacitor build
 
-Each phase ends green and committed. Work on `sveltekit` branched from `modernise`;
-`modernise` stays deployable throughout.
+`build:native` has never been exercised end to end — there's no Android SDK
+installed and no Mac. Carrying an unverifiable second adapter through the migration
+is exactly the fiddliness this plan is meant to remove.
 
-1. **Scaffold** — SvelteKit project, adapters, both builds producing output. Nothing
-   ported. _Deployable? No. Merge? No._
-2. **Shared + server modules** — move `$lib/shared` and `$lib/server`, fix imports,
-   port the API tests to handlers. _Gate: 180 API tests green._
-3. **Routes** — the 25 `+server.ts` files plus `hooks.server.ts`. _Gate: same 180._
-4. **UI** — layout, `/` and `/bar` routes, components, stores. Overlays that are
-   genuinely routes (the bar) become routes; the rest stay dialogs. _Gate: 55 web
-   tests green, plus new route tests._
-5. **Service worker + manifest + Capacitor.** _Gate: both builds correct — web has a
-   SW, native doesn't._
-6. **Cutover** — deploy from the branch to the NAS, verify against §9, then merge.
-7. **Delete** the old `apps/`, `packages/`, `dev.mjs`, proxy config, and the
-   workspace wiring.
+So `adapter-node` only, for now. The Capacitor deps stay in place; adding
+`adapter-static` with `fallback: 'index.html'` is a five-line change whenever the
+native build is actually attempted, and `VITE_API_BASE` already exists for it.
 
-## 9. Cutover checklist
+## 9. Phases
 
-Verified against the live site before merging, same as previous deploys:
+Branch `sveltekit` off `modernise` — **only** so the NAS doesn't collect twenty
+failed deploys, not to keep anything alive. Merge when it works.
 
-- `/api/health` responds; PIN sign-in issues a working admin session
-- an order placed as a guest appears on the bar; status changes push correctly
-- a join code mints, redeems, and expires
-- **the existing NAS SQLite volume opens and keeps its data** — orders, staff,
-  subscriptions, sessions
-- the PWA still installs; an existing installed PWA updates rather than breaking
-- `?bartender` deep link resolves (now `/bar` — keep a redirect, notifications
-  already sent carry the old URL)
+1. **Scaffold** — SvelteKit, `adapter-node`, both dev and build producing output.
+2. **Shared + server** — move `$lib/shared` and `$lib/server`, rewrite the schema
+   (§5), fix imports. _Gate: db/auth/notify/push tests green._
+3. **Routes** — 25 `+server.ts` files + `hooks.server.ts`, tests rewritten. _Gate:
+   all API tests green._
+4. **UI** — layout, `/` and `/bar`, components, stores. The bar becomes a route; the
+   rest stay dialogs. Change the push deep-link from `/?bartender` to `/bar`. _Gate:
+   web tests green._
+5. **Service worker + manifest.** _Gate: build output has a SW; push still fires._
+6. **Infra** — single container, drop Caddy (§6), deploy, verify (§11), merge.
+7. **Delete** `apps/`, `packages/`, `dev.mjs`, the proxy config, the Caddyfile, and
+   the workspace wiring.
 
-**Rollback:** the NAS deploys from a branch; reverting is redeploying `modernise`.
-The database is untouched by the migration, which is what makes rollback safe — so
-**no schema changes in the same PR.**
+## 10. What the "no users" assumption actually buys
 
-## 10. Out of scope
+Recorded so it's obvious what to re-add if the assumption stops holding:
 
-| Not doing              | Why                                                                        |
-| ---------------------- | -------------------------------------------------------------------------- |
-| Changing the design    | `neo.css` is a verbatim port and stays that way                            |
-| Swapping to React/Next | Discards the design port and the runes code for an ecosystem we don't need |
-| SSR for the app routes | It's an offline PWA; `ssr = false`                                         |
-| Schema changes         | Rollback safety depends on the DB being untouched                          |
-| Building the 3D menu   | This unblocks it (`/menu-3d` as a lazy route); it isn't part of it         |
+| Dropped                                 | Because                                             | Re-add when        |
+| --------------------------------------- | --------------------------------------------------- | ------------------ |
+| In-place SQLite migrations              | Nothing in the DB is worth keeping                  | There's real data  |
+| "Each phase stays deployable"           | Downtime is free                                    | Never, probably    |
+| Rollback plan                           | Reverting is `git revert` and a redeploy            | Never              |
+| Handler/wrapper split to preserve tests | Rewriting 180 tests is cheaper than the indirection | Never              |
+| `/?bartender` → `/bar` redirect         | No notifications are in flight                      | Never              |
+| Capacitor build target                  | Never been exercised; no SDK, no Mac                | First native build |
+
+## 11. Verification before merge
+
+Not a gated ceremony — just the list of things that must work:
+
+- PIN sign-in issues a working admin session; a join code mints and redeems
+- an order placed as a guest reaches the bar; a status change pushes to the guest
+- the PWA installs and an installed one updates
+- `/bar` loads directly and on refresh
+- both `npm run check` and the full test suite are clean
+
+## 12. Out of scope
+
+| Not doing            | Why                                                                             |
+| -------------------- | ------------------------------------------------------------------------------- |
+| Changing the design  | `neo.css` is a verbatim port and stays that way                                 |
+| React/Next           | Discards the design port and the runes code for nothing                         |
+| SSR for app routes   | It's an offline PWA                                                             |
+| A validation library | `cleanStr`/`cleanItems` coerce rather than reject, deliberately, and are tested |
+| Building the 3D menu | This unblocks it (`/menu-3d` as a lazy route); it isn't part of it              |
 
 ## Appendix: three.js
 
-Barely constrains the choice — it's a canvas and a render loop, identical in any
-framework. Two things do matter, and both are arguments for this plan:
-
-- **~600KB.** It wants lazy loading behind a route, which is the router argument.
-- **[Threlte](https://threlte.xyz)** gives declarative three.js in Svelte, the way
-  react-three-fiber does for React. Staying on Svelte keeps that available without
-  discarding the design port.
+Barely constrains the choice — a canvas and a render loop, identical in any
+framework. Two things matter, both arguments for this plan: it's **~600KB**, so it
+wants lazy loading behind a route; and **[Threlte](https://threlte.xyz)** gives
+declarative three.js in Svelte, the way react-three-fiber does for React.
