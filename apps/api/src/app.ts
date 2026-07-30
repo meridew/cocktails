@@ -9,11 +9,10 @@ import { bodyLimit } from 'hono/body-limit';
 import { logger } from 'hono/logger';
 import { secureHeaders } from 'hono/secure-headers';
 import type { MiddlewareHandler } from 'hono';
-import { isOrderStatus, LIMITS } from '@cocktails/shared';
+import { cleanItems, cleanStr, isOrderStatus } from '@cocktails/shared';
 import type {
   ClearWhich,
   Order,
-  OrderItem,
   PushSubscriptionJSON,
   SubscriberRole,
   OrderCreatedResponse,
@@ -70,21 +69,6 @@ function newOrderPush(order: Order): PushPayload {
   return { title: '🔔 New order', body: `${order.name}: ${summary}`, tag: order.id };
 }
 
-// ---- validation helpers (mirror the old PHP sanitising) --------------------
-
-/** Drop ASCII control chars, trim, and cap length. */
-function cleanStr(v: unknown, max: number = LIMITS.maxFieldLen): string {
-  if (typeof v !== 'string') return '';
-  let s = '';
-  for (const ch of v) {
-    const code = ch.codePointAt(0) ?? 0;
-    if (code < 0x20 || code === 0x7f) continue;
-    s += ch;
-  }
-  s = s.trim();
-  return s.length > max ? s.slice(0, max) : s;
-}
-
 /**
  * Validate a client-supplied Web Push subscription, returning a typed value or
  * null. Both keys are required (`web-push` needs p256dh to encrypt, and a missing
@@ -100,22 +84,6 @@ function parseSubscription(raw: unknown): PushSubscriptionJSON | null {
   if (typeof p256dh !== 'string' || !p256dh) return null;
   if (typeof auth !== 'string' || !auth) return null;
   return { endpoint, keys: { p256dh, auth } };
-}
-
-function cleanItems(raw: unknown): OrderItem[] {
-  if (!Array.isArray(raw)) return [];
-  const out: OrderItem[] = [];
-  for (const it of raw) {
-    if (typeof it !== 'object' || it === null) continue;
-    const name = cleanStr((it as Record<string, unknown>).name);
-    if (!name) continue;
-    let qty = Number((it as Record<string, unknown>).qty ?? 1);
-    if (!Number.isFinite(qty) || qty < 1) qty = 1;
-    if (qty > LIMITS.maxQty) qty = LIMITS.maxQty;
-    out.push({ name, qty: Math.floor(qty) });
-    if (out.length >= LIMITS.maxItemsPerOrder) break;
-  }
-  return out;
 }
 
 // ---- app -------------------------------------------------------------------

@@ -19,13 +19,6 @@
   let { onclose }: { onclose: () => void } = $props();
 
   const TOKEN_KEY = 'staff_token'; // bearer session token (replaces the old PIN)
-  // CSS modifier for the forward-action button (matches neo.css / app.css colours)
-  const ACT_CLASS: Record<OrderStatus, string> = {
-    pending: 'start',
-    making: 'serve',
-    serving: 'done',
-    done: '',
-  };
 
   let token = $state(storage.read(TOKEN_KEY) ?? '');
   let unlocked = $state(false); // signed in + first fetch ok
@@ -263,7 +256,7 @@
               {#if STATUS_META[o.status].next}
                 <button
                   type="button"
-                  class="bt-act {ACT_CLASS[o.status]}"
+                  class="bt-act {STATUS_META[o.status].actionClass}"
                   disabled={busy.has(o.id)}
                   onclick={() => act(o, STATUS_META[o.status].next!)}
                 >

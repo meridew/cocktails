@@ -11,6 +11,7 @@
   import InstallButton from './lib/InstallButton.svelte';
   import { startBackgroundCannon, celebrate as fireConfetti } from './lib/confetti';
   import { dialog, lockBackground } from './lib/dialog';
+  import { LIMITS } from '@cocktails/shared';
 
   // dev-hub deep links: /?bartender opens the bar, /?order opens the order sheet
   const params = new URLSearchParams(typeof location !== 'undefined' ? location.search : '');
@@ -207,6 +208,8 @@
       {/if}
     </div>
 
+    <!-- maxlength comes from the shared LIMITS the server enforces, so an
+         over-long value is prevented here rather than silently truncated there. -->
     <label for="name">Your name</label>
     <input
       id="name"
@@ -214,10 +217,14 @@
       placeholder="DANIEL"
       autocomplete="name"
       autocapitalize="words"
+      maxlength={LIMITS.maxFieldLen}
     />
     <label for="note">Note (optional)</label>
-    <textarea id="note" bind:value={note} placeholder="No ice! Extra lime! Make it spicy!"
-    ></textarea>
+    <textarea
+      id="note"
+      bind:value={note}
+      placeholder="No ice! Extra lime! Make it spicy!"
+      maxlength={LIMITS.maxFieldLen}></textarea>
     {#if errMsg}<p class="status err" role="alert">{errMsg}</p>{/if}
 
     <div class="flowbar">
