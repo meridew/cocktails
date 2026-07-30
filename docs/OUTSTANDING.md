@@ -75,21 +75,18 @@ Per [`PLATFORM-PLAN.md`](PLATFORM-PLAN.md) §0, work that needs a browser login 
 stubbed behind an interface and logged here rather than stopping the plan. Each entry
 says what is needed, who can do it, and what it unblocks.
 
-### Cloudflare tunnel — repoint it at the Mac
+### ~~Cloudflare tunnel~~ ✅ cut over, 30 Jul 2026
 
-**Blocks:** the public site. Until this is done, `cock.meridew.com` still reaches the
-NAS and whatever build is on it; the Mac serves the current code on the LAN only.
+`cock.meridew.com` is served by the Mac. `cloudflared` runs there as a LaunchAgent
+reading its token from `~/.config/cocktails/tunnel-token`, and the NAS's `app`,
+`cloudflared` and runner containers are stopped. Nothing of ours runs on the NAS.
 
-The tunnel's ingress rule lives in the Cloudflare dashboard, not this repo. Two ways:
+Verified by what only the new build answers — `/api/inventory` and `/api/events`
+return 401 rather than 404 — not merely by a 200, because the _old_ build returned a
+200 too.
 
-1. **Reuse the existing tunnel** — point its Public Hostname at
-   `http://192.168.1.9:3100`, and nothing else changes.
-2. **Run cloudflared on the Mac** (installed, not configured) — needs the tunnel
-   token from the dashboard. Then it dials out from the Mac itself and the NAS is
-   out of the path entirely. This is the tidier end state.
-
-Also unset: **`STAFF_PIN`** in `~/.config/cocktails/env` on the Mac. Empty means PIN
-sign-in is simply off; email + password still works. Set it and
+**Still unset: `STAFF_PIN`** in `~/.config/cocktails/env` on the Mac. Empty means PIN
+sign-in is off; email + password still works. Set it, then
 `launchctl kickstart -k gui/$(id -u)/com.meridew.cocktails`.
 
 ### Litestream → R2 — the backup half of phase 4
