@@ -1,0 +1,16 @@
+import { json, type RequestEvent } from '@sveltejs/kit';
+import type { OkResponse } from '$lib/shared';
+import { revokeStaff, staffById } from '$lib/server/db';
+import { denied, fail, requireAdmin } from '$lib/server/guards';
+
+export function POST(event: RequestEvent) {
+  const auth = requireAdmin(event);
+  if (denied(auth)) return auth.denied;
+
+  const target = staffById(event.params.id!);
+  if (!target) return fail(404, 'not found');
+  // Guarding this is what stops an admin locking themselves out of their own bar.
+  if (target.role === 'admin') return fail(403, 'cannot revoke an admin');
+  revokeStaff(target.id);
+  return json({ ok: true } satisfies OkResponse);
+}

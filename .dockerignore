@@ -1,13 +1,6 @@
 **/node_modules
 .git
-**/dist
-**/build
-
-# ...except the client bundle, which is built off-box and copied in. The NAS runs
-# out of memory compiling it (see apps/web/Dockerfile), so the artifact ships in
-# rather than being produced here.
-!apps/web/dist
-!apps/web/dist/**
+.svelte-kit
 data
 **/data
 *.sqlite
@@ -15,3 +8,15 @@ data
 .env
 **/.env
 *.local
+tests
+docs
+apps
+packages
+static
+src
+
+# ...except the built server, which is produced off-box and copied in. The NAS
+# runs out of memory compiling it (see Dockerfile), so the artifact ships in
+# rather than being made here.
+!build
+!build/**

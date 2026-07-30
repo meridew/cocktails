@@ -1,29 +1,55 @@
 {
-  "name": "cocktails-monorepo",
+  "name": "cocktails",
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "workspaces": [
-    "packages/*",
-    "apps/*"
-  ],
   "engines": {
     "node": ">=24"
   },
   "scripts": {
-    "dev": "concurrently -n api,web -c yellow,cyan \"npm:dev:api\" \"npm:dev:web\"",
-    "dev:api": "npm -w @cocktails/api run dev",
-    "dev:web": "npm -w @cocktails/web run dev",
-    "build:web": "npm -w @cocktails/web run build",
-    "start:api": "npm -w @cocktails/api run start",
-    "check": "npm -w @cocktails/api run typecheck && npm -w @cocktails/web run check",
-    "test": "npm run test --workspaces --if-present",
+    "dev": "vite dev",
+    "build": "vite build",
+    "preview": "npm run build && node build/index.js",
+    "start": "node build/index.js",
+    "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "db:reset": "node scripts/db.js reset",
+    "db:seed": "node scripts/db.js seed",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },
+  "dependencies": {
+    "web-push": "^3.6.7"
+  },
   "devDependencies": {
-    "concurrently": "^9.1.0",
+    "@capacitor/android": "^8.3.4",
+    "@capacitor/app": "^8.1.0",
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^8.3.4",
+    "@capacitor/core": "^8.3.4",
+    "@capacitor/ios": "^8.3.4",
+    "@capacitor/preferences": "^8.0.1",
+    "@capacitor/status-bar": "^8.0.2",
+    "@fontsource/archivo-black": "^5.1.0",
+    "@fontsource/bungee": "^5.1.0",
+    "@fontsource/space-grotesk": "^5.1.0",
+    "@sveltejs/adapter-node": "^5.2.12",
+    "@sveltejs/kit": "^2.15.0",
+    "@sveltejs/vite-plugin-svelte": "^5.0.3",
+    "@testing-library/svelte": "^5.2.6",
+    "@testing-library/user-event": "^14.6.1",
+    "@types/canvas-confetti": "^1.6.4",
+    "@types/node": "^24.13.3",
+    "@types/web-push": "^3.6.4",
+    "canvas-confetti": "^1.9.3",
+    "jsdom": "^30.0.1",
     "prettier": "^3.9.6",
-    "prettier-plugin-svelte": "^4.1.1"
+    "prettier-plugin-svelte": "^4.1.1",
+    "svelte": "^5.16.0",
+    "svelte-check": "^4.1.4",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.7",
+    "vitest": "^3.2.7"
   }
 }

@@ -17,3 +17,7 @@ data/
 *.sqlite-shm
 .DS_Store
 *.local
+
+# SvelteKit generated output
+.svelte-kit/
+build/
