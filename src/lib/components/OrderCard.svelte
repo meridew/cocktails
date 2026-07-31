@@ -71,7 +71,7 @@
   class="ord s-{order.status}"
   class:is-open={expanded}
   class:is-bumped={bumped}
-  class:is-new={awaiting}
+  class:is-unadmitted={awaiting}
 >
   <!-- The row body is the expand affordance; the action button sits outside it so
        advancing an order never costs an extra tap. -->
@@ -86,7 +86,21 @@
       <span class="ord-head">
         {#if bumped}<span class="ord-flag" title="Bumped to the front">⤒</span>{/if}
         <span class="ord-who">{order.name}</span>
-        {#if awaiting}<span class="ord-newflag">new</span>{/if}
+        <!--
+          "Not in", not "new".
+
+          This pill and the status badge beside it were both the word NEW, meaning
+          two unrelated things a centimetre apart: this one says *the bar has not let
+          this person in*, and `meta.badge` says *this drink has not been started*.
+          An un-admitted guest therefore read "ZOË new NEW · 9m", which is a stutter
+          that hides a real distinction.
+
+          "Not in" also stays true for a guest who was turned away and has ordered
+          again — `newGuest` is anything-but-admitted, so this pill covers blocked as
+          well as pending, and there is nothing new about someone you already said no
+          to. See the note in db.ts on why that is a single boolean.
+        -->
+        {#if awaiting}<span class="ord-unadmitted">not in</span>{/if}
         <span class="ord-meta">
           {meta.badge} · {ago(order.createdAt)}{#if order.handoff}
             <span class="ord-hand-flag" title="Guest was {HANDOFF_META[order.handoff].note}">

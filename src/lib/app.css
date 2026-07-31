@@ -1545,10 +1545,12 @@ button.row:hover {
 /* The card is deliberately ordinary — same list, same place, same information. Only
    the stripe and the forward action say anything is different, because the gate is
    about whether the drink gets *made*, not about whether it can be seen. */
-.ord.is-new {
+/* Named for the person, not for the order. `is-new`/`ord-newflag` collided with the
+   `pending` status, whose badge is also NEW — see the note in OrderCard.svelte. */
+.ord.is-unadmitted {
   border-left-color: #ffe600;
 }
-.ord-newflag {
+.ord-unadmitted {
   flex: none;
   padding: 1px 7px;
   background: #ffe600;

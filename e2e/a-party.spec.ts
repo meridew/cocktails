@@ -121,9 +121,10 @@ test('a host stocks up, Dan opens the bar, a guest orders and a helper pours it'
   // ordinary one offers Start — the drink is visible but cannot be made yet. That is
   // the admission gate, and it is the whole reason the first tap here is different
   // from the three that follow.
-  // The chip by class, not by text: a pending order's status badge also reads NEW,
-  // and matching on the word finds both.
-  const newFace = order.locator('.ord-newflag');
+  // Matched by its text, which is now possible: this chip used to read "new" and so
+  // did the `pending` status badge next to it, so the word found both and the test
+  // had to reach for the class instead. The workaround outlived the excuse for it.
+  const newFace = order.getByText('not in', { exact: true });
   await expect(newFace).toBeVisible();
   await order.getByRole('button', { name: '✓ Admit' }).click();
   await expect(newFace).toHaveCount(0);
