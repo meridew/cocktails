@@ -1551,3 +1551,139 @@ button.row:hover {
   text-decoration: none;
   color: inherit;
 }
+
+/* ---- the front door's party list ------------------------------------------- */
+
+/*
+ * The list is what most people see first, so it gets the app's own language rather
+ * than rows in a white box: big display type, the three card colours cycling, thick
+ * borders and the hard offset shadow. Same idiom as `.cocktail` on the guest menu —
+ * deliberately, because tapping a party and tapping a drink are the same gesture.
+ *
+ * Built here rather than by reusing `.cocktail`: neo.css is frozen, and that class
+ * carries a favourite star and an order button this has no use for.
+ */
+.door-title {
+  margin: 0 0 4px;
+  font-family: var(--font-display);
+  text-transform: var(--ttu);
+  letter-spacing: var(--ls-head);
+  font-size: clamp(1.6rem, 7vw, 2.4rem);
+  line-height: 1;
+  color: #fff;
+  /* The wordmark's layered offset, so the heading belongs to the same poster. */
+  text-shadow: var(--display-shadow);
+}
+.door-sub {
+  margin: 0 0 20px;
+  font-family: var(--font-accent);
+  font-size: 0.72rem;
+  letter-spacing: var(--ls-accent);
+  text-transform: var(--ttu);
+  color: var(--text);
+}
+
+.parties {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+}
+
+.party {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 132px;
+  padding: 18px 18px 16px;
+  border: var(--border) solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  color: var(--text);
+  text-decoration: none;
+  transition:
+    transform 0.12s,
+    box-shadow 0.12s;
+}
+/* The same three-colour cycle the drink cards use, for the same reason: a wall of
+   one colour reads as a table, and this is meant to read as a night out. */
+.party:nth-child(3n + 1) {
+  background: var(--card1);
+}
+.party:nth-child(3n + 2) {
+  background: var(--card2);
+}
+.party:nth-child(3n + 3) {
+  background: var(--card3);
+}
+.party:active {
+  transform: translate(3px, 3px);
+  box-shadow: var(--shadow-press);
+}
+.party-emoji {
+  font-size: 1.6rem;
+  line-height: 1;
+}
+.party-name {
+  font-family: var(--font-display);
+  text-transform: var(--ttu);
+  letter-spacing: var(--ls-head);
+  font-size: clamp(1rem, 5cqi, 1.3rem);
+  line-height: 1.1;
+  overflow-wrap: break-word;
+  margin: 0;
+}
+/* Pushed to the bottom so every card's call to action lines up, whatever the name
+   does above it. */
+.party-go {
+  margin-top: auto;
+  font-family: var(--font-accent);
+  font-size: 0.66rem;
+  letter-spacing: var(--ls-accent);
+  text-transform: var(--ttu);
+}
+
+/* Nothing on. Still the app, rather than an apology in grey. */
+.door-empty {
+  padding: 26px 22px;
+  background: var(--surface);
+  border: var(--border) solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+.door-empty h2 {
+  margin: 0 0 10px;
+  font-family: var(--font-display);
+  text-transform: var(--ttu);
+  letter-spacing: var(--ls-head);
+  font-size: 1.1rem;
+}
+.door-empty p {
+  margin: 0;
+  color: var(--text-soft);
+  line-height: 1.5;
+}
+
+/* The sign-in key. An inline SVG rather than 🔑, which rendered as a small gold
+   pictogram fighting the app bar's flat white.
+
+   `color` is set here rather than inherited: `.appbar-bartender` is styled for an
+   emoji, so it never needed a stroke colour and doesn't set one — the icon came out
+   the browser's default near-black on a near-black bar. */
+.appbar-key {
+  color: #fff;
+}
+.appbar-key svg {
+  width: 22px;
+  height: 22px;
+  display: block;
+}
+
+/*
+ * The front door's column is wider than a reading column, because it holds cards
+ * rather than prose. 760px is right for a paragraph and leaves a wall of empty
+ * yellow beside three party cards on a laptop.
+ */
+.deck-door > * {
+  max-width: 1040px;
+}

@@ -26,6 +26,7 @@
   } from '$lib/api';
   import { refreshActor, session } from '$lib/stores/session.svelte';
   import { dialog } from '$lib/dialog';
+  import KeyRound from '@lucide/svelte/icons/key-round';
 
   /** From +page.server.ts: whether Google is configured on this deployment. */
   let { data }: { data: { googleEnabled: boolean } } = $props();
@@ -43,6 +44,18 @@
    * needed it.
    */
   let parties = $state<{ id: string; name: string }[]>([]);
+
+  /**
+   * A glass for each party, picked from its id.
+   *
+   * Deterministic, so a party keeps the same face between visits and between people —
+   * one that changed on reload would read as a glitch. There is no meaning in which
+   * glass; it is there so a wall of cards has faces rather than three colours and
+   * some words.
+   */
+  const GLASSES = ['🍸', '🍹', '🥂', '🍾', '🥃', '🍷', '🧉', '🍺'];
+  const glassFor = (id: string): string =>
+    GLASSES[[...id].reduce((n, c) => n + c.charCodeAt(0), 0) % GLASSES.length]!;
 
   /** Sign-in is a rare act by a few people, so it lives behind an icon. */
   let signingIn = $state(false);
@@ -173,21 +186,23 @@
 <div class="workshell">
   <header class="appbar">
     <span class="brand">COCKTAILS</span>
-    <!-- Sign-in is a rare act by a handful of people. It gets an icon, and the page
-         goes to the guests who are most of the traffic. -->
-    <button
-      class="appbar-bartender"
-      type="button"
-      onclick={() => (signingIn = true)}
-      aria-label="Sign in"
-    >
-      <span class="emoji">🔑</span>
+    <!--
+      Sign-in is a rare act by a handful of people, so it gets the corner and the
+      page goes to the guests who are most of the traffic.
+
+      The icon comes from `@lucide/svelte` rather than being drawn here: hand-rolled
+      SVG paths are a thing to get subtly wrong and then maintain, and the first two
+      attempts at this one were an emoji that rendered gold and a "key" that looked
+      like a magnifying glass. Tree-shaken, so only this glyph ships.
+    -->
+    <button class="appbar-bartender appbar-key" type="button" onclick={() => (signingIn = true)}>
+      <KeyRound size={22} strokeWidth={2.25} aria-label="Sign in" />
     </button>
   </header>
 
   <!-- `deck-hero` centres a short door vertically. With a list of parties on it that
        would fight the scroll, so it only applies when there is nothing to list. -->
-  <main class="deck" class:deck-hero={parties.length === 0}>
+  <main class="deck deck-door" class:deck-hero={parties.length === 0}>
     {#if loading}
       <p class="empty">One moment…</p>
     {:else if awaitingConfirmation || (user && !user.emailVerified)}
@@ -234,20 +249,27 @@
 
       <!-- The list is the door. A guest who lost the QR code, or who was told
            "it's on the website", lands here and taps their party. -->
-      <section class="panel">
-        <h2>What's on tonight</h2>
-        {#each parties as p (p.id)}
-          <a class="row" href="/e/{p.id}">
-            <span class="row-main"><span class="row-name">{p.name}</span></span>
-            <span class="row-note">Join →</span>
-          </a>
-        {:else}
-          <p class="empty">
-            Nothing running right now. If you're at a party, open the link or QR code your host gave
-            you — it goes straight to their menu.
+      {#if parties.length}
+        <h1 class="door-title">What's on tonight</h1>
+        <p class="door-sub">Tap yours and start ordering</p>
+        <div class="parties">
+          {#each parties as p (p.id)}
+            <a class="party" href="/e/{p.id}">
+              <span class="party-emoji">{glassFor(p.id)}</span>
+              <h2 class="party-name">{p.name}</h2>
+              <span class="party-go">Join →</span>
+            </a>
+          {/each}
+        </div>
+      {:else}
+        <section class="door-empty">
+          <h2>Nothing on right now</h2>
+          <p>
+            When there is, it'll be here. At a party already? Open the link or QR code your host
+            gave you — it goes straight to their menu.
           </p>
-        {/each}
-      </section>
+        </section>
+      {/if}
     {/if}
 
     {#if error}<p class="says says-bad" role="alert">{error}</p>{/if}
