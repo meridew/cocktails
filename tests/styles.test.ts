@@ -161,6 +161,41 @@ describe('app.css stays out of neo.css’s way', () => {
     );
   });
 
+  test('the update notice sits above the screen most likely to be stale', () => {
+    /*
+     * `.bartender` is `position: fixed; inset: 0` at `z-index: 1200`, so anything
+     * lower is not merely behind it — it is invisible. The first cut of `.updatebar`
+     * was 930, chosen to stay out of the way of dialogs, and it vanished completely
+     * on `/bar`: the one screen somebody leaves open for a whole party, and so the
+     * one where a stale build lasts longest.
+     *
+     * Keeping out of the way of dialogs is `[inert]`'s job instead. This only checks
+     * the ordering, which is the part that failed silently.
+     */
+    const zOf = (css: string, cls: string): number => {
+      const rules = stripComments(css).split('}');
+      for (const block of rules) {
+        const [selector, body] = block.split('{');
+        if (!selector || !body) continue;
+        if (!selector.split(',').some((s) => s.trim() === `.${cls}`)) continue;
+        const m = /z-index:\s*(\d+)/.exec(body);
+        if (m) return Number(m[1]);
+      }
+      return NaN;
+    };
+
+    const bartender = zOf(read('neo.css'), 'bartender');
+    const notice = zOf(read('app.css'), 'updatebar');
+
+    assert.ok(Number.isFinite(bartender), '.bartender should still declare a z-index');
+    assert.ok(Number.isFinite(notice), '.updatebar should still declare a z-index');
+    assert.ok(
+      notice > bartender,
+      `.updatebar (${notice}) must sit above .bartender (${bartender}), or the bar ` +
+        'screen covers it entirely and a bartender never learns there is a new build',
+    );
+  });
+
   test('neo.css really is the frozen one, so this test has a subject', () => {
     // If neo.css ever stops defining the classes the app is built from, this whole
     // check is measuring nothing and should be reconsidered rather than deleted.

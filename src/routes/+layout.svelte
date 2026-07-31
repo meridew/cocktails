@@ -22,6 +22,7 @@
   import { resumeRequest } from '$lib/stores/staffRequest.svelte';
   import NotifyOptIn from '$lib/components/NotifyOptIn.svelte';
   import SettingsSheet from '$lib/components/SettingsSheet.svelte';
+  import UpdateBar from '$lib/components/UpdateBar.svelte';
   import { settings } from '$lib/stores/view.svelte';
 
   let { children } = $props();
@@ -35,6 +36,11 @@
 </script>
 
 {@render children()}
+
+<!-- Every screen, because a stale build is stale everywhere — and the layout is the
+     only place that is on all of them. It renders nothing until there is something
+     to say. -->
+<UpdateBar />
 
 {#if settings.open}
   <SettingsSheet onclose={() => (settings.open = false)} />

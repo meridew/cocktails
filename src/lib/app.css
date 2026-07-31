@@ -1860,6 +1860,85 @@ button.row:hover {
   --text-soft: rgba(255, 255, 255, 0.62);
 }
 
+/*
+ * "There's a newer version" — see UpdateBar.svelte.
+ *
+ * Floats clear of the bottom rather than sitting on it, because `.tabbar` is a real
+ * row of the shell grid on the guest menu and a bar pinned to `bottom: 0` would
+ * cover Menu and Order. 76px clears it; on the screens with no tab bar it simply
+ * sits a little off the floor, which reads as deliberate.
+ *
+ * z-index 1250 is above `.bartender`, which is `position: fixed; inset: 0` at 1200.
+ * Anything lower is simply invisible behind the bar screen — and a bartender with
+ * the app open all night is the person most likely to be stuck on a stale build, so
+ * that is the one screen this must not miss. It stays below the bar's own menu
+ * (1300) and the notification opt-in (1400).
+ *
+ * Staying out of the way of dialogs is done by `inert` rather than by z-index:
+ * `lockBackground()` marks every sibling of the open dialog inert, and this is one
+ * of them, so it hides itself whenever anything modal is up. (An update detected
+ * *while* a dialog is already open is not covered — the attribute is set on open —
+ * but that needs a deploy inside the seconds a sheet is up, and it rights itself on
+ * the next open.)
+ */
+.updatebar {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(76px + env(safe-area-inset-bottom));
+  z-index: 1250;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: calc(100vw - 28px);
+  padding: 10px 12px 10px 16px;
+  background: var(--panel-bg);
+  color: var(--panel-text);
+  border: var(--border) solid var(--accent);
+  border-radius: 999px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+  animation: updatebar-in 0.3s cubic-bezier(0.2, 0.9, 0.3, 1) both;
+}
+@keyframes updatebar-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 16px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+.updatebar-say {
+  font-family: var(--font-accent);
+  font-weight: var(--fw-accent);
+  font-size: 0.68rem;
+  letter-spacing: var(--ls-accent);
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* Modal up → out of the way. See the note above: `inert` is the app's existing
+   signal for "something is in front of the page", so this needs no state of its
+   own to know. */
+.updatebar[inert] {
+  display: none;
+}
+/* Shorter than a normal button: this is a nudge, not the screen's main action. */
+.updatebar-go {
+  flex: none;
+  min-height: 36px;
+  min-width: 0;
+  padding: 6px 16px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .updatebar {
+    animation: none;
+  }
+}
+
 /* ---------------- WORK SHEET ----------------
  *
  * The full-screen surface a long job moves onto. See WorkSheet.svelte for why it
