@@ -52,6 +52,23 @@
   let bumped = $derived(order.bumpedAt != null);
   /** Only worth showing per-drink ticking when there's more than one drink. */
   let trackable = $derived(progress.total > 1);
+
+  /**
+   * How many *kinds* of drink a collapsed card lists before it stops.
+   *
+   * Three, because the height of a card was running from 63px to 171px — 10 orders
+   * a screen at one end and 4 at the other — and the tall end was entirely
+   * multi-kind rounds. Three covers the overwhelming majority outright, and a round
+   * big enough to be clamped is one you were going to open anyway to tick the
+   * drinks off.
+   *
+   * A cap, not a fixed height: padding every card to the tallest would cost the
+   * density this screen was rebuilt to win, and truncating to the shortest would
+   * hide what to make on exactly the biggest orders.
+   */
+  const KINDS_SHOWN = 3;
+  let shownItems = $derived(expanded ? order.items : order.items.slice(0, KINDS_SHOWN));
+  let hiddenKinds = $derived(order.items.length - shownItems.length);
   /**
    * The handoff choice only exists at the moment of serving. The collapsed row's
    * one-tap "🍹 Ready" stays neutral; these say *how* it's reaching them, which
@@ -101,8 +118,38 @@
           to. See the note in db.ts on why that is a single boolean.
         -->
         {#if awaiting}<span class="ord-unadmitted">not in</span>{/if}
+        <!--
+          The count and the note marker ride the meta line rather than taking a row
+          each. Between them they were most of the ragged height on this screen:
+          three otherwise identical single-drink cards measured 63, 79 and 95px
+          purely on whether a "0/3 poured" row and a note peek were present. Neither
+          is a sentence — one is a number and the other is "there is an instruction
+          here" — so neither needs a line of its own.
+        -->
+        <!--
+          An un-admitted card shows the time and nothing else on this line.
+
+          The status word is redundant — the pill and the Admit button have both
+          already said it — and the poured count is not actionable, because you
+          cannot pour anything until you have let the person in. Dropping both is
+          also what makes the row fit: measured on a 390px phone, the two Admit
+          buttons take 146px of a 362px card, leaving 29px for a meta line that
+          wanted 58, so it truncated to "NE…". Losing two things you cannot act on
+          beats truncating the one you can.
+        -->
         <span class="ord-meta">
-          {meta.badge} · {ago(order.createdAt)}{#if order.handoff}
+          {#if !awaiting}<span class="ord-badge">{meta.badge}</span>{/if}{ago(
+            order.createdAt,
+          )}{#if trackable && !awaiting}
+            <!-- Separator and spacing are in CSS, not here: Svelte collapses the
+                 whitespace around a block like this one, and a literal "· " in the
+                 markup shipped as "12m· 0/9📝". Same trap as the admin party row. -->
+            <span class="ord-count" class:is-complete={progress.complete}
+              >{progress.made}/{progress.total}</span
+            >
+          {/if}{#if order.note}
+            <span class="ord-note-mark" title={order.note} aria-label="Has a note">📝</span>
+          {/if}{#if order.handoff}
             <span class="ord-hand-flag" title="Guest was {HANDOFF_META[order.handoff].note}">
               {HANDOFF_META[order.handoff].icon}
             </span>
@@ -110,18 +157,17 @@
         </span>
       </span>
       <span class="ord-drinks">
-        {#each order.items as item (item.name)}
+        {#each shownItems as item (item.name)}
           <span class="ord-drink" class:is-poured={(item.made ?? 0) >= item.qty}>
             {item.qty}× {item.name}
           </span>
         {/each}
+        {#if hiddenKinds > 0}
+          <!-- Says how much is behind the tap. "+2 more" is a number you can act on;
+               a fade or a cut-off line is not. -->
+          <span class="ord-more-kinds">+{hiddenKinds} more</span>
+        {/if}
       </span>
-      {#if trackable}
-        <span class="ord-progress" class:is-complete={progress.complete}>
-          {progress.made}/{progress.total} poured
-        </span>
-      {/if}
-      {#if order.note && !expanded}<span class="ord-note-peek">“{order.note}”</span>{/if}
     </button>
 
     {#if awaiting}

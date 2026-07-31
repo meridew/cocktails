@@ -230,17 +230,69 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-.ord-meta,
-.ord-progress,
-.ord-note-peek {
-  font-size: 0.7rem;
-  opacity: 0.65;
+  /*
+   * A floor, so the name is never the thing that pays.
+   *
+   * On a 390px phone an un-admitted guest's row is name + "NOT IN" pill + status +
+   * count, and with nothing holding it the name shrank until "Zoë" rendered as
+   * "Z…". Whose drink it is outranks how long ago they asked, so the meta line
+   * ellipsises first and the name keeps eight characters whatever else is on the
+   * row. Same failure as the admin party row, one screen over.
+   */
+  flex: 0 1 auto;
+  min-width: 8ch;
 }
 .ord-meta {
-  flex: none;
+  font-size: 0.7rem;
+  opacity: 0.65;
+  /* Shrinkable, unlike the `flex: none` it replaces. The meta line now carries the
+     poured count and the note marker as well as the status, so on a narrow phone
+     with a long name it has to give ground rather than squeeze `.ord-who` — the
+     same failure the admin party row had. */
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-family: 'Bungee', system-ui, sans-serif;
   letter-spacing: 0.5px;
+}
+/* Poured-so-far, on the meta line. Turns acid green when the round is complete —
+   the one state worth catching from across a bar.
+
+   The separator is a pseudo-element because Svelte collapses whitespace around the
+   `{#if}` that wraps this, so a "· " written in the markup arrives glued to the
+   timestamp. CSS is the one place the formatter cannot eat it. */
+/*
+ * Separators live in CSS, for every piece of the meta line.
+ *
+ * Svelte collapses the whitespace around an `{#if}`, and Prettier reflows the
+ * block across lines, so a "·" written in the markup arrives glued to whatever
+ * follows it — shipped once as "12m· 0/9📝" and again as "NEW ·45m". A
+ * pseudo-element is the one place neither can reach.
+ */
+.ord-badge::after {
+  content: ' · ';
+}
+.ord-count::before {
+  content: ' · ';
+}
+.ord-count.is-complete {
+  color: #acff00;
+  opacity: 1;
+}
+/* "There is an instruction on this order." The text itself is on the expanded card
+   and in the title; a one-line peek was truncating mid-sentence on a phone, which
+   is worse than an honest marker. */
+.ord-note-mark {
+  margin-left: 5px;
+  filter: var(--emoji-filter, none);
+}
+/* What the collapsed card is not showing. Deliberately styled as content rather
+   than as a control: the whole card body is already the expand target. */
+.ord-more-kinds {
+  opacity: 0.6;
+  font-style: italic;
 }
 .ord-flag {
   flex: none;
@@ -256,16 +308,8 @@
   opacity: 0.5;
   text-decoration: line-through;
 }
-.ord-progress.is-complete {
-  color: #acff00;
-  opacity: 1;
-}
-.ord-note-peek {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-style: italic;
-}
+/* `.ord-progress` and `.ord-note-peek` used to live here as rows of their own. Both
+   moved onto the meta line — see `.ord-count` and `.ord-note-mark` above. */
 
 /* The single forward action — full-height so it's easy to hit. */
 .ord-go {
