@@ -115,3 +115,29 @@ jobs:
           echo "service did not come back — check ~/Library/Logs/cocktails.log"
           tail -30 "$HOME/Library/Logs/cocktails.log" || true
           exit 1
+
+      # The one piece of production config this repo cannot hold.
+      #
+      # Cloudflare caches by file extension and `.js` is on its default list, so
+      # `/service-worker.js` was being served from the edge for four hours after
+      # every deploy — long enough for a fresh install to be handed the *previous*
+      # worker, which then deletes the current cache on activate and serves its own,
+      # origin-wide. adapter-node cannot set a header on a static file, so the fix
+      # is a Cache Rule in the dashboard (recorded in docs/PLATFORM-PLAN.md §9) and
+      # nothing in git would notice it being deleted. This does.
+      #
+      # Twice on purpose: with the rule it is DYNAMIC both times; without it the
+      # first request is a MISS that *fills* the cache and the second is the HIT.
+      # Checking once would pass on exactly the deploy that broke it.
+      - name: The service worker is not edge-cached
+        run: |
+          set -e
+          URL=https://cock.meridew.com/service-worker.js
+          curl -fsS -m 10 -o /dev/null "$URL"
+          STATUS=$(curl -fsS -m 10 -D - -o /dev/null "$URL" | tr -d '\r' \
+            | awk -F': ' 'tolower($1)=="cf-cache-status"{print $2}')
+          echo "cf-cache-status: ${STATUS:-none}"
+          if [ "$STATUS" = "HIT" ]; then
+            echo "::error::Cloudflare is caching /service-worker.js — the 'Never cache the service worker' Cache Rule is missing or broken. Until it is restored, a fresh install can be served the previous service worker for up to four hours. See docs/PLATFORM-PLAN.md §9."
+            exit 1
+          fi

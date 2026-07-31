@@ -854,6 +854,40 @@ Work around these per §0 — interface + dev implementation + a note in
 3. **OAuth client IDs** for Google and Apple, if that sign-in path is wanted.
 4. ~~**The tunnel's Public Hostname**~~ — **confirmed working, 31 Jul 2026.**
    `https://cock.meridew.com` serves the front door from the Mac.
+
+   ~~**A Cache Rule so the service worker is never edge-cached**~~ — **done, 31 Jul
+   2026**, and recorded here because it is configuration this repo cannot see.
+
+   |            |                                                   |
+   | ---------- | ------------------------------------------------- |
+   | Where      | Zone `meridew.com` → Caching → Cache Rules        |
+   | Name       | `Never cache the service worker`                  |
+   | Expression | `(http.request.uri.path eq "/service-worker.js")` |
+   | Action     | **Bypass cache**                                  |
+
+   **Why it is not optional.** Cloudflare caches by file extension and `.js` is on
+   the default list, while HTML and JSON are not — which is why `/` and
+   `/_app/version.json` were always `DYNAMIC` and only the service worker was `HIT`,
+   with a `max-age=14400` Cloudflare added itself. For four hours after any deploy a
+   fresh registration could therefore be handed the **previous** worker, and an old
+   worker is not passive: `activate` deletes every cache that is not its own, so it
+   would delete the current one and then serve its own, origin-wide. Reported from
+   an Android phone as "reinstalled the app and got the old version — and Chrome
+   went old too". A service worker is scoped to the origin, not the tab.
+
+   `updateViaCache: 'none'` in `svelte.config.js` is the browser half and does **not**
+   substitute for this: Cloudflare honours `no-store`/`private`/`no-cache` on an
+   _origin response_, not on a request, which was measured — a request carrying
+   `Cache-Control: no-cache` still returned `cf-cache-status: HIT` at the same `Age`.
+
+   The reason it is a dashboard rule rather than a header is that adapter-node serves
+   static files through sirv with no way to configure it; `setHeaders` is hard-coded
+   to `/_app/immutable/` (sveltejs/kit#11875, #2060, #3194). The alternative is
+   adapter-node's custom-server pattern, which means owning the entry point launchd
+   starts. **The deploy workflow asserts this rule still exists** — see the "service
+   worker is not edge-cached" step — so if somebody deletes it, the next deploy says
+   so rather than a guest finding out at a party.
+
 5. ~~**Registering the admin account**~~ — **done, 31 Jul 2026.** Through the real
    front door, with a real verification email delivered by Graph from
    `bar@meridew.com`. That is the whole sign-up path proven against the live service
