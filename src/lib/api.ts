@@ -165,13 +165,14 @@ export interface AccountUser {
   emailVerified: boolean;
 }
 
-/** `callbackURL` is where the emailed link lands them — back here, not the menu. */
+/** `callbackURL` is where the emailed link lands them: the front door, which routes
+ *  them on to wherever they belong once it knows what they are. */
 export const signUp = (name: string, email: string, password: string) =>
   account<{ user: AccountUser }>('/sign-up/email', {
     name,
     email,
     password,
-    callbackURL: '/host?verified',
+    callbackURL: '/?verified',
   });
 
 export const signInToAccount = (email: string, password: string) =>
@@ -184,7 +185,7 @@ export const currentAccount = () =>
   account<{ user: AccountUser } | null>('/get-session').catch(() => null);
 
 export const resendVerification = (email: string) =>
-  account<unknown>('/send-verification-email', { email, callbackURL: '/host?verified' });
+  account<unknown>('/send-verification-email', { email, callbackURL: '/?verified' });
 
 /**
  * Start the Google sign-in dance.
@@ -194,18 +195,25 @@ export const resendVerification = (email: string) =>
  * consent screen inside a JSON parse. The caller navigates.
  */
 export const googleSignInUrl = () =>
-  account<{ url: string }>('/sign-in/social', { provider: 'google', callbackURL: '/host' });
+  account<{ url: string }>('/sign-in/social', { provider: 'google', callbackURL: '/' });
 
 // ---- the host's own parties ----
 
 export interface Party {
   id: string;
+  /** Whose party it is. Admin's list spans hosts, so the row has to say. */
+  hostUserId: string;
   name: string;
-  status: string;
+  status: 'draft' | 'live' | 'done';
   startsAt: number | null;
   createdAt: number;
 }
 
+/**
+ * The parties you can see: **all of them if you're Admin, your own if you're a host.**
+ * The server decides which; there is no separate admin endpoint because "see your
+ * own things" is not a permission, it is what the list is.
+ */
 export const myParties = () => req<{ ok: true; events: Party[] }>('/events');
 
 /** Admin only: a party is created *for* a host, who must already have an account. */
@@ -264,6 +272,48 @@ export const eventMenu = (eventId: string) =>
     available: Record<string, boolean>;
     makeable: Pourable[];
   }>(`/events/${eventId}/menu`);
+
+// ---- admin: the people and their parties ----
+
+export interface Host {
+  id: string;
+  name: string;
+  email: string;
+  emailVerified: boolean;
+  role: 'admin' | 'host';
+  bannedAt: number | null;
+  banReason: string | null;
+  createdAt: number;
+  hasStock: boolean;
+  parties: number;
+  /** Admin because `ADMIN_EMAILS` says so — the app cannot demote them. */
+  adminByConfig: boolean;
+}
+
+export const listHosts = () => req<{ ok: true; hosts: Host[] }>('/hosts');
+
+export const getHost = (id: string) => req<{ ok: true; host: Host }>(`/hosts/${id}`);
+
+/** Suspend, reinstate, promote or demote. Each field is its own capability. */
+export const updateHost = (
+  id: string,
+  changes: { banned?: boolean; reason?: string; role?: 'admin' | 'host' },
+) =>
+  req<{ ok: true; host: Host }>(`/hosts/${id}`, { method: 'PATCH', body: JSON.stringify(changes) });
+
+export const deleteHost = (id: string) => req<OkResponse>(`/hosts/${id}`, { method: 'DELETE' });
+
+/** Rename, re-date, open or close. Opening and closing are separate capabilities. */
+export const updateParty = (
+  id: string,
+  changes: { name?: string; startsAt?: number | null; status?: 'draft' | 'live' | 'done' },
+) =>
+  req<{ ok: true; event: Party }>(`/events/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(changes),
+  });
+
+export const deleteParty = (id: string) => req<OkResponse>(`/events/${id}`, { method: 'DELETE' });
 
 // ---- staff auth ----
 

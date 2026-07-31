@@ -186,8 +186,8 @@ describe('Google sign-in', () => {
     assert.notEqual(res.status, 200, 'an unconfigured provider must not appear to work');
   });
 
-  test('and the host page knows not to offer it', async () => {
-    const { load } = await import('../src/routes/host/+page.server');
+  test('and the front door knows not to offer it', async () => {
+    const { load } = await import('../src/routes/+page.server');
     assert.equal(load().googleEnabled, false, 'the button must not render without credentials');
   });
 });
@@ -233,5 +233,42 @@ describe('a sign-up cannot promote itself', () => {
     assert.ok(row);
     setUserBan(row.id, Date.now(), 'testing');
     assert.ok(userByEmail(email)?.bannedAt, 'a ban set by us must stick');
+  });
+});
+
+describe('the front door faces the internet', () => {
+  test('sign-ups from one address are throttled', async () => {
+    // Registration is deliberately open, on a machine in Dan's house. Without a
+    // brake, one script fills the user table and sends a verification email per row
+    // through a shared M365 mailbox — which costs a sending reputation, not just
+    // disk. The cap is high enough that a household behind one NAT never sees it.
+    const ip = '198.51.100.99';
+    let throttled = false;
+    for (let i = 0; i < 45 && !throttled; i++) {
+      const res = await request(
+        '/api/account/sign-up/email',
+        send(
+          'POST',
+          { name: `Flood${i}`, email: `flood${i}@example.com`, password: 'flood-password-123' },
+          { 'x-forwarded-for': ip },
+        ),
+      );
+      if (res.status === 429) throttled = true;
+    }
+    assert.ok(throttled, 'an open registration door needs a brake');
+  });
+
+  test('and signing in is not caught by that brake', async () => {
+    // Deliberately a separate limiter. Sharing one would let an attacker lock every
+    // real person out of the front door by hammering sign-up from any address.
+    const res = await request(
+      '/api/account/sign-in/email',
+      send(
+        'POST',
+        { email: 'nobody@example.com', password: 'wrong' },
+        { 'x-forwarded-for': '198.51.100.99' },
+      ),
+    );
+    assert.notEqual(res.status, 429, 'sign-in must not be shut by a sign-up flood');
   });
 });

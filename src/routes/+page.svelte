@@ -1,233 +1,230 @@
 <script lang="ts">
   /**
-   * The menu: pick drinks, build a round, send it.
+   * The front door.
    *
-   * The shell (appbar, tabbar) lives here rather than in the layout because the bar
-   * is a full-screen view of its own — putting the chrome in the layout would only
-   * mean hiding it again on /bar.
+   * **This used to be the guest menu**, which meant a stranger arriving at
+   * `cock.meridew.com` got whichever party happened to be live — the same guess that
+   * `liveEvent()` made on the server, wearing a different hat. The menu lives at
+   * `/e/<id>` now, because a guest always arrives from a link that names their party.
+   *
+   * So this is the only page for people who work here: sign in, or register. It
+   * routes on what the server says you are rather than on anything this device
+   * remembers, because the two disagree the moment a session expires.
    */
-  import { goto } from '$app/navigation';
   import { onMount } from 'svelte';
-  import { DRINKS, type Drink } from '$lib/data';
-  import { eventMenu } from '$lib/api';
-  import { currentEventId } from '$lib/party';
-  import { addLine, basketCount } from '$lib/stores/basket.svelte';
-  import { favourites } from '$lib/stores/favourites.svelte';
-  import { applyDeepLink, settings, view } from '$lib/stores/view.svelte';
-  import { staffRequest } from '$lib/stores/staffRequest.svelte';
-  import { celebrate as fireConfetti } from '$lib/confetti';
-  import { lockBackground } from '$lib/dialog';
-  import Configurator from '$lib/components/Configurator.svelte';
-  import InstallButton from '$lib/components/InstallButton.svelte';
-  import OrderRail from '$lib/components/OrderRail.svelte';
-  import SentCelebration from '$lib/components/SentCelebration.svelte';
+  import { goto } from '$app/navigation';
+  import { page } from '$app/state';
+  import {
+    currentAccount,
+    googleSignInUrl,
+    resendVerification,
+    signInToAccount,
+    signOutOfAccount,
+    signUp,
+    type AccountUser,
+  } from '$lib/api';
+  import { refreshActor, session } from '$lib/stores/session.svelte';
 
-  let selected = $state<Drink | null>(null);
-  let celebrating = $state(false);
-  let orderOpen = $derived(view.order);
-  let favesOnly = $derived(view.favesOnly);
-  let count = $derived(basketCount());
+  /** From +page.server.ts: whether Google is configured on this deployment. */
+  let { data }: { data: { googleEnabled: boolean } } = $props();
+
+  let user = $state<AccountUser | null>(null);
+  let loading = $state(true);
+  let busy = $state(false);
+  let error = $state('');
+  let notice = $state('');
+
+  /** Sign in unless they've asked to register — signing in is the commoner visit. */
+  let registering = $state(false);
+  let name = $state('');
+  let email = $state('');
+  let password = $state('');
 
   /**
-   * What this party can actually pour, from the host's stock list.
+   * Who just signed up, when there is no session to show for it.
    *
-   * **Fails open on purpose.** An empty map means every drink is offered, and so
-   * does a failed request, a guest who arrived without an `/e/<id>` link, or a name
-   * the recipe engine has never heard of. Wrongly offering a drink costs someone a
-   * "sorry, we're out"; wrongly hiding one costs a drink nobody knew they could have
-   * had — and a menu that silently shrinks because the network hiccuped is
-   * indistinguishable from a broken app.
-   *
-   * Marked, not hidden: a guest who knows this menu has six drinks and counts four
-   * assumes the app is wrong. "Not tonight" is information.
+   * Sign-up with verification required deliberately issues no session, so without
+   * this the screen falls straight back to the signed-out form it just submitted —
+   * "it dumped me back at the login screen with no idea what happened". Signing up
+   * is a thing that *happened*; the screen has to say so.
    */
-  let available = $state<Record<string, boolean>>({});
-  const pourable = (name: string): boolean => available[name] !== false;
+  let awaitingConfirmation = $state('');
 
-  onMount(() => {
-    // Notifications sent before the bar became a route still carry `/?bartender`.
-    if (new URLSearchParams(location.search).has('bartender')) {
-      void goto('/bar', { replaceState: true });
-      return;
-    }
-    applyDeepLink(location.search);
+  const verified = $derived(page.url.searchParams.get('verified') !== null);
 
-    // Deliberately not awaited: the menu renders immediately and drinks that turn
-    // out to be off get marked when the answer lands, rather than the whole list
-    // waiting on a request to show anything at all.
-    const eventId = currentEventId();
-    if (eventId) {
-      void eventMenu(eventId)
-        .then((r) => (available = r.available))
-        .catch(() => {
-          /* offline, or a party that's been deleted — offer everything */
-        });
-    }
+  /** Where a signed-in person belongs. Dan runs the service; everyone else is a host. */
+  const home = () => (session.actor.account?.role === 'admin' ? '/admin' : '/host');
+
+  async function refresh(): Promise<void> {
+    const account = await currentAccount();
+    user = account?.user ?? null;
+    if (user?.emailVerified) awaitingConfirmation = '';
+    // The actor is the server's answer, and it is what decides the destination —
+    // `user` only says whether anyone is signed in at all.
+    await refreshActor();
+    if (user?.emailVerified && session.actor.account) await goto(home(), { replaceState: true });
+  }
+
+  onMount(async () => {
+    await refresh();
+    loading = false;
   });
 
-  // The mobile order sheet spans two siblings — the rail and its click-to-dismiss
-  // backdrop — and both must stay interactive while the rest goes inert.
-  let orderRail = $state<HTMLElement>();
-  let orderBackdrop = $state<HTMLElement>();
-
-  // On mobile the order sheet is a modal: focus it + make the menu behind inert.
-  // (On desktop it's a persistent rail, so we skip.)
-  $effect(() => {
-    if (!orderOpen) return;
-    if (window.matchMedia('(min-width: 900px)').matches) return;
-    const release = lockBackground(orderRail, orderBackdrop);
-    const prev = document.activeElement as HTMLElement | null;
-    queueMicrotask(() => document.getElementById('name')?.focus());
-    return () => {
-      release();
-      prev?.focus?.();
-    };
-  });
-
-  /** Only ever suggests something the bar can actually pour. */
-  function surprise() {
-    const pool = DRINKS.filter((d) => pourable(d.name));
-    if (pool.length === 0) return;
-    selected = pool[Math.floor(Math.random() * pool.length)]!;
+  /** Run something, showing one error rather than a stack. */
+  async function attempt(what: () => Promise<void>): Promise<void> {
+    busy = true;
+    error = '';
+    notice = '';
+    try {
+      await what();
+    } catch (e) {
+      error = e instanceof Error ? e.message : 'That did not work.';
+    } finally {
+      busy = false;
+    }
   }
 
-  function toggleFav(name: string) {
-    favourites.toggle(name);
-    if (favourites.size === 0) view.favesOnly = false;
-  }
+  const submit = () =>
+    attempt(async () => {
+      if (registering) {
+        await signUp(name.trim(), email.trim(), password);
+        awaitingConfirmation = email.trim();
+      } else {
+        await signInToAccount(email.trim(), password);
+      }
+      password = '';
+      await refresh();
+    });
 
-  function onSent() {
-    view.order = false;
-    celebrating = true;
-    fireConfetti();
-  }
+  const leave = () =>
+    attempt(async () => {
+      await signOutOfAccount();
+      user = null;
+      await refreshActor();
+    });
+
+  const resend = (who: string) =>
+    attempt(async () => {
+      await resendVerification(who);
+      notice = 'Sent again — check your inbox.';
+    });
+
+  /**
+   * Hand the browser to Google.
+   *
+   * A full navigation rather than a fetch: the consent screen is a page, and Google
+   * refuses to be framed or XHR'd. `location.href` because this leaves the app.
+   */
+  const withGoogle = () =>
+    attempt(async () => {
+      const { url } = await googleSignInUrl();
+      window.location.href = url;
+    });
 </script>
 
 <svelte:head><title>COCKTAILS!!!</title></svelte:head>
 
-<svelte:window
-  onkeydown={(e) => {
-    if (e.key !== 'Escape') return;
-    if (celebrating) celebrating = false;
-    else if (orderOpen) view.order = false;
-  }}
-/>
+<header class="appbar">
+  <span class="brand">COCKTAILS</span>
+</header>
 
-<div class="app">
-  <header class="appbar">
-    <span class="brand">COCKTAILS</span>
-    <nav class="topnav" aria-label="Sections">
-      <span class="nav-btn" aria-current="true">Menu</span>
-    </nav>
-    <!-- Grouped, because `.appbar-bartender` carries `margin-left:auto` — with two
-         of them loose in the flex row each claimed the free space, stranding the
-         first one in the middle of the bar. -->
-    <div class="appbar-actions">
-      <button
-        type="button"
-        class="appbar-bartender"
-        onclick={() => (settings.open = true)}
-        aria-label="Settings"
-      >
-        <span class="emoji">⚙️</span>
-      </button>
-      <a class="appbar-bartender" href="/bar" aria-label="Bartender mode">
-        <span class="emoji">🍸</span>
-      </a>
-    </div>
-  </header>
-
-  <main class="stage">
-    <section class="view view-menu" aria-label="Menu">
-      <!-- Inside the scrolling view, not a child of `.app`: the shell is a
-           three-row grid (appbar / stage / tabbar) and a fourth child steals the
-           flexible row, which collapsed the menu to nothing. -->
-      {#if staffRequest.active}
-        <!-- The answer to "am I in yet?" must be reachable without opening the bar:
-             someone who navigated away shouldn't have to go hunting for it. -->
-        <a class="ask-banner ask-{staffRequest.kind}" href="/bar">
-          {#if staffRequest.kind === 'pending'}
-            ⏳ Waiting for the host to approve <strong>{staffRequest.name}</strong>…
-          {:else}
-            ✕ Bar request declined — tap for options
-          {/if}
-        </a>
-      {/if}
-
-      <div class="menubar">
-        {#if favourites.size}
-          <button
-            type="button"
-            class="chip chip-fav"
-            aria-pressed={favesOnly}
-            onclick={() => (view.favesOnly = !favesOnly)}>⭐ Faves</button
-          >
-        {/if}
-        <button type="button" class="chip chip-surprise" onclick={surprise}>🎲 Surprise</button>
-        <InstallButton />
-      </div>
-
-      <!-- Filtering is neo.css's job (.menu.faves-only hides non-favourites), so
-           the class drives it rather than a filtered list. -->
-      <div class="menu" class:faves-only={favesOnly}>
-        {#each DRINKS as d (d.name)}
-          {@const on = pourable(d.name)}
-          <!-- Order is never re-sorted on the availability response: drinks
-               visibly jumping around a second after load reads as a glitch. -->
-          <article class="cocktail" class:is-fav={favourites.has(d.name)} class:is-out={!on}>
-            <button
-              type="button"
-              class="fav"
-              aria-pressed={favourites.has(d.name)}
-              onclick={() => toggleFav(d.name)}
-              aria-label="Toggle favourite"
-            >
-              {favourites.has(d.name) ? '⭐' : '☆'}
-            </button>
-            <h3><span class="emoji">{d.emoji}</span> {d.name}</h3>
-            <button type="button" class="order" disabled={!on} onclick={() => (selected = d)}>
-              {on ? 'Add to order' : 'Not tonight'}
-            </button>
-          </article>
-        {/each}
-      </div>
-    </section>
-  </main>
-
-  <nav class="tabbar" aria-label="Main navigation">
-    <div class="tab" aria-current="true"><span class="emoji">🍸</span><span>Menu</span></div>
-    <button type="button" class="tab tab-order" onclick={() => (view.order = true)}>
-      <span class="emoji">🧺</span><span>Order</span>
-      {#if count}<b class="tab-badge">{count}</b>{/if}
+<main class="host">
+  {#if loading}
+    <p class="host-quiet">One moment…</p>
+  {:else if awaitingConfirmation || (user && !user.emailVerified)}
+    <!-- Signed up, waiting on the email. Sign-up issues no session when verification
+         is required, so this state must not depend on `user`. -->
+    {@const who = user?.email ?? awaitingConfirmation}
+    <h1 class="host-h1">Check your email</h1>
+    <p class="host-quiet">We sent a link to <strong>{who}</strong>. Open it and you're in.</p>
+    <p class="host-quiet">Nothing arrived? It can take a minute, and it may be in spam.</p>
+    <button class="host-go" type="button" onclick={() => resend(who)} disabled={busy}>
+      Send it again
     </button>
-  </nav>
-</div>
+    <button
+      class="host-alt"
+      type="button"
+      onclick={() => {
+        awaitingConfirmation = '';
+        error = '';
+        notice = '';
+        void leave();
+      }}
+    >
+      Use a different account
+    </button>
+  {:else}
+    {#if verified}
+      <p class="host-good">Email confirmed — you're all set.</p>
+    {/if}
 
-<OrderRail
-  open={orderOpen}
-  onclose={() => (view.order = false)}
-  onsent={onSent}
-  bind:rail={orderRail}
-/>
-<div
-  class="order-backdrop"
-  class:open={orderOpen}
-  bind:this={orderBackdrop}
-  onclick={() => (view.order = false)}
-  onkeydown={(e) => e.key === 'Escape' && (view.order = false)}
-  role="button"
-  tabindex="-1"
-  aria-label="Close order"
-></div>
+    <h1 class="host-h1">{registering ? 'Set up your account' : 'Welcome back'}</h1>
+    <p class="host-quiet">
+      {registering
+        ? "Tell us what you've got in, and we'll work out what the bar can pour."
+        : 'Sign in to your parties.'}
+    </p>
 
-{#if selected}
-  <!-- Keyed by drink: picking a different drink must start from that drink's own
-       defaults, so we want a fresh component rather than a reused one carrying
-       the previous selections. Configurator relies on this. -->
-  {#key selected.name}
-    <Configurator drink={selected} onadd={(n) => addLine(n)} onclose={() => (selected = null)} />
-  {/key}
-{/if}
-{#if celebrating}
-  <SentCelebration onclose={() => (celebrating = false)} />
-{/if}
+    {#if data.googleEnabled}
+      <button class="host-google" type="button" onclick={withGoogle} disabled={busy}>
+        <span class="host-google-g" aria-hidden="true">G</span>
+        Continue with Google
+      </button>
+      <p class="host-or"><span>or</span></p>
+    {/if}
+
+    <form
+      class="host-form"
+      onsubmit={(e) => {
+        e.preventDefault();
+        void submit();
+      }}
+    >
+      {#if registering}
+        <label class="host-label">
+          Your name
+          <input class="host-input" bind:value={name} autocomplete="name" required />
+        </label>
+      {/if}
+      <label class="host-label">
+        Email
+        <input class="host-input" type="email" bind:value={email} autocomplete="email" required />
+      </label>
+      <label class="host-label">
+        Password
+        <input
+          class="host-input"
+          type="password"
+          bind:value={password}
+          autocomplete={registering ? 'new-password' : 'current-password'}
+          required
+        />
+      </label>
+      <button class="host-go" type="submit" disabled={busy}>
+        {busy ? 'One moment…' : registering ? 'Create my account' : 'Sign in'}
+      </button>
+    </form>
+
+    <button
+      class="host-alt"
+      type="button"
+      onclick={() => {
+        registering = !registering;
+        error = '';
+        notice = '';
+      }}
+    >
+      {registering ? 'I already have an account' : 'I need an account'}
+    </button>
+
+    <!-- The one thing a guest might need from this page. They should never be here —
+         their link goes straight to a party — but somebody will type the bare domain
+         after being sent the app, and "you're in the wrong place" is a dead end. -->
+    <p class="host-quiet host-footnote">
+      At a party? Open the link or QR code your host gave you — it goes straight to their menu.
+    </p>
+  {/if}
+
+  {#if error}<p class="host-bad" role="alert">{error}</p>{/if}
+  {#if notice}<p class="host-good" role="status">{notice}</p>{/if}
+</main>

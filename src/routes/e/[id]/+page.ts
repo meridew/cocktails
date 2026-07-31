@@ -1,17 +1,21 @@
-import { redirect } from '@sveltejs/kit';
 import { rememberEvent } from '$lib/party';
 
 /**
- * The link behind a host's QR code: remember which party this is, then hand the
- * guest the ordinary menu.
+ * The link behind a host's QR code — and now the menu itself, not a redirect to it.
  *
- * Client-only because the whole job is writing to this device's storage — there is
- * nothing for the server to render, and running it on the server would remember the
- * party for nobody.
+ * It used to remember the party and bounce to `/`. Two things made that wrong. `/`
+ * is the front door now (sign in, or register), which is not what somebody who
+ * scanned a code off a kitchen table is looking for. And a guest who bookmarked or
+ * shared the menu ended up with a URL naming no party — fine while there was only
+ * ever one, useless now that several run at once.
+ *
+ * So the party lives in the path, which is the same shape everything else moved to:
+ * the request says which party it means rather than the server guessing.
+ *
+ * Still remembers the id in device storage, because the basket and the order it
+ * eventually posts are device-local and outlive this page.
  */
-export const ssr = false;
-
-export function load({ params }: { params: { id: string } }): never {
+export function load({ params }: { params: { id: string } }): { eventId: string } {
   rememberEvent(params.id);
-  redirect(307, '/');
+  return { eventId: params.id };
 }

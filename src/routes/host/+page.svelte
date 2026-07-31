@@ -1,151 +1,48 @@
 <script lang="ts">
   /**
-   * The host's door — the thing the platform overhaul was missing.
+   * A host's own area: their cupboard, and the parties Dan has set up for them.
    *
-   * Everything behind this existed already: accounts in phase 1, events and the
-   * account→bar bridge in phase 2.5. What didn't exist was any way to reach them
-   * without curl, which meant the one role the whole overhaul was *for* couldn't
-   * be used by a person.
+   * **A host is a customer.** They do not create parties, take orders, approve
+   * helpers or open bars — Dan does. Their whole job is to say what they've got in
+   * and watch on the night, so this screen is deliberately small. Every control that
+   * used to be here and isn't now was one a host should never have had: this page
+   * previously carried sign-in, sign-up, "create a party" and "open the bar",
+   * because it was the *only* door and had to be all of them.
    *
-   * One route rather than four, because the states are a sequence rather than a
-   * menu: signed out → signed up but unverified → signed in with no party → a
-   * party to open. Splitting that across /sign-in, /sign-up, /verify and /parties
-   * would make a linear walk feel like a site map.
-   *
-   * The PIN and join codes are untouched. This is for hosts, who sign in from a
-   * phone they've never used before; typing an email and a password behind a bar
-   * mid-party is exactly the misery the keypad removed.
+   * Signing in moved to `/` — the front door routes people here once it knows what
+   * they are. The cupboard is the same component Dan uses from `/admin`, because it
+   * is the same list under the same rules; two copies would be two sets of decisions
+   * about what counts as pourable.
    */
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import { page } from '$app/state';
-  import {
-    currentAccount,
-    myParties,
-    openBar,
-    resendVerification,
-    signInToAccount,
-    signOutOfAccount,
-    signUp,
-    googleSignInUrl,
-    type AccountUser,
-    type Party,
-  } from '$lib/api';
-  import { adoptApprovedSession } from '$lib/stores/session.svelte';
-  import { rememberEvent } from '$lib/party';
+  import { myParties, signOutOfAccount, type Party } from '$lib/api';
+  import { refreshActor, session } from '$lib/stores/session.svelte';
+  import Cupboard from '$lib/components/Cupboard.svelte';
 
-  /** From +page.server.ts: whether Google is configured on this deployment. */
-  let { data }: { data: { googleEnabled: boolean } } = $props();
-
-  let user = $state<AccountUser | null>(null);
   let parties = $state<Party[]>([]);
   let loading = $state(true);
-  let busy = $state(false);
-  let error = $state('');
   let notice = $state('');
 
-  /** Sign in unless they've asked to register — sign-in is the commoner visit. */
-  let registering = $state(false);
-  let name = $state('');
-  let email = $state('');
-  let password = $state('');
-
-  /**
-   * Who just signed up, when there is no session to show for it.
-   *
-   * Sign-up with verification required deliberately issues no session, so without
-   * this the screen falls straight back to "signed out" and redraws the form they
-   * just submitted — the same "it dumped me back at the login screen with no idea
-   * what happened" that made the ask-to-help flow feel broken. Signing up is a
-   * thing that *happened*; the screen has to say so.
-   */
-  let awaitingConfirmation = $state('');
-
-  const verified = $derived(page.url.searchParams.get('verified') !== null);
-
-  async function refresh(): Promise<void> {
-    const session = await currentAccount();
-    user = session?.user ?? null;
-    if (user?.emailVerified) awaitingConfirmation = '';
-    // Only a verified account can list parties; asking anyway would surface a 401
-    // as an error on a screen whose job is to explain what to do next.
-    parties = user?.emailVerified ? ((await myParties().catch(() => null))?.events ?? []) : [];
-  }
+  const me = $derived(session.actor.account);
 
   onMount(async () => {
-    await refresh();
+    await refreshActor();
+    if (!session.actor.account) {
+      await goto('/', { replaceState: true });
+      return;
+    }
+    parties = (await myParties().catch(() => null))?.events ?? [];
     loading = false;
   });
 
-  /** Run something, showing one error rather than a stack. */
-  async function attempt(what: () => Promise<void>): Promise<void> {
-    busy = true;
-    error = '';
-    notice = '';
-    try {
-      await what();
-    } catch (e) {
-      error = e instanceof Error ? e.message : 'That did not work.';
-    } finally {
-      busy = false;
-    }
-  }
+  const leave = async () => {
+    await signOutOfAccount().catch(() => {});
+    await refreshActor();
+    await goto('/', { replaceState: true });
+  };
 
-  const submit = () =>
-    attempt(async () => {
-      if (registering) {
-        await signUp(name.trim(), email.trim(), password);
-        awaitingConfirmation = email.trim();
-      } else {
-        await signInToAccount(email.trim(), password);
-      }
-      password = '';
-      await refresh();
-    });
-
-  /**
-   * Open a party's bar.
-   *
-   * Trades the account session for a staff one, because every bar endpoint speaks
-   * staff sessions — most people behind a bar have no account at all. Also
-   * remembers the party on this device, so if the host orders a drink themselves
-   * it lands in their own queue rather than in whichever event happens to be live.
-   */
-  const enterBar = (party: Party) =>
-    attempt(async () => {
-      const { token, staff } = await openBar(party.id);
-      adoptApprovedSession(token, staff);
-      rememberEvent(party.id);
-      await goto('/bar');
-    });
-
-  const leave = () =>
-    attempt(async () => {
-      await signOutOfAccount();
-      user = null;
-      parties = [];
-    });
-
-  const resend = (who: string) =>
-    attempt(async () => {
-      await resendVerification(who);
-      notice = 'Sent again — check your inbox.';
-    });
-
-  /**
-   * Hand the browser to Google.
-   *
-   * A full navigation rather than a fetch: the consent screen is a page, and
-   * Google refuses to be framed or XHR'd. `location.href` rather than `goto`
-   * because this leaves the app entirely.
-   */
-  const withGoogle = () =>
-    attempt(async () => {
-      const { url } = await googleSignInUrl();
-      window.location.href = url;
-    });
-
-  /** The link to put in a QR code on the kitchen table. */
   const guestLink = (party: Party): string => `${page.url.origin}/e/${party.id}`;
 
   async function copyLink(party: Party): Promise<void> {
@@ -153,147 +50,66 @@
       await navigator.clipboard.writeText(guestLink(party));
       notice = 'Guest link copied.';
     } catch {
-      // Clipboard needs permission it may not have; the link is on screen anyway.
-      notice = guestLink(party);
+      notice = guestLink(party); // clipboard needs permission it may not have
     }
   }
+
+  const when = (ms: number | null): string =>
+    ms ? new Date(ms).toLocaleDateString(undefined, { day: 'numeric', month: 'short' }) : '';
 </script>
 
-<svelte:head><title>Host · COCKTAILS!!!</title></svelte:head>
+<svelte:head><title>Your bar · COCKTAILS!!!</title></svelte:head>
 
 <header class="appbar">
-  <div class="brand">🍸 Host</div>
-  <a class="appbar-bartender" href="/">Back to the menu</a>
+  <div class="brand">🍸 Your bar</div>
+  <button class="appbar-bartender" type="button" onclick={leave}>Sign out</button>
 </header>
 
 <main class="host">
   {#if loading}
     <p class="host-quiet">One moment…</p>
-  {:else if awaitingConfirmation || (user && !user.emailVerified)}
-    <!-- Signed up, waiting on the email. Sign-up issues no session when
-         verification is required, so this state must not depend on `user`. -->
-    {@const who = user?.email ?? awaitingConfirmation}
-    <h1 class="host-h1">Check your email</h1>
-    <p class="host-quiet">
-      We sent a link to <strong>{who}</strong>. Open it and you're in.
-    </p>
-    <p class="host-quiet">Nothing arrived? It can take a minute, and it may be in spam.</p>
-    <button class="host-go" type="button" onclick={() => resend(who)} disabled={busy}>
-      Send it again
-    </button>
-    <button
-      class="host-alt"
-      type="button"
-      onclick={() => {
-        awaitingConfirmation = '';
-        error = '';
-        notice = '';
-        void leave();
-      }}
-    >
-      Use a different account
-    </button>
-  {:else if !user}
-    <!-- Signed out -->
-    <h1 class="host-h1">{registering ? 'Set up your party' : 'Welcome back'}</h1>
-    <p class="host-quiet">
-      {registering
-        ? 'An account lets you own a party, set what you have in, and open its bar from any phone.'
-        : 'Sign in to your parties.'}
-    </p>
-
-    {#if data.googleEnabled}
-      <button class="host-google" type="button" onclick={withGoogle} disabled={busy}>
-        <span class="host-google-g" aria-hidden="true">G</span>
-        Continue with Google
-      </button>
-      <p class="host-or"><span>or</span></p>
-    {/if}
-
-    <form
-      class="host-form"
-      onsubmit={(e) => {
-        e.preventDefault();
-        void submit();
-      }}
-    >
-      {#if registering}
-        <label class="host-label">
-          Your name
-          <input class="host-input" bind:value={name} autocomplete="name" required />
-        </label>
-      {/if}
-      <label class="host-label">
-        Email
-        <input class="host-input" type="email" bind:value={email} autocomplete="email" required />
-      </label>
-      <label class="host-label">
-        Password
-        <input
-          class="host-input"
-          type="password"
-          bind:value={password}
-          autocomplete={registering ? 'new-password' : 'current-password'}
-          required
-        />
-      </label>
-      <button class="host-go" type="submit" disabled={busy}>
-        {busy ? 'One moment…' : registering ? 'Create my account' : 'Sign in'}
-      </button>
-    </form>
-
-    <button
-      class="host-alt"
-      type="button"
-      onclick={() => {
-        registering = !registering;
-        error = '';
-        notice = '';
-      }}
-    >
-      {registering ? 'I already have an account' : 'I need an account'}
-    </button>
   {:else}
-    <!-- Signed in and verified -->
-    {#if verified}
-      <p class="host-good">Email confirmed — you're all set.</p>
+    <h1 class="host-h1">What you've got in</h1>
+    <p class="host-quiet">
+      Tick what's actually in the house and we'll work out what the bar can pour. It's optional —
+      leave it and your guests just see everything.
+    </p>
+
+    {#if me}
+      <Cupboard userId={me.id} onsaved={() => (notice = 'Saved.')} />
     {/if}
 
-    <h1 class="host-h1">Your parties</h1>
-
-    {#if parties.length === 0}
-      <p class="host-quiet">
-        No parties yet — Dan sets those up. Meanwhile, tell us what you've got in and we'll work out
-        what the bar can pour.
-      </p>
-    {/if}
-
-    <ul class="host-parties">
-      {#each parties as party (party.id)}
-        <li class="host-party">
-          <div class="host-party-main">
-            <span class="host-party-name">{party.name}</span>
-            <span class="host-party-status">{party.status}</span>
+    <section class="bt-staff-group">
+      <h4>Your parties</h4>
+      {#if parties.length === 0}
+        <p class="bt-empty">
+          None yet — Dan sets those up. Your cupboard is ready whenever he does.
+        </p>
+      {:else}
+        {#each parties as party (party.id)}
+          <div class="bt-staff-row">
+            <div class="bt-staff-who">
+              <span class="bt-name">{party.name}</span>
+              <span class="bt-ago">
+                {party.status}{when(party.startsAt) ? ` · ${when(party.startsAt)}` : ''}
+              </span>
+            </div>
+            <div class="bt-acts">
+              {#if party.status === 'live'}
+                <!-- Watch, not work. There is deliberately no control here that
+                     changes anything about the queue — see the capability table. -->
+                <a class="bt-act" href="/e/{party.id}">See the menu</a>
+              {/if}
+              <button class="bt-act" type="button" onclick={() => copyLink(party)}>
+                Guest link
+              </button>
+            </div>
+            <code class="host-link">{guestLink(party)}</code>
           </div>
-          <div class="host-party-acts">
-            <button class="host-go" type="button" onclick={() => enterBar(party)} disabled={busy}>
-              Open the bar
-            </button>
-            <button class="host-alt" type="button" onclick={() => copyLink(party)}>
-              Copy guest link
-            </button>
-          </div>
-          <code class="host-link">{guestLink(party)}</code>
-        </li>
-      {/each}
-    </ul>
-
-    <!-- Creating a party is Dan's job now, not the host's: a booking is a
-         conversation, and the party has to be attached to the right account. What
-         used to be a form here is a sentence. -->
-    <button class="host-alt" type="button" onclick={leave}>Sign out</button>
+        {/each}
+      {/if}
+    </section>
   {/if}
 
-  {#if error}<p class="host-bad" role="alert">{error}</p>{/if}
   {#if notice}<p class="host-good" role="status">{notice}</p>{/if}
 </main>
