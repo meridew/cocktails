@@ -111,11 +111,11 @@
 
     <p class="empty">
       {#if source === 'house'}
-        This party has no cupboard behind it yet, so these are the six house drinks.
-        Fill the cupboard in and this list grows.
+        This party has no cupboard behind it yet, so these are the six house drinks. Fill the
+        cupboard in and this list grows.
       {:else}
-        Tick the ones to lead with. Leave it empty and guests get the lot — they can
-        always search or ask to be walked through it.
+        Tick the ones to lead with. Leave it empty and guests get the lot — they can always search
+        or ask to be walked through it.
       {/if}
     </p>
 

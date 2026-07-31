@@ -183,7 +183,10 @@ describe('the menu is generated, not filtered', () => {
     assert.equal(menu.source, 'house');
     assert.equal(menu.recorded, false);
     assert.equal(menu.items.length, 6);
-    assert.ok(names(menu).includes('Wine'), 'the house list keeps the drinks we have no recipe for');
+    assert.ok(
+      names(menu).includes('Wine'),
+      'the house list keeps the drinks we have no recipe for',
+    );
   });
 
   test('but one tick switches it to the real thing', async () => {

@@ -56,6 +56,11 @@ recorded in `docs/PLATFORM-PLAN.md` §9.
 - `src/lib/neo.css` is a **verbatim** copy of the original design and is in
   `.prettierignore`. Keep it byte-identical; additions go in `app.css`.
 - `$lib/server/*` must never be imported from client code — the build enforces it.
-- Gates are `npm run check` and `npm test`. Don't call work done on a green
-  typecheck alone.
+- Gates are `npm run format:check`, `npm run check` and `npm test`. Don't call work
+  done on a green typecheck alone — and don't skip `format:check`, which CI runs
+  first and which will fail a commit that only the other two were run against.
+- `npm run test:e2e` builds the app and drives it in a real browser (Playwright,
+  `e2e/`). It also gates in CI. Slower than the rest, and worth running whenever a
+  change crosses more than one participant — a host's cupboard reaching a guest's
+  menu, a guest's order reaching the bar.
 - Deploy only when asked. Pushes gate; they do not deploy.

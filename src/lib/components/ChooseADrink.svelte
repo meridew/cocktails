@@ -81,7 +81,8 @@
       // One option that every remaining drink needs isn't a choice, it's an
       // announcement — skip past it rather than asking a question with one answer.
       if (options.length === 0) continue;
-      if (options.length === 1 && inPlay.every((r) => r.ingredients.includes(options[0]!))) continue;
+      if (options.length === 1 && inPlay.every((r) => r.ingredients.includes(options[0]!)))
+        continue;
       return {
         category,
         options: options.sort((a, b) => countWith(inPlay, b) - countWith(inPlay, a)),
@@ -136,11 +137,7 @@
           {option}<b>{countWith(inPlay, option)}</b>
         </button>
       {/each}
-      <button
-        class="btn"
-        type="button"
-        onclick={() => (skipped = [...skipped, askable.category])}
-      >
+      <button class="btn" type="button" onclick={() => (skipped = [...skipped, askable.category])}>
         No thanks
       </button>
     </div>

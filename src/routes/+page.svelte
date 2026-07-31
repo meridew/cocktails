@@ -55,6 +55,21 @@
   /** Where a signed-in person belongs. Dan runs the service; everyone else is a host. */
   const home = () => (session.actor.account?.role === 'admin' ? '/admin' : '/host');
 
+  /**
+   * Signed in, verified, and still nobody — which is what a suspension looks like
+   * from here.
+   *
+   * Better Auth does not know about `bannedAt`; the ban lives in `resolveActor`, so a
+   * suspended host's password is still correct and they still get a session. Without
+   * this they landed back on the sign-in form having successfully signed in, with
+   * nothing said and no idea why — the same dead end sign-up used to have, which is
+   * why `awaitingConfirmation` exists two states up. Found by the end-to-end suite.
+   *
+   * It does not say *why* they were suspended. That reason is Dan's note to himself,
+   * and `PATCH /api/hosts/[id]` never sends it to the person it is about.
+   */
+  let suspended = $state(false);
+
   async function refresh(): Promise<void> {
     const account = await currentAccount();
     user = account?.user ?? null;
@@ -62,6 +77,7 @@
     // The actor is the server's answer, and it is what decides the destination —
     // `user` only says whether anyone is signed in at all.
     await refreshActor();
+    suspended = Boolean(user?.emailVerified) && session.actor.account === null;
     if (user?.emailVerified && session.actor.account) await goto(home(), { replaceState: true });
   }
 
@@ -100,6 +116,7 @@
     attempt(async () => {
       await signOutOfAccount();
       user = null;
+      suspended = false;
       await refreshActor();
     });
 
@@ -161,6 +178,17 @@
     {:else}
       {#if verified}
         <p class="says says-good">Email confirmed — you're all set.</p>
+      {/if}
+
+      {#if suspended}
+        <section class="panel">
+          <h2>This account is closed</h2>
+          <p>
+            Your details are right, but the account has been suspended. Get in touch if you think
+            that's a mistake.
+          </p>
+          <button class="btn" type="button" onclick={leave} disabled={busy}>Sign out</button>
+        </section>
       {/if}
 
       <section class="panel">

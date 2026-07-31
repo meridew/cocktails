@@ -125,16 +125,40 @@ const SCENARIOS = {
   stocked(db) {
     const bottles = [
       // spirits
-      'Gin', 'Vodka', 'White Rum', 'Dark Rum', 'Tequila', 'Bourbon',
+      'Gin',
+      'Vodka',
+      'White Rum',
+      'Dark Rum',
+      'Tequila',
+      'Bourbon',
       // fortified & liqueurs
-      'Sweet Vermouth', 'Dry Vermouth', 'Campari', 'Aperol', 'Triple Sec', 'Coffee Liqueur',
+      'Sweet Vermouth',
+      'Dry Vermouth',
+      'Campari',
+      'Aperol',
+      'Triple Sec',
+      'Coffee Liqueur',
       // citrus & juice
-      'Lime Juice', 'Lemon Juice', 'Orange Juice', 'Cranberry Juice', 'Pineapple Juice',
+      'Lime Juice',
+      'Lemon Juice',
+      'Orange Juice',
+      'Cranberry Juice',
+      'Pineapple Juice',
       // mixers
-      'Soda Water', 'Tonic Water', 'Ginger Beer', 'Cola', 'Prosecco',
+      'Soda Water',
+      'Tonic Water',
+      'Ginger Beer',
+      'Cola',
+      'Prosecco',
       // sweeteners & the rest
-      'Simple Syrup', 'Agave Syrup', 'Honey Syrup', 'Grenadine',
-      'Angostura Bitters', 'Mint', 'Egg White', 'Espresso',
+      'Simple Syrup',
+      'Agave Syrup',
+      'Honey Syrup',
+      'Grenadine',
+      'Angostura Bitters',
+      'Mint',
+      'Egg White',
+      'Espresso',
     ];
     const users = db.prepare(`SELECT id, name FROM user`).all();
     if (users.length === 0) {

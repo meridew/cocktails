@@ -17,6 +17,7 @@
  * would have had a five-month shelf life.
  */
 import { readFileSync } from 'node:fs';
+import { appendFile } from 'node:fs/promises';
 import { config } from './config';
 import { graphConfigured, graphSender } from './email.graph';
 
@@ -57,6 +58,26 @@ export const loggingSender: EmailSender = {
 };
 
 /**
+ * Appends each message to a file as JSON, one per line.
+ *
+ * For the end-to-end suite, which drives a **real server in another process** and so
+ * cannot reach `memorySender` below. Verification is not something the browser can
+ * skip — an unverified account is refused everywhere — so "register through the front
+ * door" is only walkable if the link is readable from outside the server.
+ *
+ * Appends rather than rewrites, and tolerates a missing directory only by failing
+ * loudly: a silently swallowed write here would show up as a test that hangs waiting
+ * for mail that was never recorded.
+ */
+export function fileSender(path: string): EmailSender {
+  return {
+    async send(email: Email): Promise<void> {
+      await appendFile(path, `${JSON.stringify(email)}\n`, 'utf8');
+    },
+  };
+}
+
+/**
  * Collects messages instead of sending them, so a test can assert on what would
  * have gone out — particularly the verification link, which it then follows.
  */
@@ -79,6 +100,16 @@ export function memorySender(): EmailSender & { sent: Email[] } {
  * rather than a sign-up that fails with nothing to show for it.
  */
 function pick(): EmailSender {
+  // `EMAIL_OUTBOX` outranks everything, because setting it is an explicit
+  // instruction rather than a partial configuration. It exists for the end-to-end
+  // suite, which runs the real server in another process and has to read the
+  // verification link back out. Production never sets it; if it somehow did, the
+  // line below is the only warning anyone would get, so it says so plainly.
+  if (config.emailOutbox) {
+    console.warn(`📧 email: writing to ${config.emailOutbox} — NOTHING IS BEING SENT`);
+    return fileSender(config.emailOutbox);
+  }
+
   const { tenantId, clientId, keyFile, sender } = config.graph;
 
   // Read here rather than in config.ts so importing config never touches the

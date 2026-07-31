@@ -299,7 +299,9 @@
           >
             {door === 'all' ? '← Back' : '📖 Everything'}
           </button>
-          <button type="button" class="chip" onclick={() => (door = 'walk')}>🤔 Help me choose</button>
+          <button type="button" class="chip" onclick={() => (door = 'walk')}
+            >🤔 Help me choose</button
+          >
           <button type="button" class="chip chip-surprise" onclick={surprise}>🎲 Surprise</button>
           <InstallButton />
         </div>

@@ -29,3 +29,8 @@ build/
 # The Graph certificate is handed over out-of-band, not carried here. Its
 # private half lives only on the Mac at ~/.config/cocktails/graph-key.pem.
 graph-cert.pem
+
+# End-to-end: a throwaway database and its outbox, wiped on every run.
+.e2e/
+test-results/
+playwright-report/

@@ -55,6 +55,33 @@ jobs:
           npm run check
           npm test
 
+      # Chromium only, and only when the lockfile moved — the download is ~150MB and
+      # the runner keeps it between jobs. `--with-deps` is a no-op on macOS; it is
+      # there so the same line works if this ever runs on a Linux runner.
+      - name: Playwright browser
+        run: |
+          eval "$(/opt/homebrew/bin/brew shellenv)"
+          npx playwright install --with-deps chromium
+
+      # Builds the app and drives it in a real browser: the four-participant loop and
+      # the refusals. Ten workers, which is the M4's core count — see
+      # playwright.config.ts. It runs after `npm test` on purpose: the fast suite
+      # should be what fails first when both would.
+      - name: End to end
+        run: |
+          eval "$(/opt/homebrew/bin/brew shellenv)"
+          npm run test:e2e
+
+      - name: Keep the traces from a failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
+
   deploy:
     needs: gate
     if: github.event_name == 'workflow_dispatch' && inputs.deploy

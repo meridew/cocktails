@@ -19,10 +19,12 @@ new feature got built wherever that credential already worked, rather than where
 belonged. The host's stock screen ended up inside the bartender's screen. That is a
 symptom; the missing axis is the cause, and §8 phase 0 fixes the cause first.
 
-**Phases 0, 2, 3, 4 and 5 are done.** The app now does what §1 has always said it
+**Phases 0, 2, 3, 4, 5 and 6 are done.** The app now does what §1 has always said it
 does: a host records what they have in, and their guests get a menu generated from
-it — 60 drinks from 30 bottles rather than six curated ones filtered down. What
-remains is phase 6 (Playwright), and phases 7 and 8, both deferred by Dan.
+it — 60 drinks from 30 bottles rather than six curated ones filtered down. A
+Playwright suite walks the whole party in a real browser. What remains is phases 7 and
+8, both deferred by Dan — and phase 6's gate, which is the first green run on the Mac
+and can only happen on a push.
 
 **Phase 1 was withdrawn, not skipped.** Its premise — that the look was broken — was
 a claim in a document rather than an observed fact, and it was false.
@@ -698,13 +700,13 @@ offers under Gin.
 **What it cost, and what it changed:**
 
 - `ChooseADrink.svelte` does **not** use the engine's `exactMatch()`. That function
-  asks whether the picks *are* the ingredient list, and an ingredient list includes
+  asks whether the picks _are_ the ingredient list, and an ingredient list includes
   the `method` — which the walk deliberately never asks about, because nobody chooses
   whether their drink is shaken. Against a Negroni it compared two picks to three
   ingredients, decided the walk wasn't finished, and offered "any of these: Negroni".
   The walk is finished when nothing is left to ask and one drink is left standing.
 - **Two card defects that only 270 names could expose.** The title reserved a 44px
-  gutter for the favourite star on *every* line, and sized itself off the viewport —
+  gutter for the favourite star on _every_ line, and sized itself off the viewport —
   so "Cosmopolitan" in a half-width phone card had ~90px and ran under the star. The
   gutter is now the star's own line and the size comes from the card (`cqi`). Four
   chips also don't fit a phone in one row; `.menubar` wraps on the guest menu.
@@ -717,7 +719,7 @@ generated menu currently offers a non-drinker nothing. Every one of the 270 is a
 cocktail. A host with a well-stocked bar and a pregnant guest has a problem the app
 does not know about.
 
-### Phase 6 — end to end
+### ~~Phase 6 — end to end~~ ✅ built, 31 Jul 2026 — _gate pending the first CI run_
 
 Playwright over the flows that now exist, sharded across the M4's ten cores: register
 → cupboard → Dan creates a party → guest orders from the generated menu → helper
@@ -725,6 +727,32 @@ serves it → guest notified. Plus the negative ones: a host cannot advance an o
 banned host cannot sign in, one party's guest cannot see another's menu.
 
 _Gate: the suite runs in CI on the Mac runner._
+
+13 specs in `e2e/`, green in about ten seconds. `npm run test:e2e` builds the app and
+drives `build/index.js` — the same artefact launchd runs — against a SQLite file that
+is deleted on every start.
+
+- **Four browser contexts, because that is four devices**, and guests and helpers get
+  a phone viewport. Above 900px neo.css hides the tab bar and pins the order rail
+  open, so a desktop guest never touches the sheet every real guest uses.
+- **`EMAIL_OUTBOX`** writes outbound mail to a file as JSON. Verification is not
+  skippable — an unverified account is refused everywhere — so "register through the
+  front door" is only walkable if the link is readable from outside the server. It
+  outranks Graph, and says so in the log, because setting it stops mail being sent.
+- **The push leg is not asserted.** Headless Chromium has no push service and the run
+  disables VAPID, so the guest's phone buzzing is a code path that runs and an arrival
+  nobody can observe. Same conclusion phase 4 reached: it wants a real device.
+
+**It found a real defect on its first run.** Better Auth does not know about
+`bannedAt` — the ban lives in `resolveActor` — so a suspended host's password is still
+correct and they still get a session. They landed back on the sign-in form having
+successfully signed in, with nothing said and no idea why: the exact dead end
+`awaitingConfirmation` exists to prevent for sign-up. The front door now says the
+account is closed, and does not say why, because that reason is Dan's note to himself.
+
+**Also found:** `/e/<id>` remembers the party during hydration, which is later than
+`page.goto` resolves — so a device could reach `/bar` with no party remembered. A
+person cannot lose that race; a test can, and did, once in three runs.
 
 ### Phase 7 — the variant model _(deferred, needs research)_
 

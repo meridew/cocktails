@@ -120,6 +120,11 @@ export const config = {
   /** SQLite file path. Relative to the app's working directory. */
   dbPath: ENV.DB_PATH || './data/cocktails.sqlite',
   /**
+   * Write outbound mail to this file instead of sending it, one JSON object per
+   * line. Set only by the end-to-end suite — see `fileSender`.
+   */
+  emailOutbox: (ENV.EMAIL_OUTBOX ?? '').trim(),
+  /**
    * Web Push (VAPID). Empty keys → push is disabled and the sender no-ops.
    * Set VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY (secret!) / VAPID_SUBJECT in env.
    */
