@@ -10,10 +10,11 @@ import { test, describe, beforeAll, beforeEach } from 'vitest';
 import assert from 'node:assert/strict';
 import { HANDOFFS, HANDOFF_META, STATUS_META, isHandoff, type Order } from '$lib/shared';
 import { request } from './app';
-import { hashPassword, ensureLiveEvent } from '$lib/server/auth';
-import { createStaff, genId, clearOrders } from '$lib/server/db';
+import { clearOrders } from '$lib/server/db';
+import { barToken, partyFor, person, useMemoryEmail, type Account } from './fixtures/people';
 
-const STAFF = { email: 'handoff@local', password: 'handoff-pw' };
+let dan: Account;
+let eventId = '';
 let token = '';
 
 const send = (method: string, body: unknown, headers: Record<string, string> = {}) => ({
@@ -26,7 +27,7 @@ const auth = () => ({ Authorization: `Bearer ${token}` });
 async function place(name: string): Promise<Order> {
   const res = await request(
     '/api/orders',
-    send('POST', { name, items: [{ name: 'Mojito', qty: 1 }] }),
+    send('POST', { name, eventId, items: [{ name: 'Mojito', qty: 1 }] }),
   );
   return ((await res.json()) as { order: Order }).order;
 }
@@ -39,20 +40,13 @@ async function patch(id: string, body: Record<string, unknown>): Promise<Order> 
 }
 
 beforeAll(async () => {
-  createStaff({
-    eventId: ensureLiveEvent(),
-    id: genId(),
-    displayName: 'Handoff Staff',
-    email: STAFF.email,
-    passwordHash: await hashPassword(STAFF.password),
-    role: 'admin',
-    status: 'active',
-  });
-  const res = await request('/api/auth/login', send('POST', STAFF));
-  token = ((await res.json()) as { token: string }).token;
+  useMemoryEmail();
+  dan = await person('handoff-dan', 'admin');
+  eventId = partyFor(dan.id, 'Handoff party');
+  token = await barToken(dan, eventId);
 });
 
-beforeEach(() => clearOrders(ensureLiveEvent(), 'all'));
+beforeEach(() => clearOrders(eventId, 'all'));
 
 describe('the handoff contract', () => {
   test('every handoff has a bar-facing label and a distinct action class', () => {
@@ -98,7 +92,7 @@ describe('recording a handoff', () => {
 
   test('both choices round-trip through the queue listing', async () => {
     for (const choice of HANDOFFS) {
-      await clearOrders(ensureLiveEvent(), 'all');
+      await clearOrders(eventId, 'all');
       const order = await place(`Guest ${choice}`);
       await patch(order.id, { status: 'serving', handoff: choice });
       const res = await request('/api/orders', { headers: auth() });

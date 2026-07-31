@@ -42,7 +42,18 @@ import type {
 import { LIMITS, isHandoff } from '$lib/shared';
 import { config } from './config';
 import * as schema from './schema';
-import { event, inventory, joinCodes, orders, staff, staffSessions, subscriptions } from './schema';
+import {
+  event,
+  eventMenu,
+  joinCodes,
+  orders,
+  staff,
+  staffSessions,
+  stock,
+  subscriptions,
+  userPin,
+} from './schema';
+import { user } from './schema.auth';
 
 export const now = (): number => Date.now();
 export const genId = (): string => randomBytes(6).toString('hex');
@@ -57,7 +68,8 @@ export const genId = (): string => randomBytes(6).toString('hex');
 export type StaffRow = typeof staff.$inferSelect;
 export type SessionRow = typeof staffSessions.$inferSelect;
 export type EventRow = typeof event.$inferSelect;
-export type InventoryRow = typeof inventory.$inferSelect;
+export type StockRow = typeof stock.$inferSelect;
+export type UserRow = typeof user.$inferSelect;
 type OrderRow = typeof orders.$inferSelect;
 type SubRow = typeof subscriptions.$inferSelect;
 
@@ -338,7 +350,7 @@ export function createDb(dbPath: string) {
     },
 
     /** Record a join code (hashed) that the host can read out to a helper. */
-    createJoinCode(codeHash: string, expiresAt: number, createdBy: string): void {
+    createJoinCode(codeHash: string, expiresAt: number, createdBy: string | null): void {
       // Opportunistic sweep, so the table stays tiny.
       db.delete(joinCodes).where(lt(joinCodes.expiresAt, now())).run();
       db.insert(joinCodes).values({ codeHash, expiresAt, createdBy, createdAt: now() }).run();
@@ -358,9 +370,13 @@ export function createDb(dbPath: string) {
 
     // ---- events ----
 
+    /**
+     * A party always belongs to a host. `hostUserId` is not optional any more, and
+     * `liveEvent()` is gone with it — there is no such thing as "the" live party now
+     * that several run at once, so a guest names theirs or doesn't order.
+     */
     createEvent(e: {
-      /** Null only for the default event seeded before anyone has signed up. */
-      hostUserId?: string | null;
+      hostUserId: string;
       name: string;
       startsAt?: number | null;
       status?: string;
@@ -369,10 +385,10 @@ export function createDb(dbPath: string) {
       db.insert(event)
         .values({
           id,
-          hostUserId: e.hostUserId ?? null,
+          hostUserId: e.hostUserId,
           name: e.name,
           startsAt: e.startsAt ?? null,
-          status: e.status ?? 'live',
+          status: e.status ?? 'draft',
           createdAt: now(),
         })
         .run();
@@ -383,22 +399,25 @@ export function createDb(dbPath: string) {
       return db.select().from(event).where(eq(event.id, id)).get() ?? null;
     },
 
-    /**
-     * The party currently being served.
-     *
-     * Exactly one event is live at a time for now, which is what lets a guest scan
-     * a QR code and order without choosing anything. When a host can run two at
-     * once, this becomes a lookup by code and every caller already takes the id.
-     */
-    liveEvent(): EventRow | null {
-      return (
-        db
-          .select()
-          .from(event)
-          .where(eq(event.status, 'live'))
-          .orderBy(desc(event.createdAt), sql`rowid DESC`)
-          .get() ?? null
-      );
+    updateEvent(
+      id: string,
+      changes: { name?: string; startsAt?: number | null; status?: string },
+    ): EventRow | null {
+      const set: Record<string, unknown> = {};
+      if (changes.name !== undefined) set.name = changes.name;
+      if (changes.startsAt !== undefined) set.startsAt = changes.startsAt;
+      if (changes.status !== undefined) set.status = changes.status;
+      if (Object.keys(set).length > 0) db.update(event).set(set).where(eq(event.id, id)).run();
+      return db.select().from(event).where(eq(event.id, id)).get() ?? null;
+    },
+
+    deleteEvent(id: string): void {
+      db.delete(event).where(eq(event.id, id)).run();
+    },
+
+    /** Every party, newest first. Admin-only by capability, not by this function. */
+    allEvents(): EventRow[] {
+      return db.select().from(event).orderBy(desc(event.createdAt)).all();
     },
 
     eventsForHost(hostUserId: string): EventRow[] {
@@ -410,30 +429,105 @@ export function createDb(dbPath: string) {
         .all();
     },
 
-    // ---- inventory ----
+    // ---- the host's cupboard ----
 
-    listInventory(eventId: string): InventoryRow[] {
+    /** Everything this **host** has said something about. See `stock` in schema.ts. */
+    listStock(userId: string): StockRow[] {
       return db
         .select()
-        .from(inventory)
-        .where(eq(inventory.eventId, eventId))
-        .orderBy(asc(inventory.ingredient))
+        .from(stock)
+        .where(eq(stock.userId, userId))
+        .orderBy(asc(stock.ingredient))
         .all();
     },
 
-    /** Upsert one ingredient's availability for this event. */
-    setInStock(eventId: string, ingredient: string, inStock: boolean): void {
-      db.insert(inventory)
-        .values({ eventId, ingredient, inStock })
+    /** Upsert one ingredient for this host. Unticking writes `false`, never deletes. */
+    setInStock(userId: string, ingredient: string, inStock: boolean): void {
+      db.insert(stock)
+        .values({ userId, ingredient, inStock })
         .onConflictDoUpdate({
-          target: [inventory.eventId, inventory.ingredient],
+          target: [stock.userId, stock.ingredient],
           set: { inStock: sql`excluded.in_stock` },
         })
         .run();
     },
 
-    staffByEmail(email: string): StaffRow | null {
-      return db.select().from(staff).where(eq(staff.email, email)).get() ?? null;
+    // ---- the short list ----
+
+    /** Recipe ids this party leads with. **Empty means show everything** — see schema.ts. */
+    listEventMenu(eventId: string): string[] {
+      return db
+        .select()
+        .from(eventMenu)
+        .where(eq(eventMenu.eventId, eventId))
+        .all()
+        .map((r) => r.recipeId);
+    },
+
+    /** Replace the short list wholesale, for the same reason the cupboard PUTs whole. */
+    setEventMenu(eventId: string, recipeIds: readonly string[]): void {
+      db.delete(eventMenu).where(eq(eventMenu.eventId, eventId)).run();
+      if (recipeIds.length === 0) return;
+      db.insert(eventMenu)
+        .values(recipeIds.map((recipeId) => ({ eventId, recipeId })))
+        .run();
+    },
+
+    // ---- the keypad ----
+
+    pinFor(userId: string): string | null {
+      return db.select().from(userPin).where(eq(userPin.userId, userId)).get()?.pinHash ?? null;
+    },
+
+    setPin(userId: string, pinHash: string): void {
+      db.insert(userPin)
+        .values({ userId, pinHash, createdAt: now() })
+        .onConflictDoUpdate({ target: userPin.userId, set: { pinHash: sql`excluded.pin_hash` } })
+        .run();
+    },
+
+    clearPin(userId: string): void {
+      db.delete(userPin).where(eq(userPin.userId, userId)).run();
+    },
+
+    // ---- people with accounts ----
+    //
+    // Better Auth owns writes to `user` for the things it manages — the name, the
+    // email, the verification flag. These read it, and write only the two columns
+    // that are ours: the role and the ban. Deliberately not the Better Auth admin
+    // plugin; PLATFORM-PLAN §2e says why.
+
+    userById(id: string): UserRow | null {
+      return db.select().from(user).where(eq(user.id, id)).get() ?? null;
+    },
+
+    userByEmail(email: string): UserRow | null {
+      return db.select().from(user).where(eq(user.email, email)).get() ?? null;
+    },
+
+    /** Everyone, newest first. The admin's list of hosts. */
+    allUsers(): UserRow[] {
+      return db.select().from(user).orderBy(desc(user.createdAt)).all();
+    },
+
+    setUserRole(id: string, role: 'admin' | 'host'): void {
+      db.update(user).set({ role }).where(eq(user.id, id)).run();
+    },
+
+    /**
+     * Suspend or reinstate. `bannedAt: null` is reinstatement, and clears the reason
+     * with it — a lifted ban that kept its explanation would read as still in force.
+     */
+    setUserBan(id: string, bannedAt: number | null, reason: string | null): void {
+      db.update(user)
+        .set({ bannedAt, banReason: bannedAt === null ? null : reason })
+        .where(eq(user.id, id))
+        .run();
+    },
+
+    /** Cascades to their sessions, parties, cupboard and PIN by foreign key. */
+    deleteUser(id: string): void {
+      db.delete(user).where(eq(user.id, id)).run();
     },
 
     /**
@@ -489,9 +583,10 @@ export function createDb(dbPath: string) {
     },
 
     /**
-     * Whatever staff row this device already has at this event, in any status — an
-     * admin first, so the host's own phone is never mistaken for a helper it also
-     * has a row for.
+     * Whatever staff row this device already has at this event, in any status.
+     *
+     * Active first: a device that asked, was declined, and later redeemed a code has
+     * two rows, and the working one is the answer.
      */
     staffForDevice(eventId: string, deviceId: string): StaffRow | null {
       return (
@@ -499,11 +594,7 @@ export function createDb(dbPath: string) {
           .select()
           .from(staff)
           .where(and(eq(staff.eventId, eventId), eq(staff.deviceId, deviceId)))
-          .orderBy(
-            sql`(${staff.role} = 'admin') DESC`,
-            sql`(${staff.status} = 'active') DESC`,
-            sql`rowid DESC`,
-          )
+          .orderBy(sql`(${staff.status} = 'active') DESC`, sql`rowid DESC`)
           .get() ?? null
       );
     },
@@ -530,13 +621,10 @@ export function createDb(dbPath: string) {
     createStaff(s: {
       id: string;
       eventId: string;
-      /** Set when this person has a host account; null for a device-only helper. */
+      /** Set when this person has an account; null for a device-only helper. */
       userId?: string | null;
       displayName: string;
-      email?: string | null;
-      passwordHash?: string | null;
       deviceId?: string | null;
-      role: string;
       status: string;
       claimHash?: string | null;
       claimExpiresAt?: number | null;
@@ -549,10 +637,7 @@ export function createDb(dbPath: string) {
           eventId: s.eventId,
           userId: s.userId ?? null,
           displayName: s.displayName,
-          email: s.email ?? null,
-          passwordHash: s.passwordHash ?? null,
           deviceId: s.deviceId ?? null,
-          role: s.role,
           status: s.status,
           claimHash: s.claimHash ?? null,
           claimExpiresAt: s.claimExpiresAt ?? null,
@@ -565,15 +650,6 @@ export function createDb(dbPath: string) {
     /** Record how someone got in, when it changes (e.g. asked, then used a code). */
     setJoinedVia(id: string, joinedVia: 'seed' | 'code' | 'request'): void {
       db.update(staff).set({ joinedVia }).where(eq(staff.id, id)).run();
-    },
-
-    updateStaffPassword(id: string, passwordHash: string): void {
-      db.update(staff).set({ passwordHash }).where(eq(staff.id, id)).run();
-    },
-
-    /** Promote the env-configured account so an admin can never be locked out. */
-    ensureAdmin(id: string): void {
-      db.update(staff).set({ role: 'admin', status: 'active' }).where(eq(staff.id, id)).run();
     },
 
     setStaffStatus(id: string, status: string, approvedBy: string | null = null): void {
@@ -601,11 +677,19 @@ export function createDb(dbPath: string) {
     },
 
     /**
-     * End the party: revoke every helper at *this* event and kill their sessions.
-     * Admins survive, and another host's helpers are untouched.
+     * End the night: revoke every helper at *this* event and kill their sessions.
+     *
+     * **Everyone except the person asking.** This used to spare admins by role, and
+     * there is no role to spare them by now — but "revoke all helpers" should not
+     * sign out the person tapping it, which is exactly what happened the first time
+     * this was rewritten. The exemption is the caller's own shift, not a rank.
+     *
+     * Another party's helpers are untouched.
      */
-    revokeAllHelpers(eventId: string): void {
-      const helpersHere = and(eq(staff.eventId, eventId), ne(staff.role, 'admin'));
+    revokeAllHelpers(eventId: string, exceptStaffId: string | null = null): void {
+      const helpersHere = exceptStaffId
+        ? and(eq(staff.eventId, eventId), ne(staff.id, exceptStaffId))
+        : eq(staff.eventId, eventId);
       db.update(staff)
         .set({ status: 'revoked' })
         .where(and(helpersHere, eq(staff.status, 'active')))
@@ -691,11 +775,28 @@ export const orderDeviceId: Db['orderDeviceId'] = (eventId, id) => d().orderDevi
 
 export const createEvent: Db['createEvent'] = (e) => d().createEvent(e);
 export const eventById: Db['eventById'] = (id) => d().eventById(id);
-export const liveEvent: Db['liveEvent'] = () => d().liveEvent();
+export const updateEvent: Db['updateEvent'] = (id, changes) => d().updateEvent(id, changes);
+export const deleteEvent: Db['deleteEvent'] = (id) => d().deleteEvent(id);
+export const allEvents: Db['allEvents'] = () => d().allEvents();
 export const eventsForHost: Db['eventsForHost'] = (hostUserId) => d().eventsForHost(hostUserId);
-export const listInventory: Db['listInventory'] = (eventId) => d().listInventory(eventId);
-export const setInStock: Db['setInStock'] = (eventId, ingredient, inStock) =>
-  d().setInStock(eventId, ingredient, inStock);
+
+// The cupboard is keyed on the *host*, not the party — see `stock` in schema.ts.
+export const listStock: Db['listStock'] = (userId) => d().listStock(userId);
+export const setInStock: Db['setInStock'] = (userId, ingredient, inStock) =>
+  d().setInStock(userId, ingredient, inStock);
+export const listEventMenu: Db['listEventMenu'] = (eventId) => d().listEventMenu(eventId);
+export const setEventMenu: Db['setEventMenu'] = (eventId, ids) => d().setEventMenu(eventId, ids);
+
+export const pinFor: Db['pinFor'] = (userId) => d().pinFor(userId);
+export const setPin: Db['setPin'] = (userId, hash) => d().setPin(userId, hash);
+export const clearPin: Db['clearPin'] = (userId) => d().clearPin(userId);
+
+export const userById: Db['userById'] = (id) => d().userById(id);
+export const userByEmail: Db['userByEmail'] = (email) => d().userByEmail(email);
+export const allUsers: Db['allUsers'] = () => d().allUsers();
+export const setUserRole: Db['setUserRole'] = (id, role) => d().setUserRole(id, role);
+export const setUserBan: Db['setUserBan'] = (id, at, reason) => d().setUserBan(id, at, reason);
+export const deleteUser: Db['deleteUser'] = (id) => d().deleteUser(id);
 
 export const saveSubscription: Db['saveSubscription'] = (dev, role, sub, transport, platform) =>
   d().saveSubscription(dev, role, sub, transport, platform);
@@ -712,7 +813,6 @@ export const createJoinCode: Db['createJoinCode'] = (hash, expiresAt, by) =>
 export const liveJoinCode: Db['liveJoinCode'] = (hash) => d().liveJoinCode(hash);
 export const clearJoinCodes: Db['clearJoinCodes'] = () => d().clearJoinCodes();
 
-export const staffByEmail: Db['staffByEmail'] = (email) => d().staffByEmail(email);
 export const staffByIdUnscoped: Db['staffByIdUnscoped'] = (id) => d().staffByIdUnscoped(id);
 export const staffInEvent: Db['staffInEvent'] = (eventId, id) => d().staffInEvent(eventId, id);
 export const staffForAccount: Db['staffForAccount'] = (eventId, userId) =>
@@ -726,9 +826,6 @@ export const renameStaff: Db['renameStaff'] = (id, name) => d().renameStaff(id, 
 export const listStaff: Db['listStaff'] = (eventId) => d().listStaff(eventId);
 export const createStaff: Db['createStaff'] = (s) => d().createStaff(s);
 export const setJoinedVia: Db['setJoinedVia'] = (id, via) => d().setJoinedVia(id, via);
-export const updateStaffPassword: Db['updateStaffPassword'] = (id, hash) =>
-  d().updateStaffPassword(id, hash);
-export const ensureAdmin: Db['ensureAdmin'] = (id) => d().ensureAdmin(id);
 export const setStaffStatus: Db['setStaffStatus'] = (id, status, approvedBy) =>
   d().setStaffStatus(id, status, approvedBy);
 export const clearStaffClaim: Db['clearStaffClaim'] = (id) => d().clearStaffClaim(id);
@@ -736,7 +833,8 @@ export const setStaffClaim: Db['setStaffClaim'] = (id, hash, expiresAt) =>
   d().setStaffClaim(id, hash, expiresAt);
 export const deleteStaff: Db['deleteStaff'] = (id) => d().deleteStaff(id);
 export const revokeStaff: Db['revokeStaff'] = (id) => d().revokeStaff(id);
-export const revokeAllHelpers: Db['revokeAllHelpers'] = (eventId) => d().revokeAllHelpers(eventId);
+export const revokeAllHelpers: Db['revokeAllHelpers'] = (eventId, except) =>
+  d().revokeAllHelpers(eventId, except);
 export const purgeStalePendingStaff: Db['purgeStalePendingStaff'] = () =>
   d().purgeStalePendingStaff();
 export const createStaffSession: Db['createStaffSession'] = (hash, staffId, expiresAt) =>

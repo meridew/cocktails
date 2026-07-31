@@ -10,10 +10,11 @@ import { test, describe, beforeAll, beforeEach } from 'vitest';
 import assert from 'node:assert/strict';
 import { STATUS_META, orderProgress, type Order } from '$lib/shared';
 import { request } from './app';
-import { hashPassword, ensureLiveEvent } from '$lib/server/auth';
-import { createStaff, genId, clearOrders } from '$lib/server/db';
+import { clearOrders } from '$lib/server/db';
+import { barToken, partyFor, person, useMemoryEmail, type Account } from './fixtures/people';
 
-const STAFF = { email: 'queue@local', password: 'queue-pw' };
+let dan: Account;
+let eventId = '';
 let token = '';
 
 const send = (method: string, body: unknown, headers: Record<string, string> = {}) => ({
@@ -25,7 +26,7 @@ const auth = () => ({ Authorization: `Bearer ${token}` });
 
 /** Place an order with the given lines and return it. */
 async function place(name: string, items: { name: string; qty: number }[]): Promise<Order> {
-  const res = await request('/api/orders', send('POST', { name, items }));
+  const res = await request('/api/orders', send('POST', { name, items, eventId }));
   assert.equal(res.status, 200);
   return ((await res.json()) as { order: Order }).order;
 }
@@ -37,21 +38,13 @@ const listOrders = async (): Promise<Order[]> => {
 };
 
 beforeAll(async () => {
-  createStaff({
-    eventId: ensureLiveEvent(),
-    id: genId(),
-    displayName: 'Queue Staff',
-    email: STAFF.email,
-    passwordHash: await hashPassword(STAFF.password),
-    role: 'admin',
-    status: 'active',
-  });
-  const res = await request('/api/auth/login', send('POST', STAFF));
-  token = ((await res.json()) as { token: string }).token;
-  assert.ok(token);
+  useMemoryEmail();
+  dan = await person('queue-dan', 'admin');
+  eventId = partyFor(dan.id, "Queue's party");
+  token = await barToken(dan, eventId);
 });
 
-beforeEach(() => clearOrders(ensureLiveEvent(), 'all'));
+beforeEach(() => clearOrders(eventId, 'all'));
 
 describe('stepping a status back', () => {
   test('every status except the first declares a previous one', () => {

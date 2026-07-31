@@ -1,11 +1,10 @@
 /**
- * Staff: who can run the bar, and how they got there.
+ * Staff: who is working one party's bar.
  *
- * Two kinds of principal, deliberately asymmetric:
- *   • admin     — signs in from ANY device (including a fresh one), normally with
- *                 a short PIN. Seeded from env.
- *   • bartender — a helper whose access was approved for one device. No password
- *                 to invent or remember; if they switch phones, they ask again.
+ * **One kind of principal.** There used to be two here, admin and bartender, and the
+ * distinction was never a fact about a shift — it was a fact about a *person*. It
+ * lives on the account now (`permissions.ts`), so everyone in this file does the same
+ * job: they take orders at one party.
  *
  * A helper's `deviceId` is their *identity*, never their credential: it's sent in
  * every order payload and so isn't secret. The credential is always a
@@ -13,9 +12,9 @@
  */
 
 /**
- * Digits in the admin PIN. Short on purpose — it's tapped on a phone behind the
+ * Digits in the keypad code. Short on purpose — it's tapped on a phone behind the
  * bar, repeatedly, by someone holding a cocktail shaker. A 6-digit space is only
- * 10^6, so the security comes from throttling (per-IP *and* global) rather than
+ * 10^6, so the security comes from throttling (per-IP *and* per-account) rather than
  * from length; see the limiters in the API's auth module.
  */
 export const PIN_LENGTH = 6;
@@ -26,9 +25,9 @@ export function isValidPin(v: unknown): v is string {
 }
 
 /**
- * A join code is the same shape as the PIN — same keypad, same muscle memory —
- * but a different credential: short-lived, revocable, and it only ever grants
- * `bartender`. The host reads it out; the helper is in immediately.
+ * A join code is the same shape as the keypad code — same keys, same muscle memory —
+ * but a different credential: short-lived, revocable, and it only ever grants access
+ * to one party's bar. The host reads it out; the helper is in immediately.
  */
 export const JOIN_CODE_LENGTH = PIN_LENGTH;
 
@@ -37,16 +36,19 @@ export const isValidJoinCode = isValidPin;
 /** How long a join code stays usable. One code comfortably onboards a shift. */
 export const JOIN_CODE_TTL_MS = 15 * 60 * 1000;
 
-export type StaffRole = 'admin' | 'bartender';
-
 /**
- * `pending` — asked to help, waiting on an admin.
+ * `pending` — asked to help, waiting to be let in.
  * `active`  — can use the bar.
  * `revoked` — kept for the record, but sessions are killed and sign-in refused.
  */
 export type StaffStatus = 'pending' | 'active' | 'revoked';
 
-/** A staff member as the client sees them. Never carries secrets. */
+/**
+ * A staff member as the client sees them. Never carries secrets.
+ *
+ * No `role` and no `email`. The role went to the account; the email went with the
+ * password when the one person who signed in here got a real account instead.
+ */
 export interface Staff {
   id: string;
   /**
@@ -55,11 +57,8 @@ export interface Staff {
    * scoped to it server-side, so showing anything else would be a lie.
    */
   eventId: string;
-  /** What the admin actually recognises in the list. Always present. */
+  /** What the list actually recognises them by. Always present. */
   name: string;
-  /** Required for admins (they sign in with it); optional for helpers. */
-  email: string | null;
-  role: StaffRole;
   status: StaffStatus;
   /** epoch ms */
   createdAt: number;

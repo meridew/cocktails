@@ -1,7 +1,7 @@
 import { json, type RequestEvent } from '@sveltejs/kit';
 import { availability, makeable, OPTIONAL_CATEGORIES } from '$lib/shared';
 import { DRINKS } from '$lib/data';
-import { eventById, listInventory } from '$lib/server/db';
+import { eventById, listStock } from '$lib/server/db';
 import { fail } from '$lib/server/guards';
 
 /**
@@ -19,7 +19,9 @@ export function GET(event: RequestEvent) {
   const party = eventById(event.params.id!);
   if (!party) return fail(404, 'no such party');
 
-  const rows = listInventory(party.id);
+  // The cupboard belongs to the **host**, not the party — so several parties for the
+  // same host all read one list, and a host who restocks does it once.
+  const rows = listStock(party.hostUserId);
   const stock = rows.filter((r) => r.inStock).map((r) => r.ingredient);
 
   /**

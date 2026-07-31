@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 /**
  * The persisted view store — the parts of "where you were" that a URL can't say.
  *

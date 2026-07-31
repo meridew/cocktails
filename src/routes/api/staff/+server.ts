@@ -1,14 +1,18 @@
 import { json, type RequestEvent } from '@sveltejs/kit';
-import type { StaffListResponse } from '$lib/shared';
+import { type StaffListResponse, party } from '$lib/shared';
 import { listStaff } from '$lib/server/db';
 import { toStaff } from '$lib/server/auth';
-import { denied, requireCapability } from '$lib/server/guards';
+import { denied, fail, requireCapability } from '$lib/server/guards';
+import { requirePartyInScope } from '$lib/server/scope';
 
-export function GET(event: RequestEvent) {
-  const auth = requireCapability(event, 'staff:read');
+export async function GET(event: RequestEvent) {
+  const scope = await requirePartyInScope(event);
+  if (denied(scope)) return scope.denied;
+  const { eventId } = scope;
+  const auth = await requireCapability(event, 'staff:read', party(eventId));
   if (denied(auth)) return auth.denied;
   return json({
     ok: true,
-    staff: listStaff(auth.staff.eventId).map(toStaff),
+    staff: listStaff(eventId).map(toStaff),
   } satisfies StaffListResponse);
 }

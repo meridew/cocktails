@@ -9,11 +9,18 @@ import { test, describe, beforeAll, beforeEach } from 'vitest';
 import assert from 'node:assert/strict';
 import { JOIN_CODE_LENGTH, JOIN_CODE_TTL_MS, type Staff } from '$lib/shared';
 import { request } from './app';
-import { hashPassword, ensureLiveEvent } from '$lib/server/auth';
-import { createStaff, genId, clearJoinCodes, listStaff, staffForDevice } from '$lib/server/db';
+import { clearJoinCodes, listStaff, staffForDevice } from '$lib/server/db';
+import {
+  barToken,
+  helper as makeHelper,
+  partyFor,
+  person,
+  useMemoryEmail,
+  type Account,
+} from './fixtures/people';
 
-const ADMIN = { email: 'joinadmin@local', password: 'join-admin-pw' };
-const HELPER = { email: 'joinhelper@local', password: 'join-helper-pw' };
+let dan: Account;
+let eventId = '';
 let adminToken = '';
 let helperToken = '';
 
@@ -36,33 +43,19 @@ async function mintCode(): Promise<{ code: string; expiresAt: number }> {
 
 /** Redeem a code as a helper on `deviceId`. */
 const redeem = (code: string, name: string, deviceId: string, ip = freshIp()) =>
-  request('/api/staff/join', send('POST', { code, name, deviceId }, { 'cf-connecting-ip': ip }));
+  request(
+    '/api/staff/join',
+    send('POST', { code, name, deviceId, eventId }, { 'cf-connecting-ip': ip }),
+  );
 
 beforeAll(async () => {
-  for (const [who, role] of [
-    [ADMIN, 'admin'],
-    [HELPER, 'bartender'],
-  ] as const) {
-    createStaff({
-      eventId: ensureLiveEvent(),
-      id: genId(),
-      displayName: role,
-      email: who.email,
-      passwordHash: await hashPassword(who.password),
-      role,
-      status: 'active',
-    });
-  }
-  adminToken = (
-    (await (await request('/api/auth/login', send('POST', ADMIN))).json()) as {
-      token: string;
-    }
-  ).token;
-  helperToken = (
-    (await (await request('/api/auth/login', send('POST', HELPER))).json()) as {
-      token: string;
-    }
-  ).token;
+  useMemoryEmail();
+  dan = await person('join-dan', 'admin');
+  eventId = partyFor(dan.id, 'Join party');
+  adminToken = await barToken(dan, eventId);
+  // A helper with no account at all, let in the way a real one is. They used to be
+  // a second seeded staff row with a password; there is no such thing now.
+  helperToken = await makeHelper(dan, eventId, 'Existing Helper', 'dev-existing-helper');
   assert.ok(adminToken && helperToken);
 });
 
@@ -96,7 +89,7 @@ describe('minting a code', () => {
 });
 
 describe('redeeming a code', () => {
-  test('puts someone on the bar immediately, as a bartender', async () => {
+  test('puts someone on the bar immediately', async () => {
     const { code } = await mintCode();
     const res = await redeem(code, 'Ravi', 'device-ravi');
     assert.equal(res.status, 200);
@@ -104,7 +97,7 @@ describe('redeeming a code', () => {
     assert.ok(body.token);
     assert.equal(body.staff.name, 'Ravi');
     assert.equal(body.staff.status, 'active', 'no waiting — that is the whole point');
-    assert.equal(body.staff.role, 'bartender');
+    assert.equal(body.staff.eventId, eventId, 'and only at the party the code was for');
   });
 
   test('the session it issues really works, but is not an admin one', async () => {
@@ -130,19 +123,22 @@ describe('redeeming a code', () => {
   test('a device that already asked is upgraded, not duplicated', async () => {
     // Someone asks, gets impatient, then goes and gets the code. The host should
     // see one person, not a pending request plus a helper.
-    await request('/api/staff/requests', send('POST', { name: 'Mo', deviceId: 'device-mo' }));
-    const before = listStaff(ensureLiveEvent()).filter((s) => s.deviceId === 'device-mo');
+    await request(
+      '/api/staff/requests',
+      send('POST', { name: 'Mo', deviceId: 'device-mo', eventId }),
+    );
+    const before = listStaff(eventId).filter((s) => s.deviceId === 'device-mo');
     assert.equal(before.length, 1);
     assert.equal(before[0]?.status, 'pending');
 
     const { code } = await mintCode();
     assert.equal((await redeem(code, 'Mo', 'device-mo')).status, 200);
 
-    const after = listStaff(ensureLiveEvent()).filter((s) => s.deviceId === 'device-mo');
+    const after = listStaff(eventId).filter((s) => s.deviceId === 'device-mo');
     assert.equal(after.length, 1, 'no duplicate row');
     assert.equal(after[0]?.status, 'active');
     // The claim is spent, so the old pending request can't also be collected.
-    assert.equal(staffForDevice(ensureLiveEvent(), 'device-mo')?.claimHash ?? null, null);
+    assert.equal(staffForDevice(eventId, 'device-mo')?.claimHash ?? null, null);
   });
 
   test('rejects a wrong code, and a malformed one, the same way', async () => {

@@ -14,54 +14,49 @@
 import { test, describe, beforeAll } from 'vitest';
 import assert from 'node:assert/strict';
 import { request, send } from './app';
-import { hashPassword } from '$lib/server/auth';
-import { createEvent, createStaff, genId, listOrders } from '$lib/server/db';
+import { createStaff, genId, listOrders } from '$lib/server/db';
+import { barToken, partyFor, person, useMemoryEmail, type Account } from './fixtures/people';
 
 interface Host {
+  account: Account;
   eventId: string;
   token: string;
   orderId: string;
   staffId: string;
 }
 
-/** A host with their own event, an admin session, an order and a helper. */
+/**
+ * A party with its own bar session, an order and a pending helper.
+ *
+ * **Each is run by a different `admin`.** That is stronger than it looks: an admin
+ * passes every capability, so if scoping were done by capability alone rather than
+ * by the party in the request, these tests would pass while leaking everything. The
+ * isolation being asserted is the *lookup's*, not the permission's.
+ */
 async function makeHost(label: string): Promise<Host> {
-  const event = createEvent({ name: `${label}'s party` });
-  const email = `${label}@example.com`;
-  const password = `${label}-password`;
+  const account = await person(label, 'admin');
+  const eventId = partyFor(account.id, `${label}'s party`);
+  const token = await barToken(account, eventId);
 
+  const staffId = genId();
   createStaff({
-    id: genId(),
-    eventId: event.id,
-    displayName: `${label} admin`,
-    email,
-    passwordHash: await hashPassword(password),
-    role: 'admin',
-    status: 'active',
-  });
-
-  const login = await request('/api/auth/login', send('POST', { email, password }));
-  assert.equal(login.status, 200, `${label} should be able to sign in`);
-  const token = ((await login.json()) as { token: string }).token;
-
-  const helperId = genId();
-  createStaff({
-    id: helperId,
-    eventId: event.id,
+    id: staffId,
+    eventId,
     displayName: `${label} helper`,
     deviceId: `${label}-device`,
-    role: 'bartender',
     status: 'pending',
   });
 
+  // The guest names their party. There is no "whichever is live" any more, which is
+  // what used to make the *order* in this function load-bearing.
   const placed = await request(
     '/api/orders',
-    send('POST', { name: `${label} guest`, items: [{ name: 'Mojito', qty: 1 }] }),
+    send('POST', { name: `${label} guest`, eventId, items: [{ name: 'Mojito', qty: 1 }] }),
   );
   assert.equal(placed.status, 200);
   const orderId = ((await placed.json()) as { id: string }).id;
 
-  return { eventId: event.id, token, orderId, staffId: helperId };
+  return { account, eventId, token, orderId, staffId };
 }
 
 let a: Host;
@@ -70,10 +65,7 @@ let b: Host;
 const as = (h: Host) => ({ Authorization: `Bearer ${h.token}` });
 
 beforeAll(async () => {
-  // Order matters: a guest's order lands in whichever event is currently live,
-  // which is the most recently created one. Building each host completely before
-  // starting the next is therefore what puts their orders in their own events —
-  // the assertion below is what stops that going unnoticed if it ever changes.
+  useMemoryEmail();
   a = await makeHost('ana');
   b = await makeHost('bruno');
   assert.notEqual(a.eventId, b.eventId, 'the two hosts must have different events');

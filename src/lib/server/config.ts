@@ -19,33 +19,6 @@ import { env } from '$env/dynamic/private';
 const ENV: NodeJS.ProcessEnv = { ...(env as NodeJS.ProcessEnv), ...process.env };
 
 /**
- * Seed staff password. In production, a MISSING secret must never fall back to
- * a known/guessable value — so we lock the account behind a random password
- * until STAFF_PASSWORD is set. Dev uses a fixed convenience password (localhost).
- */
-export function resolveStaffPassword(env: NodeJS.ProcessEnv = process.env): string {
-  const p = env.STAFF_PASSWORD;
-  if (p) return p;
-  if (env.NODE_ENV === 'production') return randomBytes(24).toString('hex');
-  return 'cocktails';
-}
-
-/**
- * Admin PIN — the everyday way into the bar, because typing an email and a long
- * password on a phone mid-party is miserable.
- *
- * Empty means PIN sign-in is simply unavailable (the endpoint refuses everything);
- * email + password still works, so an unset secret degrades to "no PIN door"
- * rather than "no way in". As with the password, production never falls back to a
- * guessable default — only localhost gets a convenience value.
- */
-export function resolveStaffPin(env: NodeJS.ProcessEnv = process.env): string {
-  const pin = env.STAFF_PIN?.trim();
-  if (pin) return pin;
-  return env.NODE_ENV === 'production' ? '' : '000000';
-}
-
-/**
  * Signing key for host account sessions (Better Auth).
  *
  * Same rule as the staff password: production never falls back to something
@@ -81,21 +54,32 @@ export function resolveAllowedOrigin(env: NodeJS.ProcessEnv = process.env): stri
   return '*'; // dev convenience — the app and API are same-origin anyway
 }
 
+/**
+ * Accounts that are Admin, whatever the database says.
+ *
+ * Config is the source of truth on purpose. A role stored only in the database can
+ * be edited from inside the app, and one bad edit — or one bad migration — would
+ * lock the operator out of their own service with no way back in. This list is
+ * re-read on every session resolution, so the file always wins and recovery is
+ * "edit the file, restart".
+ *
+ * It replaces `STAFF_EMAIL` / `STAFF_PASSWORD` / `STAFF_PIN`, which were a whole
+ * seeded identity in the environment. Admin is a real account now; this only says
+ * which one.
+ */
+export function resolveAdminEmails(env: NodeJS.ProcessEnv = process.env): string[] {
+  return (env.ADMIN_EMAILS ?? '')
+    .split(',')
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
+}
+
 /** Runtime configuration, all overridable by environment variables. */
 export const config = {
   /** CORS origin(s) allowed to call the API. */
   allowedOrigin: resolveAllowedOrigin(ENV),
-  /**
-   * Seed staff account, created on first boot if the staff table is empty.
-   * Dev defaults make localhost work out of the box; set real values via env
-   * (STAFF_EMAIL / STAFF_PASSWORD / STAFF_PIN) in production.
-   */
-  staff: {
-    email: (ENV.STAFF_EMAIL || 'bar@local').trim().toLowerCase(),
-    password: resolveStaffPassword(ENV),
-    /** Short PIN for the same admin account. Empty → PIN sign-in is off. */
-    pin: resolveStaffPin(ENV),
-  },
+  /** Emails that are always Admin. See `resolveAdminEmails`. */
+  adminEmails: resolveAdminEmails(ENV),
   /**
    * Host accounts — the sign-up side, separate from the bar's PIN and join codes.
    * `origin` is what verification links are built against, so it must be the URL

@@ -51,9 +51,11 @@
     if (joinCode && codeLeft <= 0) joinCode = null;
   });
 
+  // Two groups, not three. There is no "admins" section any more: everyone in this
+  // list does the same job, and the person who used to sit apart in it holds an
+  // account whose powers don't come from a row here at all.
   let pending = $derived(staff.filter((s) => s.status === 'pending'));
-  let helpers = $derived(staff.filter((s) => s.status !== 'pending' && s.role !== 'admin'));
-  let admins = $derived(staff.filter((s) => s.role === 'admin'));
+  let helpers = $derived(staff.filter((s) => s.status !== 'pending'));
 
   /** One in-flight guard and one error path for every action. */
   async function act(id: string, fn: () => Promise<unknown>) {
@@ -252,18 +254,7 @@
     {/if}
   </section>
 
-  <section class="bt-staff-group">
-    <h4>Admins</h4>
-    {#each admins as person (person.id)}
-      <div class="bt-staff-row">
-        <div class="bt-staff-who">
-          <span class="bt-name">{person.name}</span>
-          <span class="bt-ago">
-            {person.email}{person.id === session.staff?.id ? ' · you' : ''}
-          </span>
-        </div>
-      </div>
-    {/each}
-    <p class="bt-staff-note">Admins sign in with the bar PIN and can't be revoked here.</p>
-  </section>
+  <!-- The "Admins" section that used to sit here is gone. It listed staff rows whose
+       role said admin, which is no longer a thing a staff row can say — being an
+       admin is a fact about an account, and this screen is about one party's shift. -->
 </div>

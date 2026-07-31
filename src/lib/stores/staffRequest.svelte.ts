@@ -93,9 +93,15 @@ export const staffRequest = {
   },
 };
 
-/** Ask to help. Throws on a network/validation failure so the form can show why. */
-export async function askToHelp(name: string): Promise<void> {
-  const { claim } = await requestStaffAccess(name, getDeviceId());
+/**
+ * Ask to help at a named party.
+ *
+ * The party is a parameter now rather than "whichever is live": with several
+ * running, an inferred one queues you at a stranger's bar. Throws on a
+ * network/validation failure so the form can show why.
+ */
+export async function askToHelp(eventId: string, name: string): Promise<void> {
+  const { claim } = await requestStaffAccess(eventId, name, getDeviceId());
   set({ kind: 'pending', name, claim, at: Date.now() });
 }
 
@@ -103,8 +109,8 @@ export async function askToHelp(name: string): Promise<void> {
  * Redeem a code the host read out. The fast path: no waiting, no approval.
  * Clears any outstanding request, since this supersedes it.
  */
-export async function joinWithJoinCode(code: string, name: string): Promise<void> {
-  const result = await joinWithCode(code, name, getDeviceId());
+export async function joinWithJoinCode(eventId: string, code: string, name: string): Promise<void> {
+  const result = await joinWithCode(eventId, code, name, getDeviceId());
   adoptApprovedSession(result.token, result.staff);
   set({ ...EMPTY });
 }

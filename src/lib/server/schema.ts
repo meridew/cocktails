@@ -17,7 +17,7 @@ import { user } from './schema.auth';
 export * from './schema.auth';
 
 /**
- * A party. Everything below is scoped to one.
+ * A party. The orders and the menu are scoped to one.
  *
  * **`user` is the plan's `account`.** The original domain model (now `HISTORY.md`) listed an
  * `account` table, but Better Auth already provides exactly that under the name
@@ -29,37 +29,91 @@ export * from './schema.auth';
 export const event = sqliteTable('event', {
   id: text('id').primaryKey(),
   /**
-   * Nullable, and only for one case: the default event seeded at boot so the app
-   * works before anybody has signed up. Every event a host creates has an owner.
-   * Making this NOT NULL would mean inventing a user account at boot to satisfy a
-   * foreign key, which is a worse lie than an honest null.
+   * **NOT NULL**, which is new and load-bearing.
+   *
+   * It used to be nullable for one case: an event seeded at boot so the app worked
+   * before anyone had signed up. That seed is gone, and with it `liveEvent()`'s guess
+   * at which party a guest meant. Every party now belongs to a host, because the
+   * cupboard the menu is generated from hangs off that host — a party with no owner
+   * would be a party with no menu.
    */
-  hostUserId: text('host_user_id').references(() => user.id, { onDelete: 'cascade' }),
+  hostUserId: text('host_user_id')
+    .notNull()
+    .references(() => user.id, { onDelete: 'cascade' }),
   name: text('name').notNull(),
-  /** epoch ms; null while the host is still deciding. */
+  /** epoch ms; null until it's booked in. Never opens the party on its own — §2d. */
   startsAt: integer('starts_at'),
-  /** 'draft' | 'live' | 'done'. Exactly one event is live at a time, for now. */
-  status: text('status').notNull().default('live'),
+  /**
+   * `draft` → `live` → `done`, moved by hand.
+   *
+   * Several parties can be live at once, which is why nothing may ever infer "the"
+   * live event again. A guest arrives at `/e/<id>` and names their party or they
+   * don't order.
+   */
+  status: text('status').notNull().default('draft'),
   createdAt: integer('created_at').notNull(),
 });
 
 /**
- * What the host actually has in, which phase 3 turns into a menu.
+ * What a **host** has in — the cupboard the menu is generated from.
  *
- * A row exists only for an ingredient the host has said something about; absence
- * means "not mentioned", which the generator treats as not available.
+ * Keyed on the user, not the event, and that is the whole point: a home bar is
+ * fairly stable, and re-ticking 173 bottles for every party is a chore nobody
+ * repeats. One cupboard, read by every party they ever have.
+ *
+ * A row exists only for an ingredient somebody has said something about. **Absence
+ * is not "no".** No rows at all means the host has never opened the screen, and the
+ * menu offers everything rather than nothing; a row set `false` is how "asked and
+ * answered: no" is remembered, which is why unticking writes rather than deletes.
  */
-export const inventory = sqliteTable(
-  'inventory',
+export const stock = sqliteTable(
+  'stock',
+  {
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    ingredient: text('ingredient').notNull(),
+    inStock: integer('in_stock', { mode: 'boolean' }).notNull().default(true),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.ingredient] })],
+);
+
+/**
+ * The short list — what this party leads with.
+ *
+ * **No rows means show everything.** Curation is optional, and an uncurated party
+ * must not look like a broken one; same rule as the cupboard above, for the same
+ * reason. Scoped to the event rather than the host because a menu curated for a
+ * birthday shouldn't follow them to Christmas.
+ */
+export const eventMenu = sqliteTable(
+  'event_menu',
   {
     eventId: text('event_id')
       .notNull()
       .references(() => event.id, { onDelete: 'cascade' }),
-    ingredient: text('ingredient').notNull(),
-    inStock: integer('in_stock', { mode: 'boolean' }).notNull().default(true),
+    /** A `Recipe.id` from `$lib/shared/recipes`. Not a foreign key — recipes are data, not rows. */
+    recipeId: text('recipe_id').notNull(),
   },
-  (t) => [primaryKey({ columns: [t.eventId, t.ingredient] })],
+  (t) => [primaryKey({ columns: [t.eventId, t.recipeId] })],
 );
+
+/**
+ * The keypad, owned by one person.
+ *
+ * Replaces a single `STAFF_PIN` in the Mac's environment — a shared secret with no
+ * owner that could not be rotated without editing a file and restarting. Sign in
+ * with the account once on a device; the keypad gets you back afterwards, as
+ * *yourself*, not as a generic bar session.
+ */
+export const userPin = sqliteTable('user_pin', {
+  userId: text('user_id')
+    .primaryKey()
+    .references(() => user.id, { onDelete: 'cascade' }),
+  /** scrypt, same parameters as a password. A four-digit secret deserves no less. */
+  pinHash: text('pin_hash').notNull(),
+  createdAt: integer('created_at').notNull(),
+});
 
 export const orders = sqliteTable('orders', {
   id: text('id').primaryKey(),
@@ -103,10 +157,17 @@ export const subscriptions = sqliteTable(
 );
 
 /**
- * email and password_hash are nullable on purpose: an approved helper has neither
- * (their identity is a device, their credential is a session), while an admin has
- * both so they can sign in from any device. SQLite permits many NULLs under a
- * UNIQUE index, so several helpers coexist without emails.
+ * Who is behind the bar at one party.
+ *
+ * **There is no `role` column any more, and no email or password either.** The
+ * distinction this table used to carry — admin vs bartender — was never a fact about
+ * a shift; it was a fact about a *person*, and it lives on `user.role` now. Everyone
+ * listed here does the same job: they take orders at this party and nothing else.
+ *
+ * Credentials went the same way. A helper's identity is a device and their
+ * credential is a session handed over by a join code; the one person who used to
+ * sign in here with an email now has a real account, so `staff` holds no secrets at
+ * all beyond the claim hash a pending helper redeems.
  */
 export const staff = sqliteTable('staff', {
   id: text('id').primaryKey(),
@@ -124,13 +185,10 @@ export const staff = sqliteTable('staff', {
   eventId: text('event_id')
     .notNull()
     .references(() => event.id, { onDelete: 'cascade' }),
-  /** Set when this person has a host account; null for a device-only helper. */
+  /** Set when this person has an account; null for a device-only helper. */
   userId: text('user_id').references(() => user.id, { onDelete: 'set null' }),
   displayName: text('display_name').notNull().default(''),
-  email: text('email').unique(),
-  passwordHash: text('password_hash'),
   deviceId: text('device_id'),
-  role: text('role').notNull().default('bartender'),
   status: text('status').notNull().default('active'),
   claimHash: text('claim_hash'),
   claimExpiresAt: integer('claim_expires_at'),

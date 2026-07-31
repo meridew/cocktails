@@ -1,8 +1,8 @@
 import { json, type RequestEvent } from '@sveltejs/kit';
-import { ensureLiveEvent } from '$lib/server/auth';
 import {
   cleanItems,
   cleanStr,
+  party,
   type OrderCreatedResponse,
   type OrderListResponse,
 } from '$lib/shared';
@@ -10,17 +10,25 @@ import { createOrder, eventById, listOrders, now } from '$lib/server/db';
 import { newOrderPush } from '$lib/server/notify';
 import { pushToRole } from '$lib/server/push';
 import { body, denied, fail, requireCapability } from '$lib/server/guards';
+import { requirePartyInScope } from '$lib/server/scope';
 import { rateLimitWrites } from '$lib/server/ratelimit';
 
-/** The bar's queue. */
-export function GET(event: RequestEvent) {
-  const auth = requireCapability(event, 'orders:read');
+/**
+ * The queue for one party.
+ *
+ * Which party is named by the caller — `?eventId=`, or implied by a bar session —
+ * rather than inferred from "whichever is live". Several parties run at once now, so
+ * an inference would be wrong silently, which is the worst way for it to be wrong.
+ */
+export async function GET(event: RequestEvent) {
+  const scope = await requirePartyInScope(event);
+  if (denied(scope)) return scope.denied;
+  const { eventId } = scope;
+
+  const auth = await requireCapability(event, 'orders:read', party(eventId));
   if (denied(auth)) return auth.denied;
-  return json({
-    ok: true,
-    orders: listOrders(auth.staff.eventId),
-    now: now(),
-  } satisfies OrderListResponse);
+
+  return json({ ok: true, orders: listOrders(eventId), now: now() } satisfies OrderListResponse);
 }
 
 /** Public: a guest places a round. No account, just a device id. */
@@ -45,11 +53,13 @@ export async function POST(event: RequestEvent) {
    * which is the worst way for it to be wrong. The id isn't a secret: it travels in
    * the QR code, and ordering at a party you were invited to is the whole point.
    *
-   * No id falls back to the single live event, which is what keeps a plain visit to
-   * the root working while there is only one party.
+   * **There is no fallback.** It used to drop the drink into "whichever party is
+   * live", which was right while there was one and silently wrong the moment two ran
+   * at once — the guest orders at a stranger's bar and nothing says so. Several
+   * parties running is now the normal case, so an unnamed party is an error.
    */
   const asked = cleanStr(b.eventId, 40);
-  const eventId = asked ? eventById(asked)?.id : ensureLiveEvent();
+  const eventId = asked ? eventById(asked)?.id : null;
   if (!eventId) return fail(404, 'no such party');
 
   const order = createOrder(eventId, { name, items, note, deviceId });

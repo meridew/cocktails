@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 /**
  * The basket rune store. Module-level singleton state, so every test clears it first.
  * (Runes are compiled for real here — see vitest.config.ts.)

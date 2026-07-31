@@ -10,12 +10,10 @@
 
   let {
     canManageStaff,
-    canSeeStock,
     pendingStaff,
     sort,
     pushLabel,
     onstaff,
-    onstock,
     onsort,
     onpush,
     onclearDone,
@@ -23,14 +21,11 @@
     onclose,
   }: {
     canManageStaff: boolean;
-    /** Bartenders may read the stock list; only the host may change it. */
-    canSeeStock: boolean;
     pendingStaff: number;
     sort: 'oldest' | 'newest';
     /** null when push can't be offered at all on this device. */
     pushLabel: string | null;
     onstaff: () => void;
-    onstock: () => void;
     onsort: () => void;
     onpush: () => void;
     onclearDone: () => void;
@@ -66,12 +61,6 @@
         {#if pendingStaff}
           <b class="barmenu-badge">{pendingStaff} waiting</b>
         {/if}
-      </button>
-    {/if}
-
-    {#if canSeeStock}
-      <button type="button" class="barmenu-item" onclick={pick(onstock)}>
-        <span>What we have in</span>
       </button>
     {/if}
 

@@ -17,7 +17,6 @@ import { handle } from '../src/hooks.server';
 
 import * as health from '../src/routes/api/health/+server';
 import * as pushKey from '../src/routes/api/push/key/+server';
-import * as authLogin from '../src/routes/api/auth/login/+server';
 import * as authPin from '../src/routes/api/auth/pin/+server';
 import * as authLogout from '../src/routes/api/auth/logout/+server';
 import * as authMe from '../src/routes/api/auth/me/+server';
@@ -38,7 +37,7 @@ import * as staffRevoke from '../src/routes/api/staff/[id]/revoke/+server';
 import * as subscriptions from '../src/routes/api/subscriptions/+server';
 import * as account from '../src/routes/api/account/[...all]/+server';
 import * as events from '../src/routes/api/events/+server';
-import * as inventory from '../src/routes/api/inventory/+server';
+import * as hostStock from '../src/routes/api/hosts/[id]/stock/+server';
 import * as eventMenu from '../src/routes/api/events/[id]/menu/+server';
 import * as eventBar from '../src/routes/api/events/[id]/bar/+server';
 
@@ -48,7 +47,6 @@ type Handlers = Record<string, unknown>;
 export const ROUTES: Record<string, Handlers> = {
   '/api/health': health,
   '/api/push/key': pushKey,
-  '/api/auth/login': authLogin,
   '/api/auth/pin': authPin,
   '/api/auth/logout': authLogout,
   '/api/auth/me': authMe,
@@ -68,7 +66,7 @@ export const ROUTES: Record<string, Handlers> = {
   '/api/staff/[id]/revoke': staffRevoke,
   '/api/subscriptions': subscriptions,
   '/api/events': events,
-  '/api/inventory': inventory,
+  '/api/hosts/[id]/stock': hostStock,
   '/api/events/[id]/bar': eventBar,
   '/api/events/[id]/menu': eventMenu,
   // Better Auth's catch-all. Listed last for readability; matching order is the

@@ -6,10 +6,10 @@
  * token as a parameter, and four separate places decided what a 401 meant. Now
  * `api.ts` reads the token through a registered hook, so no signature carries it.
  */
-import type { Staff } from '$lib/shared';
+import { ANONYMOUS, type Actor, type Staff } from '$lib/shared';
 import {
   configureAuth,
-  loginWithPin as pinRequest,
+  signInWithPin as pinRequest,
   logout as logoutRequest,
   me as meRequest,
 } from '$lib/api';
@@ -19,6 +19,15 @@ const TOKEN_KEY = 'staff_token';
 
 let token = $state(storage.read(TOKEN_KEY) ?? '');
 let staff = $state<Staff | null>(null);
+/**
+ * Who the server says we are — the same shape the server's guard reasons about.
+ *
+ * The client used to decide what to render from `staff.role`, which meant the UI's
+ * idea of a permission and the server's were two different pieces of code agreeing
+ * by luck. Now both call `can()` on this, so a control that renders is a control the
+ * server will honour.
+ */
+let actor = $state<Actor>(ANONYMOUS);
 let expiredMessage = $state('');
 /**
  * Bumped whenever the session drops. Long-running work (the bartender poll, an
@@ -33,6 +42,10 @@ export const session = {
   },
   get staff() {
     return staff;
+  },
+  /** What the server says we are. Feed this to `can()`; never re-derive it here. */
+  get actor() {
+    return actor;
   },
   get signedIn() {
     return token !== '';
@@ -51,6 +64,7 @@ function invalidateSession(message = ''): void {
   generation += 1;
   token = '';
   staff = null;
+  actor = ANONYMOUS;
   expiredMessage = message;
   storage.remove(TOKEN_KEY);
 }
@@ -72,29 +86,46 @@ function adopt(newToken: string, who: Staff): void {
   storage.write(TOKEN_KEY, token);
 }
 
-/** Exchange the admin PIN for a session. Throws on failure; the caller shows why. */
-export async function signInWithPin(pin: string): Promise<void> {
-  const result = await pinRequest(pin);
+/**
+ * Exchange the keypad code for a session, as yourself.
+ *
+ * The device remembers whose account it is — it signed in properly once — so it
+ * says which; this only proves it's still them. Throws on failure and the caller
+ * shows why.
+ */
+export async function signInWithPin(eventId: string, userId: string, pin: string): Promise<void> {
+  const result = await pinRequest(eventId, userId, pin);
   adopt(result.token, result.staff);
+  await refreshActor();
 }
 
 /** Adopt the session an approved helper collected with their claim secret. */
 export function adoptApprovedSession(newToken: string, who: Staff): void {
   adopt(newToken, who);
+  void refreshActor();
 }
 
 /**
- * Recover who we are after a reload. The token survives in storage but `staff`
- * doesn't, and the UI needs the role to know whether to show admin controls.
- * A 401 here is handled by api.ts, which ends the session.
+ * Ask the server who we are.
+ *
+ * Never throws and never signs anyone out: "nobody" is a valid answer — a guest
+ * asking this is the normal case — so a failure here means we simply hold no
+ * powers, which is the safe reading.
+ */
+export async function refreshActor(): Promise<void> {
+  actor = (await meRequest().catch(() => null))?.actor ?? ANONYMOUS;
+}
+
+/**
+ * Recover who we are after a reload.
+ *
+ * A reload keeps the token but not what it means, and every control on the screen
+ * depends on knowing. Asks unconditionally rather than only when a token exists:
+ * an account cookie is a credential too, and someone who signed in on the front
+ * door has no bar token at all.
  */
 export async function hydrateSession(): Promise<void> {
-  if (token === '' || staff !== null) return;
-  try {
-    staff = (await meRequest()).staff;
-  } catch {
-    /* invalid token → api.ts has already ended the session; the gate will show */
-  }
+  await refreshActor();
 }
 
 /**

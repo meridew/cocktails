@@ -21,6 +21,7 @@
   import { JOIN_CODE_LENGTH, LIMITS, PIN_LENGTH, isValidPin } from '$lib/shared';
   import { Unauthorized } from '$lib/api';
   import { session, signInWithPin } from '$lib/stores/session.svelte';
+  import { currentEventId } from '$lib/party';
   import {
     askToHelp,
     checkDecision,
@@ -65,7 +66,15 @@
     busy = true;
     error = '';
     try {
-      await signInWithPin(pin);
+      // The keypad proves you're still you; it does not work out who you are. The
+      // device remembers whose account signed in here, and which party it's working.
+      const eventId = currentEventId();
+      const userId = session.actor.account?.id ?? '';
+      if (!eventId || !userId) {
+        error = 'Sign in with your account on this device first.';
+        return;
+      }
+      await signInWithPin(eventId, userId, pin);
     } catch (e) {
       error =
         e instanceof Unauthorized ? 'Wrong PIN' : (e as Error).message || 'That PIN didn’t work';
@@ -85,7 +94,12 @@
     error = '';
     try {
       saveName(name);
-      await joinWithJoinCode(code, name);
+      const eventId = currentEventId();
+      if (!eventId) {
+        error = 'Open this party’s link first, so we know which bar you mean.';
+        return;
+      }
+      await joinWithJoinCode(eventId, code, name);
     } catch (e) {
       error =
         e instanceof Unauthorized
@@ -103,7 +117,12 @@
     error = '';
     try {
       saveName(name);
-      await askToHelp(name);
+      const eventId = currentEventId();
+      if (!eventId) {
+        error = 'Open this party’s link first, so we know which bar you mean.';
+        return;
+      }
+      await askToHelp(eventId, name);
       door = 'pin';
       // Waiting is a background activity — hand the screen back so they can carry
       // on ordering instead of staring at a modal until somebody answers.

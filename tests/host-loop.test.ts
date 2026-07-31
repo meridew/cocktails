@@ -1,35 +1,33 @@
-// @vitest-environment node
 /**
- * The whole loop, as a host actually walks it:
+ * The whole loop, as the people in it actually walk it:
  *
- *   sign up → verify → create a party → open its bar → guests order at *that* party
+ *   a host registers → Dan creates their party → Dan opens its bar →
+ *   guests at *that* party order → the host watches, and can do nothing else
  *
- * Before this existed the pieces were all present and none of them joined up: an
- * account led nowhere, an event could only be the singleton created at boot, and a
- * guest's order went to whichever event was live — so with two parties running,
- * people ordered at the wrong bar and nothing said so.
+ * **The shape of this changed.** It used to be one person doing everything: a host
+ * signed up, made their own party, and opened their own bar. That was never the
+ * business — a host is a customer and Dan is the operator — so the loop now has two
+ * people in it, and the interesting assertions are the ones about where one stops
+ * and the other starts.
  *
- * That last point is why this suite exists alongside `tenancy.test.ts`. That one
- * proves two hosts can't *see* each other's data, but it builds each host in turn,
- * so only one event is ever live and the guest side is never exercised. Here both
- * parties are live at the same time, which is the case that used to be wrong.
- *
- * Node rather than jsdom: Better Auth signs tokens with `jose`, and jsdom's
- * `Uint8Array` is a different realm. See `tests/accounts.test.ts`.
+ * This exists alongside `tenancy.test.ts` because that one builds each host in turn
+ * and never exercises the guest side. Here two parties are live at once, which is
+ * now the normal case rather than the edge one.
  */
 import { test, describe, beforeAll } from 'vitest';
 import assert from 'node:assert/strict';
 import { request, send } from './app';
-import { memorySender, setEmailSender } from '$lib/server/email';
-import { resetAccounts } from '$lib/server/accounts';
-
-const mail = memorySender();
+import { asAccount, person, useMemoryEmail, type Account } from './fixtures/people';
 
 interface Party {
-  cookie: string;
+  host: Account;
   eventId: string;
   barToken: string;
 }
+
+let dan: Account;
+let ana: Party;
+let bruno: Party;
 
 /**
  * Assert 200 and hand back the parsed body, reading the stream **once**.
@@ -44,50 +42,28 @@ async function okJson<T>(res: Response, what: string): Promise<T> {
   return JSON.parse(text) as T;
 }
 
-/** Follow the verification link out of the most recent message. */
-async function verifyLatest(): Promise<void> {
-  const last = mail.sent.at(-1);
-  assert.ok(last, 'no verification email was sent');
-  const link = last.text.match(/https?:\/\/\S+/);
-  assert.ok(link, 'no link in the verification email');
-  const url = new URL(link[0]);
-  const res = await request(url.pathname + url.search);
-  assert.ok(res.status < 400, `verification failed: ${res.status}`);
-}
-
-/** A host who has signed up, verified, made a party and opened its bar. */
-async function host(label: string): Promise<Party> {
-  const creds = { name: label, email: `${label}@example.com`, password: `${label}-password-123` };
-
-  await okJson(await request('/api/account/sign-up/email', send('POST', creds)), 'sign up');
-  await verifyLatest();
-
-  const signIn = await request(
-    '/api/account/sign-in/email',
-    send('POST', { email: creds.email, password: creds.password }),
-  );
-  assert.equal(signIn.status, 200, 'sign in');
-  // Better Auth authenticates by cookie; carry it exactly as a browser would.
-  const cookie = (signIn.headers.get('set-cookie') ?? '').split(';')[0] ?? '';
-  assert.ok(cookie, 'sign-in should have set a session cookie');
+/** A registered host, with a party Dan made for them and a bar Dan opened. */
+async function party(label: string): Promise<Party> {
+  const host = await person(label);
 
   const created = await request('/api/events', {
-    ...send('POST', { name: `${label}'s party` }),
-    headers: { 'Content-Type': 'application/json', cookie },
+    ...send('POST', { hostUserId: host.id, name: `${label}'s party` }),
+    headers: { 'Content-Type': 'application/json', ...asAccount(dan) },
   });
-  const { event } = await okJson<{ event: { id: string; hostUserId: string } }>(
+  const { event } = await okJson<{ event: { id: string; hostUserId: string; status: string } }>(
     created,
-    'create event',
+    'create party',
   );
-  assert.ok(event.hostUserId, 'a host-created event must have an owner');
+  assert.equal(event.hostUserId, host.id, 'the party belongs to the host, not to Dan');
+  assert.equal(event.status, 'draft', 'a party is born draft and opened by hand');
 
   const bar = await request(`/api/events/${event.id}/bar`, {
     ...send('POST', {}),
-    headers: { 'Content-Type': 'application/json', cookie },
+    headers: { 'Content-Type': 'application/json', ...asAccount(dan) },
   });
   const { token } = await okJson<{ token: string }>(bar, 'open bar');
 
-  return { cookie, eventId: event.id, barToken: token };
+  return { host, eventId: event.id, barToken: token };
 }
 
 /** A guest orders at a named party. */
@@ -99,51 +75,70 @@ async function order(eventId: string, who: string): Promise<string> {
   return (await okJson<{ id: string }>(res, `order for ${who}`)).id;
 }
 
-/** The queue a bar session can see. */
-async function queue(token: string): Promise<{ id: string; name: string }[]> {
-  const res = await request('/api/orders', { headers: { Authorization: `Bearer ${token}` } });
+/** The queue a credential can see. */
+async function queue(headers: Record<string, string>, eventId?: string): Promise<{ id: string }[]> {
+  const path = eventId ? `/api/orders?eventId=${eventId}` : '/api/orders';
+  const res = await request(path, { headers });
   assert.equal(res.status, 200);
-  return ((await res.json()) as { orders: { id: string; name: string }[] }).orders;
+  return ((await res.json()) as { orders: { id: string }[] }).orders;
 }
 
-let ana: Party;
-let bruno: Party;
+const asBar = (p: Party) => ({ Authorization: `Bearer ${p.barToken}` });
 
 beforeAll(async () => {
-  setEmailSender(mail);
-  resetAccounts();
-  ana = await host('ana');
-  bruno = await host('bruno');
+  useMemoryEmail();
+  dan = await person('loop-dan', 'admin');
+  ana = await party('loop-ana');
+  bruno = await party('loop-bruno');
 });
 
-describe('a host can go from signing up to a working bar', () => {
-  test('their event is owned by them and their bar session works', () => {
-    assert.notEqual(ana.eventId, bruno.eventId);
-    assert.ok(ana.barToken && bruno.barToken);
+describe('registering leads somewhere', () => {
+  test('a host exists before they have a party, and that is a normal state', async () => {
+    const nobody = await person('loop-nobody');
+    const res = await request('/api/events', { headers: asAccount(nobody) });
+    const { events } = await okJson<{ events: unknown[] }>(res, 'their own parties');
+    assert.deepEqual(events, [], 'no parties yet is not an error');
   });
 
-  test('the bar starts empty', async () => {
-    assert.deepEqual(await queue(ana.barToken), []);
+  test('a host cannot create a party for themselves', async () => {
+    // A booking is a conversation; Dan makes the event. This is the line between
+    // customer and operator, and the one most likely to erode.
+    const res = await request('/api/events', {
+      ...send('POST', { hostUserId: ana.host.id, name: 'Sneaky' }),
+      headers: { 'Content-Type': 'application/json', ...asAccount(ana.host) },
+    });
+    assert.equal(res.status, 403, 'party:create is Admin only');
+  });
+
+  test('and cannot create one for somebody else either', async () => {
+    const res = await request('/api/events', {
+      ...send('POST', { hostUserId: bruno.host.id, name: 'Sneakier' }),
+      headers: { 'Content-Type': 'application/json', ...asAccount(ana.host) },
+    });
+    assert.equal(res.status, 403);
+  });
+
+  test('a party needs a host who actually exists', async () => {
+    const res = await request('/api/events', {
+      ...send('POST', { hostUserId: 'nobody-at-all', name: 'Orphan' }),
+      headers: { 'Content-Type': 'application/json', ...asAccount(dan) },
+    });
+    assert.equal(res.status, 404, 'no host, no cupboard, no menu');
   });
 });
 
 describe('two parties running at the same time', () => {
-  test("each host sees only their own guests' drinks", async () => {
-    // Both events are live simultaneously — the case the older suite cannot set up,
-    // and the one where "whichever event is live" used to send guests astray.
+  test("each bar sees only its own guests' drinks", async () => {
     const forAna = await order(ana.eventId, 'ana guest');
     const forBruno = await order(bruno.eventId, 'bruno guest');
 
-    const anaQueue = await queue(ana.barToken);
-    const brunoQueue = await queue(bruno.barToken);
-
     assert.deepEqual(
-      anaQueue.map((o) => o.id),
+      (await queue(asBar(ana))).map((o) => o.id),
       [forAna],
       "ana's bar should hold exactly her guest's drink",
     );
     assert.deepEqual(
-      brunoQueue.map((o) => o.id),
+      (await queue(asBar(bruno))).map((o) => o.id),
       [forBruno],
       "bruno's bar should hold exactly his guest's drink",
     );
@@ -154,25 +149,76 @@ describe('two parties running at the same time', () => {
       '/api/orders',
       send('POST', { eventId: 'nope', name: 'Lost', items: [{ name: 'Wine', qty: 1 }] }),
     );
-    assert.equal(res.status, 404, 'an unknown party must not silently become the live one');
+    assert.equal(res.status, 404, 'an unknown party must not silently become a live one');
   });
 
-  test('a host cannot open the bar at a party they do not work', async () => {
-    const res = await request(`/api/events/${bruno.eventId}/bar`, {
-      ...send('POST', {}),
-      headers: { 'Content-Type': 'application/json', cookie: ana.cookie },
+  test('a guest who names no party is refused rather than guessed at', async () => {
+    // There is no `liveEvent()` any more. With several parties running a guess is
+    // wrong *silently* — the guest orders at a stranger's bar and nothing says so.
+    const res = await request(
+      '/api/orders',
+      send('POST', { name: 'Vague', items: [{ name: 'Wine', qty: 1 }] }),
+    );
+    assert.equal(res.status, 404);
+  });
+});
+
+describe('what a host may do at their own party', () => {
+  test('watch the queue', async () => {
+    const mine = await queue(asAccount(ana.host), ana.eventId);
+    assert.ok(Array.isArray(mine), 'the owner can read their own queue');
+  });
+
+  test('and nothing else — not even at their own party', async () => {
+    const orders = await queue(asBar(ana));
+    const target = orders[0];
+    assert.ok(target, 'there should be a drink to try to touch');
+
+    const advance = await request(`/api/orders/${target.id}?eventId=${ana.eventId}`, {
+      ...send('PATCH', { status: 'making' }),
+      headers: { 'Content-Type': 'application/json', ...asAccount(ana.host) },
+    });
+    assert.equal(advance.status, 403, 'a host is a customer: Dan pours');
+
+    const staff = await request(`/api/staff?eventId=${ana.eventId}`, {
+      headers: asAccount(ana.host),
+    });
+    assert.equal(staff.status, 403, 'and does not decide who else is behind the bar');
+  });
+
+  test("but not watch somebody else's", async () => {
+    const res = await request(`/api/orders?eventId=${bruno.eventId}`, {
+      headers: asAccount(ana.host),
     });
     assert.equal(res.status, 404, 'and the id should not confirm the party exists');
   });
+});
 
-  test('creating an event needs an account, not a bar session', async () => {
-    const anonymous = await request('/api/events', send('POST', { name: 'Nobody' }));
-    assert.equal(anonymous.status, 401);
-
-    const withBarToken = await request('/api/events', {
-      ...send('POST', { name: 'Wrong credential' }),
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${ana.barToken}` },
+describe('what Admin may do', () => {
+  test('open any bar without being invited to it', async () => {
+    // "Admin can view and manage all hosts" — no join code, no membership.
+    const res = await request(`/api/events/${bruno.eventId}/bar`, {
+      ...send('POST', {}),
+      headers: { 'Content-Type': 'application/json', ...asAccount(dan) },
     });
-    assert.equal(withBarToken.status, 401, 'a bar session is not an account');
+    assert.equal(res.status, 200);
+  });
+
+  test('and see every party, where a host sees only their own', async () => {
+    const all = await okJson<{ events: { id: string }[] }>(
+      await request('/api/events', { headers: asAccount(dan) }),
+      "admin's list",
+    );
+    const ids = all.events.map((e) => e.id);
+    assert.ok(ids.includes(ana.eventId) && ids.includes(bruno.eventId));
+
+    const hers = await okJson<{ events: { id: string }[] }>(
+      await request('/api/events', { headers: asAccount(ana.host) }),
+      "ana's list",
+    );
+    assert.deepEqual(
+      hers.events.map((e) => e.id),
+      [ana.eventId],
+    );
   });
 });

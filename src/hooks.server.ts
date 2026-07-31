@@ -7,29 +7,22 @@
  * on the first line of each protected handler, so the guard sits in the file it
  * protects rather than in a route table several directories away.
  */
-import type { Handle, HandleServerError, ServerInit } from '@sveltejs/kit';
+import type { Handle, HandleServerError } from '@sveltejs/kit';
 import { config } from '$lib/server/config';
-import { seedStaff } from '$lib/server/auth';
 
 /**
- * Boot: make sure the env-configured admin exists.
+ * **Nothing is seeded at boot any more**, and the absence is deliberate.
  *
- * The old standalone server did this in its entry point. Nothing replaced it in
- * the first pass of the migration, so the database came up with no admin at all
- * and the PIN had no account to sign into — the `init` hook is where that belongs,
- * because it runs once before the first request rather than per request.
+ * There used to be an `init` hook here that created an admin from the environment
+ * and a default event for it to own. Both are gone: Admin is a real account that
+ * signs up like anyone else (`ADMIN_EMAILS` only says which account it is), and a
+ * party belongs to a host, so there is no such thing as an ownerless one to seed.
  *
- * Env is the source of truth, so changing STAFF_PASSWORD and redeploying just
- * applies. Failure is logged rather than thrown: a bad seed shouldn't stop the app
- * booting, and guests ordering drinks don't need an admin to exist.
+ * The consequence worth knowing: **a fresh database has nobody in it.** That is the
+ * honest state — the first thing that happens to a new deployment is a person
+ * signing up — rather than a fabricated account and a party called "The party" that
+ * existed only so the old code had something to point at.
  */
-export const init: ServerInit = async () => {
-  try {
-    await seedStaff();
-  } catch (err) {
-    console.error('staff seed failed:', err);
-  }
-};
 
 /** Every endpoint takes small JSON; anything larger is a DoS attempt, not a client. */
 const MAX_BODY_BYTES = 256 * 1024;

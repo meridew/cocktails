@@ -1,3 +1,4 @@
+import type { Actor } from './permissions';
 /** Response envelopes the API and client agree on. */
 import type { Order } from './orders';
 import type { Staff } from './staff';
@@ -27,5 +28,10 @@ export interface LoginResponse {
 
 export interface MeResponse {
   ok: true;
-  staff: Staff;
+  /**
+   * Who the caller is, in the shape `can()` takes. Deliberately not a staff row:
+   * the client and the server now reason about the same object, so a control that
+   * renders is one the server will honour.
+   */
+  actor: Actor;
 }

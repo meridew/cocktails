@@ -1,47 +1,48 @@
 /**
- * Staff auth. Two kinds of principal, deliberately asymmetric:
+ * Bar sessions — the credential for working one party.
  *
- *   • admin     — email + password (scrypt), so they can sign in from ANY device.
- *                 Seeded from env, and never demotable, so you can't lock yourself
- *                 out of your own bar.
- *   • bartender — a helper whose access an admin approved for one device. No
- *                 password to invent or remember.
+ * **There is one kind of principal here now.** This file used to hold two, admin and
+ * bartender, with the admin signing in by email and password against a seeded row in
+ * the environment. That admin is a real account today (`accounts.ts`), so what
+ * remains is the door for people who deliberately have no account: a helper let in
+ * by a code the host reads out.
  *
- * A helper's deviceId is their *identity*, never their credential: it travels in
- * every order payload, so it isn't secret. The credential is always a
- * server-issued bearer session, of which only the SHA-256 is stored.
+ * A helper's `deviceId` is their *identity*, never their credential — it travels in
+ * every order payload, so it isn't secret. The credential is always a server-issued
+ * bearer session, of which only the SHA-256 is stored.
+ *
+ * A staff row may carry a `userId`. When it does, the session speaks for that
+ * account too: `resolveActor` reads the role through the link, which is how the
+ * keypad returns someone to the bar as *themselves* rather than as a generic shift.
  */
 import { createHash, randomBytes, randomInt, scrypt, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
 import type { Staff, StaffStatus } from '$lib/shared';
 import { JOIN_CODE_LENGTH, JOIN_CODE_TTL_MS, isValidJoinCode } from '$lib/shared';
-import { config } from './config';
 import {
+  clearPin,
   clearStaffClaim,
   createJoinCode as dbCreateJoinCode,
   createStaff,
-  createEvent,
   createStaffSession,
   deleteStaffSession,
-  ensureAdmin,
   genId,
-  liveEvent,
   liveJoinCode,
   now,
   pendingStaffForDevice,
+  pinFor,
   purgeExpiredSessions,
   purgeStalePendingStaff,
   renameStaff,
   setJoinedVia,
+  setPin,
   setStaffClaim,
   setStaffStatus,
   staffByClaim,
-  staffByEmail,
   staffByIdUnscoped,
   staffForAccount,
   staffForDevice,
   staffSession,
-  updateStaffPassword,
   type StaffRow,
 } from './db';
 import { createRateLimiter } from './ratelimit';
@@ -99,67 +100,15 @@ export async function verifyPassword(password: string, stored: string): Promise<
 
 const sha256 = (value: string): string => createHash('sha256').update(value).digest('hex');
 
-/**
- * The id of the party currently being served, creating a default one if there
- * isn't one yet.
- *
- * Everything is scoped to an event now, so *something* has to exist before the
- * first guest scans a QR code — and at boot there is no host account to own it.
- * Hence the null `hostUserId`: an honest "nobody has claimed this yet" rather than
- * a fabricated account to satisfy a foreign key.
- */
-export function ensureLiveEvent(): string {
-  const live = liveEvent();
-  if (live) return live.id;
-  const created = createEvent({ name: 'The party', status: 'live' });
-  console.log(`\u{1F389} created the default event: ${created.id}`);
-  return created.id;
-}
-
-/** Strip secrets before a staff row ever leaves the server. */
+/** Strip anything internal before a staff row ever leaves the server. */
 export function toStaff(row: StaffRow): Staff {
   return {
     id: row.id,
     eventId: row.eventId,
     name: row.displayName,
-    email: row.email,
-    role: row.role === 'admin' ? 'admin' : 'bartender',
     status: row.status as StaffStatus,
     createdAt: row.createdAt,
   };
-}
-
-/**
- * Ensure the env-configured admin exists with the current password.
- * Env is the source of truth, so changing STAFF_PASSWORD and redeploying just
- * applies — which also means a change to the scrypt parameters above re-derives
- * the stored hash on the next boot.
- */
-export async function seedStaff(): Promise<void> {
-  const eventId = ensureLiveEvent();
-  if (!config.staff.email || !config.staff.password) return;
-  const existing = staffByEmail(config.staff.email);
-  if (!existing) {
-    createStaff({
-      id: genId(),
-      eventId,
-      displayName: config.staff.email.split('@')[0] || 'Admin',
-      email: config.staff.email,
-      passwordHash: await hashPassword(config.staff.password),
-      role: 'admin',
-      status: 'active',
-      joinedVia: 'seed',
-    });
-    console.log(`\u{1F464} created admin account: ${config.staff.email}`);
-    return;
-  }
-  // Always re-assert admin+active: the account that owns the bar must never end up
-  // demoted or revoked, or nobody could approve anyone again.
-  if (existing.role !== 'admin' || existing.status !== 'active') ensureAdmin(existing.id);
-  if (!(await verifyPassword(config.staff.password, existing.passwordHash ?? ''))) {
-    updateStaffPassword(existing.id, await hashPassword(config.staff.password));
-    console.log(`\u{1F511} updated admin password: ${config.staff.email}`);
-  }
 }
 
 /** Issue a session for a staff row. */
@@ -170,41 +119,47 @@ function startSession(row: StaffRow): { token: string; staff: Staff } {
   return { token, staff: toStaff(row) };
 }
 
-/** Verify credentials → issue a session token. Returns null on bad creds. */
-export async function login(
-  email: string,
-  password: string,
-): Promise<{ token: string; staff: Staff } | null> {
-  const row = staffByEmail(email.trim().toLowerCase());
-  // Hash regardless so a missing account, a helper with no password, and a wrong
-  // password all cost the same — otherwise response timing reveals which emails exist.
-  if (!row?.passwordHash || row.status !== 'active') {
-    await scryptAsync(password, DUMMY_SALT, KEY_LEN, SCRYPT);
-    return null;
-  }
-  if (!(await verifyPassword(password, row.passwordHash))) return null;
-  return startSession(row);
+/** Set or change the keypad code for an account. Hashed like a password. */
+export async function setAccountPin(userId: string, pin: string): Promise<void> {
+  setPin(userId, await hashPassword(pin));
 }
 
+export const clearAccountPin = (userId: string): void => clearPin(userId);
+
+export const hasAccountPin = (userId: string): boolean => pinFor(userId) !== null;
+
 /**
- * Sign in as the admin with the short PIN.
+ * Get back behind a bar with the keypad, as yourself.
  *
- * The PIN is compared against env directly rather than stored: env is already the
- * source of truth for the admin's credentials, so hashing a copy into the database
- * would just add a second place for it to go stale.
+ * The device already knows *who* — it signed in properly once — so this proves it is
+ * still that person, not which person it is. The PIN is stored hashed against the
+ * account rather than sitting in the environment: the old shared `STAFF_PIN` had no
+ * owner, so it could not be rotated by the person it belonged to and could not tell
+ * two people apart.
  *
- * A 6-digit PIN is only 10^6 possibilities, so throttling is the whole defence —
- * see `pinBlocked`, which is both per-IP *and* global.
+ * The session it returns is a **staff** one, because Better Auth has no supported
+ * way to mint an account session without a credential (PLATFORM-PLAN §8 phase 0.7).
+ * That costs nothing here: the staff row carries `userId`, so `resolveActor` reads
+ * the account role through it and the holder is themselves again.
+ *
+ * A short numeric secret is only ~10^4–10^6 possibilities, so **throttling is the
+ * whole defence** — see the limiter at the endpoint, which is per-IP and per-account.
  */
-export function loginWithPin(pin: string): { token: string; staff: Staff } | null {
-  const expected = config.staff.pin;
-  if (!expected || !config.staff.email) return null;
-  const supplied = Buffer.from(pin);
-  const target = Buffer.from(expected);
-  // Length is compared first because timingSafeEqual throws on a mismatch. It
-  // leaks only how many digits the PIN has, which the keypad already advertises.
-  if (supplied.length !== target.length || !timingSafeEqual(supplied, target)) return null;
-  const row = staffByEmail(config.staff.email);
+export async function signInWithPin(
+  eventId: string,
+  userId: string,
+  pin: string,
+): Promise<{ token: string; staff: Staff } | null> {
+  const stored = pinFor(userId);
+  // Hash regardless, so "no PIN set" and "wrong PIN" cost the same. Otherwise the
+  // response time says which accounts have a keypad configured.
+  if (!stored) {
+    await scryptAsync(pin, DUMMY_SALT, KEY_LEN, SCRYPT);
+    return null;
+  }
+  if (!(await verifyPassword(pin, stored))) return null;
+
+  const row = staffForAccount(eventId, userId);
   if (!row || row.status !== 'active') return null;
   return startSession(row);
 }
@@ -218,10 +173,10 @@ export function loginWithPin(pin: string): { token: string; staff: Staff } | nul
  * onboarding, which a house party doesn't have — the host is right there, so a
  * code collapses ask→wait→approve→collect into one step that can't stall.
  *
- * Short-lived and revocable, and it only ever grants `bartender`, so the worst a
- * leaked code buys is bar access for fifteen minutes, revocable at any time.
+ * Short-lived and revocable, and it only ever grants bar access at one party, so
+ * the worst a leaked code buys is fifteen minutes of it, revocable at any time.
  */
-export function createJoinCode(createdBy: string): { code: string; expiresAt: number } {
+export function createJoinCode(createdBy: string | null): { code: string; expiresAt: number } {
   // 6 digits from rejection-free arithmetic on a uniform 32-bit draw would still
   // bias slightly; randomInt is uniform by construction.
   const code = String(randomInt(0, 10 ** JOIN_CODE_LENGTH)).padStart(JOIN_CODE_LENGTH, '0');
@@ -248,9 +203,10 @@ export function redeemJoinCode(
   if (!liveJoinCode(sha256(code))) return null;
 
   const existing = staffForDevice(eventId, deviceId);
-  if (existing && existing.role !== 'admin') {
-    // A code grants access without anyone approving it, so `approved_by` stays
-    // null and `joined_via` carries the fact instead.
+  if (existing) {
+    // Revive the row this device already has rather than adding a second. A code
+    // grants access without anyone approving it, so `approved_by` stays null and
+    // `joined_via` carries the fact instead.
     setStaffStatus(existing.id, 'active', null);
     setJoinedVia(existing.id, 'code');
     clearStaffClaim(existing.id);
@@ -258,19 +214,9 @@ export function redeemJoinCode(
     const row = staffByIdUnscoped(existing.id);
     return row ? startSession(row) : null;
   }
-  if (existing?.role === 'admin') return startSession(existing); // the host's own device
 
   const id = genId();
-  createStaff({
-    id,
-    eventId,
-    displayName: name,
-    email: null,
-    deviceId,
-    role: 'bartender',
-    status: 'active',
-    joinedVia: 'code',
-  });
+  createStaff({ id, eventId, displayName: name, deviceId, status: 'active', joinedVia: 'code' });
   const row = staffByIdUnscoped(id);
   return row ? startSession(row) : null;
 }
@@ -286,10 +232,27 @@ export function redeemJoinCode(
 export function barSessionForAccount(
   eventId: string,
   userId: string,
+  displayName = '',
 ): { token: string; staff: Staff } | null {
   const row = staffForAccount(eventId, userId);
-  if (!row || row.status !== 'active') return null;
-  return startSession(row);
+  if (row) {
+    // A revoked row is not a dead end for an account-holder. Their access comes
+    // from the account — the guard has already said they may work this bar — so the
+    // row is bookkeeping, and refusing here would make "revoke all helpers"
+    // permanently lock the person who tapped it out of their own party.
+    if (row.status !== 'active') setStaffStatus(row.id, 'active', null);
+    const current = staffByIdUnscoped(row.id);
+    return current ? startSession(current) : null;
+  }
+
+  // No row yet — create one. The caller has already been through the guard, so the
+  // fact they're asking means they may work this bar; refusing here would mean Dan
+  // could act on any party through his cookie but not hold a token for one, which is
+  // an arbitrary distinction dressed up as a permission.
+  const id = genId();
+  createStaff({ id, eventId, userId, displayName, status: 'active', joinedVia: 'seed' });
+  const created = staffByIdUnscoped(id);
+  return created ? startSession(created) : null;
 }
 
 // ---- request to help -------------------------------------------------------
@@ -319,11 +282,7 @@ export function requestStaffAccess(input: {
     id: genId(),
     eventId: input.eventId,
     displayName: input.name,
-    // Left null: an unverified email is a label, not proof, so it must not
-    // collide with (or impersonate) a real sign-in account.
-    email: null,
     deviceId: input.deviceId,
-    role: 'bartender',
     status: 'pending',
     claimHash: sha256(claim),
     claimExpiresAt: now() + CLAIM_TTL_MS,
@@ -353,7 +312,7 @@ export function claimStaffAccess(
 }
 
 /** Approve a pending request. Only meaningful for a row that is still pending. */
-export function approveStaff(id: string, approvedBy: string): boolean {
+export function approveStaff(id: string, approvedBy: string | null): boolean {
   const row = staffByIdUnscoped(id);
   if (!row || row.status !== 'pending') return false;
   setStaffStatus(id, 'active', approvedBy);
@@ -362,48 +321,39 @@ export function approveStaff(id: string, approvedBy: string): boolean {
 
 // ---- brute-force brakes ----------------------------------------------------
 
-/** Login throttle, per client IP. */
-const loginLimiter = createRateLimiter({ max: 10, windowMs: 15 * 60 * 1000 });
-
-export function loginBlocked(ip: string): boolean {
-  return loginLimiter.isLimited(ip);
-}
-
-export function noteLoginAttempt(ip: string, ok: boolean): void {
-  if (ok) loginLimiter.clear(ip);
-  else loginLimiter.record(ip);
-}
-
 /**
- * PIN throttle, in two layers.
+ * Keypad throttle, in two layers: **per IP and per account.**
  *
- * Per-IP alone isn't enough here: a 6-digit PIN is a 10^6 space, and behind
- * Cloudflare we see the real client IP, so an attacker with a few thousand
- * addresses could spread the guessing thinly and stay under any per-IP cap. The
- * global limiter closes that off — the whole PIN door shuts after GLOBAL_MAX bad
- * attempts in the window, whoever made them.
+ * Per-IP alone isn't enough — a 6-digit PIN is a 10^6 space, and behind Cloudflare
+ * we see the real client IP, so an attacker with a few thousand addresses could
+ * spread the guessing thinly and stay under any per-IP cap.
  *
- * The trade-off is that an attacker can deliberately jam the PIN door. That's
- * acceptable precisely because email + password remains available, so the bar can
- * always still be opened. A correct PIN clears the counters.
+ * The second layer used to be **global**, which was right when there was one shared
+ * PIN and is wrong now that everyone has their own: a global counter means one
+ * attacker grinding at one account locks every other person's keypad too. Keying it
+ * to the account being guessed at bounds the damage to that account, which is the
+ * only one actually under attack.
+ *
+ * Jamming one account's keypad is still possible, and still acceptable: signing in
+ * with the account itself always works, so nobody is ever locked out of the app —
+ * only out of the shortcut. A correct PIN clears both counters.
  */
 const PIN_WINDOW_MS = 15 * 60 * 1000;
-const pinLimiter = createRateLimiter({ max: 10, windowMs: PIN_WINDOW_MS });
-const pinGlobalLimiter = createRateLimiter({ max: 60, windowMs: PIN_WINDOW_MS });
-const GLOBAL_KEY = 'all';
+const pinByIp = createRateLimiter({ max: 10, windowMs: PIN_WINDOW_MS });
+const pinByAccount = createRateLimiter({ max: 10, windowMs: PIN_WINDOW_MS });
 
-export function pinBlocked(ip: string): boolean {
-  return pinLimiter.isLimited(ip) || pinGlobalLimiter.isLimited(GLOBAL_KEY);
+export function pinBlocked(ip: string, userId: string): boolean {
+  return pinByIp.isLimited(ip) || (userId !== '' && pinByAccount.isLimited(userId));
 }
 
-export function notePinAttempt(ip: string, ok: boolean): void {
+export function notePinAttempt(ip: string, userId: string, ok: boolean): void {
   if (ok) {
-    pinLimiter.clear(ip);
-    pinGlobalLimiter.clear(GLOBAL_KEY);
+    pinByIp.clear(ip);
+    if (userId) pinByAccount.clear(userId);
     return;
   }
-  pinLimiter.record(ip);
-  pinGlobalLimiter.record(GLOBAL_KEY);
+  pinByIp.record(ip);
+  if (userId) pinByAccount.record(userId);
 }
 
 /**
@@ -412,6 +362,7 @@ export function notePinAttempt(ip: string, ok: boolean): void {
  * limiter is what actually bounds it. Codes also expire, which shrinks the window
  * an attacker has to work in.
  */
+const GLOBAL_KEY = 'all';
 const joinLimiter = createRateLimiter({ max: 10, windowMs: 15 * 60 * 1000 });
 const joinGlobalLimiter = createRateLimiter({ max: 60, windowMs: 15 * 60 * 1000 });
 
@@ -448,13 +399,18 @@ export function noteClaimAttempt(ip: string): void {
  * Checks status as well as expiry, so revoking someone takes effect immediately
  * even if their token hasn't expired.
  */
-export function sessionStaff(token: string | undefined): Staff | null {
+/**
+ * The **row**, not the DTO, because the guard needs `userId` — the link that lets a
+ * bar session speak for the account behind it. Callers that answer a client use
+ * `toStaff` on the way out.
+ */
+export function sessionStaff(token: string | undefined): StaffRow | null {
   if (!token) return null;
   const sess = staffSession(sha256(token));
   if (!sess || sess.expiresAt < now()) return null;
   const row = staffByIdUnscoped(sess.staffId);
   if (!row || row.status !== 'active') return null;
-  return toStaff(row);
+  return row;
 }
 
 export function logout(token: string | undefined): void {

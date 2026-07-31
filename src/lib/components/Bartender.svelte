@@ -30,13 +30,13 @@
   import { hydrateSession, session, signOut } from '$lib/stores/session.svelte';
   import StaffGate from '$lib/components/StaffGate.svelte';
   import StaffAdmin from '$lib/components/StaffAdmin.svelte';
-  import StockList from '$lib/components/StockList.svelte';
   import BarMenu from '$lib/components/BarMenu.svelte';
   import OrderCard from '$lib/components/OrderCard.svelte';
   import { SvelteSet } from 'svelte/reactivity';
-  import { can, ORDER_STATUSES, STATUS_META } from '$lib/shared';
+  import { can, party, ORDER_STATUSES, STATUS_META } from '$lib/shared';
   import type { Handoff, Order, OrderStatus, Staff } from '$lib/shared';
   import { view } from '$lib/stores/view.svelte';
+  import { currentEventId } from '$lib/party';
 
   let { onclose }: { onclose: () => void } = $props();
 
@@ -59,14 +59,16 @@
   let signedIn = $derived(session.signedIn);
   let notify = $derived(pushState('bartender'));
 
-  // Staff administration, admins only.
-  let canManageStaff = $derived(can(session.staff, 'staff:approve'));
+  // Who may decide who else gets behind this bar. Asked of the *actor* against
+  // *this party*, which is the same object and the same question the server asks —
+  // so a control that renders here is one the server will honour.
+  let canManageStaff = $derived(can(session.actor, 'staff:approve', party(currentEventId() ?? '')));
   let showStaff = $state(false);
 
-  // The stock list. Bartenders can look — being asked "have we got any gin left?" is
-  // most of the job — but only the host can tick.
-  let canSeeStock = $derived(can(session.staff, 'inventory:read'));
-  let showStock = $state(false);
+  // The cupboard used to be reachable from here. It has moved to the host's own area
+  // (PLATFORM-PLAN §7) — a cupboard is filled in days before a party, by someone who
+  // is a customer rather than bar staff, and it only lived here because a bar session
+  // was once the only credential that could authorise editing it.
   let staff = $state<Staff[]>([]);
   let staffLoaded = $state(false);
   let pendingCount = $derived(staff.filter((s) => s.status === 'pending').length);
@@ -114,7 +116,7 @@
 
   /** Admins also poll the staff list, so a new request shows up without a refresh. */
   async function fetchStaff() {
-    if (!can(session.staff, 'staff:approve')) return;
+    if (!canManageStaff) return;
     const started = session.generation;
     try {
       const r = await listStaff();
@@ -234,7 +236,6 @@
     loaded = false;
     staffLoaded = false;
     showStaff = false;
-    showStock = false;
     openId = null;
     await signOut();
   }
@@ -293,8 +294,6 @@
       onchanged={fetchStaff}
       onclose={() => (showStaff = false)}
     />
-  {:else if showStock && canSeeStock}
-    <StockList onclose={() => (showStock = false)} />
   {:else}
     <!-- Tabs are both the filter and the queue overview, which is why there's no
          separate "show done" control any more: Done is simply a tab. -->
@@ -348,12 +347,10 @@
 {#if menuOpen}
   <BarMenu
     {canManageStaff}
-    {canSeeStock}
     pendingStaff={pendingCount}
     {sort}
     {pushLabel}
     onstaff={() => (showStaff = true)}
-    onstock={() => (showStock = true)}
     onsort={() => (view.barSort = sort === 'oldest' ? 'newest' : 'oldest')}
     onpush={() => void enablePush('bartender')}
     onclearDone={clearDone}

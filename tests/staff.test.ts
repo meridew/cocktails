@@ -12,10 +12,11 @@ import { test, describe, beforeAll, beforeEach } from 'vitest';
 import assert from 'node:assert/strict';
 import type { Staff, StaffClaimResponse } from '$lib/shared';
 import { request } from './app';
-import { hashPassword, ensureLiveEvent } from '$lib/server/auth';
-import { createStaff, genId, listStaff, deleteStaff } from '$lib/server/db';
+import { listStaff, deleteStaff } from '$lib/server/db';
+import { barToken, partyFor, person, useMemoryEmail, type Account } from './fixtures/people';
 
-const ADMIN = { email: 'admin@local', password: 'admin-pw' };
+let dan: Account;
+let eventId = '';
 let adminToken = '';
 
 const post = (body: unknown, headers: Record<string, string> = {}) => ({
@@ -27,7 +28,7 @@ const auth = (t: string) => ({ Authorization: `Bearer ${t}` });
 
 /** Ask to help, returning the one-time claim secret. */
 async function askToHelp(name: string, deviceId: string): Promise<string> {
-  const res = await request('/api/staff/requests', post({ name, deviceId }));
+  const res = await request('/api/staff/requests', post({ name, deviceId, eventId }));
   assert.equal(res.status, 200, 'a request should be accepted');
   return ((await res.json()) as { claim: string }).claim;
 }
@@ -39,28 +40,27 @@ const claim = async (secret: string): Promise<StaffClaimResponse> => {
 };
 
 const pendingFor = (name: string): Staff | undefined =>
-  listStaff(ensureLiveEvent())
+  listStaff(eventId)
     .map((r) => ({ id: r.id, name: r.displayName, status: r.status }) as unknown as Staff)
     .find((s) => s.name === name && s.status === 'pending');
 
+/** Dan's own row at this party — the one the fixture created to hold his token. */
+let danStaffId = '';
+
 beforeAll(async () => {
-  createStaff({
-    eventId: ensureLiveEvent(),
-    id: genId(),
-    displayName: 'Admin',
-    email: ADMIN.email,
-    passwordHash: await hashPassword(ADMIN.password),
-    role: 'admin',
-    status: 'active',
-  });
-  const res = await request('/api/auth/login', post(ADMIN));
-  adminToken = ((await res.json()) as { token: string }).token;
-  assert.ok(adminToken);
+  useMemoryEmail();
+  dan = await person('staff-dan', 'admin');
+  eventId = partyFor(dan.id, 'Staff party');
+  adminToken = await barToken(dan, eventId);
+  danStaffId = listStaff(eventId).find((r) => r.userId === dan.id)?.id ?? '';
+  assert.ok(adminToken && danStaffId);
 });
 
-// Keep each test's view of the staff list to itself.
+// Keep each test's view of the staff list to itself. Dan's own row survives — it's
+// what his bar token points at, and there is no role column to recognise it by any
+// more, so it's identified by the account it belongs to.
 beforeEach(() => {
-  for (const row of listStaff(ensureLiveEvent())) if (row.role !== 'admin') deleteStaff(row.id);
+  for (const row of listStaff(eventId)) if (row.id !== danStaffId) deleteStaff(row.id);
 });
 
 describe('asking to help', () => {
@@ -85,8 +85,8 @@ describe('asking to help', () => {
     const sarah = staff.find((s) => s.name === 'Sarah');
     assert.ok(sarah, 'the request should appear in the admin list');
     assert.equal(sarah.status, 'pending');
-    assert.equal(sarah.role, 'bartender');
-    assert.equal(sarah.email, null, 'a helper has no sign-in email');
+    // No role and no email to assert any more: a staff row describes a shift, not a
+    // person, and it carries no credential of its own.
 
     assert.deepEqual(await claim(secret), { ok: true, status: 'pending' });
   });
@@ -96,7 +96,7 @@ describe('asking to help', () => {
     const second = await askToHelp('Sarah', 'dev-sarah');
     assert.notEqual(first, second, 'a fresh secret is issued');
 
-    const pending = listStaff(ensureLiveEvent()).filter((r) => r.status === 'pending');
+    const pending = listStaff(eventId).filter((r) => r.status === 'pending');
     assert.equal(pending.length, 1, 'still exactly one pending request');
 
     // The newest secret works; the superseded one no longer does.
@@ -117,7 +117,11 @@ describe('approval', () => {
     const collected = await claim(secret);
     assert.equal(collected.status, 'active');
     assert.ok(collected.status === 'active' && collected.token, 'a session token is issued');
-    assert.equal(collected.status === 'active' && collected.staff.role, 'bartender');
+    assert.equal(
+      collected.status === 'active' && collected.staff.eventId,
+      eventId,
+      'the session names the one party it is for',
+    );
 
     // The claim is consumed, so a leaked secret can't mint a second session.
     assert.equal((await claim(secret)).status, 'denied', 'the claim must be single-use');
@@ -234,21 +238,23 @@ describe('revocation', () => {
     assert.equal(stillAdmin.status, 200, 'the admin must not lock themselves out');
   });
 
-  test('an admin cannot be revoked or removed (no lock-out)', async () => {
-    const me = await request('/api/auth/me', { headers: auth(adminToken) });
-    const { staff } = (await me.json()) as { staff: Staff };
+  test('revoking your own shift costs you the token, not the bar', async () => {
+    // This used to assert that an admin *could not* be revoked, because their
+    // access came from this row and losing it meant losing the bar. It doesn't any
+    // more: access comes from the account. So the row can go, and the way back in
+    // is to take another one — which is the honest behaviour and a smaller special
+    // case than a rule saying some rows are unremovable.
+    const revoke = await request(`/api/staff/${danStaffId}/revoke`, post({}, auth(adminToken)));
+    assert.equal(revoke.status, 200, 'there is nothing special about this row');
 
-    const revoke = await request(`/api/staff/${staff.id}/revoke`, post({}, auth(adminToken)));
-    assert.equal(revoke.status, 403);
+    const dead = await request('/api/staff', { headers: auth(adminToken) });
+    assert.equal(dead.status, 401, 'the token it issued dies with it');
 
-    const remove = await request(`/api/staff/${staff.id}`, {
-      method: 'DELETE',
-      headers: auth(adminToken),
-    });
-    assert.equal(remove.status, 403);
-
-    const after = await request('/api/auth/me', { headers: auth(adminToken) });
-    assert.equal(after.status, 200, 'the admin should still be signed in');
+    const fresh = await barToken(dan, eventId);
+    const back = await request('/api/staff', { headers: auth(fresh) });
+    assert.equal(back.status, 200, 'the account can always take a new shift');
+    danStaffId = listStaff(eventId).find((r) => r.userId === dan.id)?.id ?? '';
+    adminToken = fresh;
   });
 
   test('a revoked helper cannot sign in, and asking again starts a fresh request', async () => {

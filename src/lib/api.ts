@@ -208,8 +208,12 @@ export interface Party {
 
 export const myParties = () => req<{ ok: true; events: Party[] }>('/events');
 
-export const createParty = (name: string) =>
-  req<{ ok: true; event: Party }>('/events', { method: 'POST', body: JSON.stringify({ name }) });
+/** Admin only: a party is created *for* a host, who must already have an account. */
+export const createParty = (hostUserId: string, name: string, startsAt?: number | null) =>
+  req<{ ok: true; event: Party }>('/events', {
+    method: 'POST',
+    body: JSON.stringify({ hostUserId, name, startsAt: startsAt ?? null }),
+  });
 
 /** Trade the account session for a bar session at a party you're staff on. */
 export const openBar = (eventId: string) =>
@@ -233,7 +237,7 @@ export interface StockView {
   suggestions: { ingredient: string; unlocks: number }[];
 }
 
-export const getStock = () => req<{ ok: true } & StockView>('/inventory');
+export const getStock = (userId: string) => req<{ ok: true } & StockView>(`/hosts/${userId}/stock`);
 
 /**
  * Replace the whole list rather than toggling one bottle.
@@ -241,8 +245,8 @@ export const getStock = () => req<{ ok: true } & StockView>('/inventory');
  * Matches the endpoint, and for the same reason: a request per tick would make the
  * makeable count flicker through states the host never chose.
  */
-export const saveStock = (stock: string[]) =>
-  req<{ ok: true; stock: string[]; makeable: Pourable[] }>('/inventory', {
+export const saveStock = (userId: string, stock: string[]) =>
+  req<{ ok: true; stock: string[]; makeable: Pourable[] }>(`/hosts/${userId}/stock`, {
     method: 'PUT',
     body: JSON.stringify({ stock }),
   });
@@ -268,20 +272,26 @@ export const eventMenu = (eventId: string) =>
  * PIN-only, and `POST /api/auth/login` exists purely as break-glass if the PIN
  * throttle is ever jammed — reachable with curl, and covered by the route tests.
  */
-export const loginWithPin = (pin: string) =>
-  req<LoginResponse>('/auth/pin', { method: 'POST', body: JSON.stringify({ pin }) });
+export const signInWithPin = (eventId: string, userId: string, pin: string) =>
+  req<LoginResponse>('/auth/pin', {
+    method: 'POST',
+    body: JSON.stringify({ eventId, userId, pin }),
+  });
 
 export const logout = () => req<OkResponse>('/auth/logout', { method: 'POST' });
 
-/** Who the current session belongs to — used to recover role/name after a reload. */
+/**
+ * Who we are, as the server sees us. Never 401s — "nobody" is a real answer, and
+ * the signed-out front door asks this too.
+ */
 export const me = () => req<MeResponse>('/auth/me');
 
 // ---- staff: asking to help, and administering who's in ----
 
-export const requestStaffAccess = (name: string, deviceId: string) =>
+export const requestStaffAccess = (eventId: string, name: string, deviceId: string) =>
   req<StaffRequestCreated>('/staff/requests', {
     method: 'POST',
-    body: JSON.stringify({ name, deviceId }),
+    body: JSON.stringify({ eventId, name, deviceId }),
   });
 
 export const claimStaffAccess = (claim: string) =>
@@ -322,8 +332,8 @@ export const createJoinCode = () => req<JoinCodeResponse>('/staff/join-code', { 
 export const revokeJoinCodes = () => req<OkResponse>('/staff/join-code', { method: 'DELETE' });
 
 /** Helper redeems a code and is working the bar immediately. */
-export const joinWithCode = (code: string, name: string, deviceId: string) =>
+export const joinWithCode = (eventId: string, code: string, name: string, deviceId: string) =>
   req<JoinResponse>('/staff/join', {
     method: 'POST',
-    body: JSON.stringify({ code, name, deviceId }),
+    body: JSON.stringify({ eventId, code, name, deviceId }),
   });

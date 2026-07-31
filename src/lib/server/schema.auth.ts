@@ -7,11 +7,10 @@
  * not `email_verified`); the column names in the second argument are ours, so the
  * database stays snake_case like the rest of it.
  *
- * These sit alongside `staff`, they don't replace it. An `account` is a *host* who
- * signs up, owns events and can sign in from anywhere. `staff` is who is behind the
- * bar tonight, identified by a device and let in with a PIN or a join code — which
- * survives precisely because typing an email and password mid-party is the misery
- * the keypad removed. Phase 2 joins the two through event membership.
+ * These sit alongside `staff`, they don't replace it. A `user` is a *person with an
+ * account* — Dan, or a host. `staff` is who is behind the bar tonight, identified by
+ * a device and let in with a join code, which survives precisely because typing an
+ * email and password mid-party is the misery the keypad removed.
  */
 import { sqliteTable, text, integer } from 'drizzle-orm/sqlite-core';
 
@@ -21,6 +20,33 @@ export const user = sqliteTable('user', {
   email: text('email').notNull().unique(),
   emailVerified: integer('email_verified', { mode: 'boolean' }).notNull().default(false),
   image: text('image'),
+
+  /**
+   * The account role — the first of the two axes capabilities come from.
+   *
+   * Ours, not Better Auth's, but it lives on their table because it is a property of
+   * the person rather than of anything else. It is declared to Better Auth in
+   * `accounts.ts` under `user.additionalFields` with **`input: false`**: without
+   * that, a sign-up could post `{"role":"admin"}` and grant itself the platform.
+   * `tests/accounts.test.ts` proves that door is shut rather than trusting it.
+   *
+   * `ADMIN_EMAILS` outranks this column and is re-asserted on every session
+   * resolution, so config is the truth and no edit made inside the app can lock the
+   * operator out of their own service.
+   */
+  role: text('role').notNull().default('host'),
+
+  /**
+   * Suspension. Open sign-up means strangers can register, so there has to be a way
+   * to stop one — and a reason, because "why can't I sign in" is a question someone
+   * will ask.
+   *
+   * Nullable rather than a boolean plus a timestamp: one column that is either null
+   * or the moment it happened can't disagree with itself.
+   */
+  bannedAt: integer('banned_at'),
+  banReason: text('ban_reason'),
+
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
 });

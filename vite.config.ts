@@ -13,7 +13,22 @@ export default defineConfig({
   // server already honours it, so this makes dev match.
   server: { port: Number(process.env.PORT) || 5173 },
   test: {
-    environment: 'jsdom',
+    /**
+     * **Node by default; jsdom where a suite genuinely needs a DOM.**
+     *
+     * This was the other way round, with `// @vitest-environment node` sprinkled on
+     * the files that build accounts. That stopped scaling the moment every suite
+     * started using real identity: Better Auth signs with `jose`, which checks
+     * `payload instanceof Uint8Array`, and **jsdom's `Uint8Array` is a different
+     * realm** — so the check fails and sign-up 500s with a message that says nothing
+     * about jsdom.
+     *
+     * Most of these suites drive HTTP endpoints and have no DOM in them at all.
+     * Four do (`basket`, `view`, `devOverrides`, `NotifyOptIn`) and carry the
+     * opposite pragma. Defaulting to the common case means a new server suite works
+     * without anyone knowing this paragraph exists.
+     */
+    environment: 'node',
     setupFiles: ['./tests/setup.ts'],
     include: ['tests/**/*.test.ts'],
     // Server modules read `$env` and open SQLite at import; a fresh registry per

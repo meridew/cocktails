@@ -1,4 +1,3 @@
-// @vitest-environment node
 /**
  * The Graph sender, without a tenant.
  *

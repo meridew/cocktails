@@ -11,14 +11,44 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { LIMITS, type PushSubscriptionJSON } from '$lib/shared';
 import { createDb, type Db } from '$lib/server/db';
+import { user } from '$lib/server/schema.auth';
 
 let db: Db;
 /** Every test gets its own party. Scope is a required argument now, so there is
  *  nowhere to hide an unscoped query. */
 let ev: string;
+/** The host who owns it. A party without one no longer exists — see schema.ts. */
+let host: string;
+
+/**
+ * A person, inserted straight into Better Auth's table.
+ *
+ * This file is the one place that legitimately bypasses the front door: it tests
+ * the persistence layer through `createDb`, with no HTTP and no Better Auth in
+ * play. Everywhere else builds people through `tests/fixtures/people`, which signs
+ * them up for real.
+ */
+function makeUser(db: Db, id: string, role: 'admin' | 'host' = 'host'): string {
+  const at = new Date();
+  db.orm
+    .insert(user)
+    .values({
+      id,
+      name: id,
+      email: `${id}@example.com`,
+      emailVerified: true,
+      role,
+      createdAt: at,
+      updatedAt: at,
+    })
+    .run();
+  return id;
+}
+
 beforeEach(() => {
   db = createDb(':memory:');
-  ev = db.createEvent({ name: 'Test party' }).id;
+  host = makeUser(db, 'db-host');
+  ev = db.createEvent({ hostUserId: host, name: 'Test party' }).id;
 });
 
 // Temp-file databases must have their handles closed before the directory can be
@@ -76,8 +106,13 @@ describe('schema', () => {
   });
 
   test('orders carries only what is used', () => {
+    // The order is the declaration order now. It used to end with `event_id`
+    // because SQLite's ALTER TABLE ADD COLUMN can only append and the tenancy
+    // migration bolted it on; the schema was rebuilt from scratch on a green field,
+    // so the table finally reads the way it is written.
     assert.deepEqual(names('orders'), [
       'id',
+      'event_id',
       'name',
       'items',
       'note',
@@ -87,9 +122,6 @@ describe('schema', () => {
       'handoff',
       'created_at',
       'updated_at',
-      // Appended by the tenancy migration rather than slotted in after `id`:
-      // SQLite's ALTER TABLE ADD COLUMN can only append. Position is cosmetic.
-      'event_id',
     ]);
     // user_id was added for an accounts feature that never happened.
     assert.ok(!names('orders').includes('user_id'), 'dead column');
@@ -106,13 +138,13 @@ describe('schema', () => {
     assert.deepEqual(pk, ['device_id', 'endpoint', 'role']);
   });
 
-  test('staff.email and password_hash are nullable, so helpers need neither', () => {
-    // A helper's identity is a device and their credential is a session; only an
-    // admin has an email and a password.
-    for (const col of ['email', 'password_hash']) {
-      const found = cols('staff').find((c) => c.name === col);
-      assert.equal(found?.notnull, 0, `staff.${col} should be nullable`);
-    }
+  test('staff.user_id is nullable, because a helper genuinely has no account', () => {
+    // The whole appeal of a join code is that it demands nothing be invented or
+    // remembered. `user_id` is how a row *gains* an account, not a requirement —
+    // which is also why this table is the plan's `event_member` rather than a
+    // second membership table only account-holders could appear in.
+    const found = cols('staff').find((c) => c.name === 'user_id');
+    assert.equal(found?.notnull, 0, 'staff.user_id should be nullable');
   });
 
   test('how someone joined is recorded separately from who approved them', () => {
@@ -122,20 +154,25 @@ describe('schema', () => {
     assert.ok(names('staff').includes('approved_by'));
   });
 
-  test('several helpers can coexist without emails', () => {
-    // SQLite allows many NULLs under a UNIQUE index; this is what makes the
-    // nullable email safe rather than a collision waiting to happen.
+  test('several helpers coexist at one party, each on their own device', () => {
+    // The old version of this test proved many NULL emails could share a UNIQUE
+    // index. There is no email column any more — a helper's identity is a device
+    // and their credential is a session — so what's worth asserting is that the
+    // party can hold several of them at once.
     for (const id of ['h1', 'h2', 'h3']) {
-      db.createStaff({
-        id,
-        eventId: ev,
-        displayName: id,
-        deviceId: id,
-        role: 'bartender',
-        status: 'active',
-      });
+      db.createStaff({ id, eventId: ev, displayName: id, deviceId: id, status: 'active' });
     }
     assert.equal(db.listStaff(ev).length, 3);
+  });
+
+  test('a staff row carries no credential of its own', () => {
+    // Regression guard for the columns that were deleted. If `email` or
+    // `password_hash` ever reappear here, an identity has leaked back into a table
+    // that describes a shift.
+    const columns = names('staff');
+    assert.ok(!columns.includes('email'), 'staff must not hold a login identity');
+    assert.ok(!columns.includes('password_hash'), 'staff must not hold a credential');
+    assert.ok(!columns.includes('role'), 'a role is a fact about a person, not a shift');
   });
 });
 

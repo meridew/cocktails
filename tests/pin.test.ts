@@ -1,55 +1,46 @@
 /**
- * PIN sign-in.
+ * The keypad, at the HTTP boundary.
  *
- * A 6-digit PIN is a small keyspace, so these tests are mostly about the things
- * that keep it safe: the shape check, the constant-length compare, the throttle
- * (per-IP *and* global), and the refusal to work at all when no PIN is configured.
+ * **This file used to be about a secret in the environment.** `STAFF_PIN` was frozen
+ * into `config` at import, so the whole thing was built around setting env before any
+ * `$lib/server` module could load, and around `seedStaff()` existing to give the PIN
+ * an account to be. All of that is gone: a PIN belongs to an account and is set
+ * through the app, so this is an ordinary endpoint test again.
+ *
+ * The mechanics — hashing, per-IP and per-account throttling — live in
+ * `auth.test.ts`. What matters here is what the *endpoint* gives away, which is the
+ * only part an attacker can actually see.
  */
-import { test, describe, beforeAll, afterAll, beforeEach } from 'vitest';
+import { test, describe, beforeAll } from 'vitest';
 import assert from 'node:assert/strict';
-import { PIN_LENGTH, isValidPin, type Staff } from '$lib/shared';
+import { PIN_LENGTH, isValidPin } from '$lib/shared';
+import { request, send } from './app';
+import { setAccountPin } from '$lib/server/auth';
+import { barToken, partyFor, person, useMemoryEmail, type Account } from './fixtures/people';
 
-/**
- * `config` freezes the PIN when it is first imported, and static imports are
- * hoisted above any code in this file — so nothing that reaches `$lib/server`
- * may be imported statically here, or the env below would be set too late to
- * matter. That includes ./app, which pulls in every route. (The pure
- * `resolveStaffPin` branches are covered in config.test.ts, which needs no env.)
- */
 const PIN = '135790';
-const EMAIL = 'pinbar@local';
 
-let request: typeof import('./app').request;
-let seedStaff: typeof import('$lib/server/auth').seedStaff;
-const originalEnv = { ...process.env };
-
-const send = (body: unknown) => ({
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify(body),
-});
+let dan: Account;
+let noPin: Account;
+let eventId = '';
 
 /** Distinct IPs, so one test's throttle doesn't leak into the next. */
 let ipCounter = 0;
 const freshIp = () => `203.0.113.${++ipCounter % 250}`;
-const from = (ip: string, body: unknown) => ({
-  ...send(body),
-  headers: { 'Content-Type': 'application/json', 'cf-connecting-ip': ip },
-});
 
-const tryPin = (pin: string, ip = freshIp()) => request('/api/auth/pin', from(ip, { pin }));
+const tryPin = (userId: string, pin: string, ip = freshIp()) =>
+  request('/api/auth/pin', send('POST', { userId, pin, eventId }, { 'cf-connecting-ip': ip }));
 
 beforeAll(async () => {
-  process.env.STAFF_PIN = PIN;
-  process.env.STAFF_EMAIL = EMAIL;
-  process.env.STAFF_PASSWORD = 'a-long-real-password';
-  ({ request } = await import('./app'));
-  ({ seedStaff } = await import('$lib/server/auth'));
-  await seedStaff(); // the PIN signs in as the seeded admin, so it must exist
-});
-
-afterAll(() => {
-  process.env = originalEnv;
+  useMemoryEmail();
+  dan = await person('pin-dan', 'admin');
+  noPin = await person('pin-nobody', 'admin');
+  eventId = partyFor(dan.id, 'PIN party');
+  // Both need a shift at the party: the keypad returns you to a bar, so there has
+  // to be one to return to.
+  await barToken(dan, eventId);
+  await barToken(noPin, eventId);
+  await setAccountPin(dan.id, PIN);
 });
 
 describe('isValidPin', () => {
@@ -66,90 +57,66 @@ describe('isValidPin', () => {
   });
 });
 
-describe('POST /api/auth/pin', () => {
-  test('the right PIN returns a session for the admin account', async () => {
-    const res = await tryPin(PIN);
+describe('signing in with it', () => {
+  test('the right PIN opens the bar', async () => {
+    const res = await tryPin(dan.id, PIN);
     assert.equal(res.status, 200);
-    const body = (await res.json()) as { token: string; staff: Staff };
-    assert.ok(body.token);
-    assert.equal(body.staff.role, 'admin');
-    assert.equal(body.staff.email, EMAIL);
+    const body = (await res.json()) as { ok: boolean; token: string };
+    assert.equal(body.ok, true);
+    assert.ok(body.token, 'a session token comes back');
   });
 
-  test('the session it issues really works', async () => {
-    const { token } = (await (await tryPin(PIN)).json()) as { token: string };
-    const me = await request('/api/auth/me', { headers: { Authorization: `Bearer ${token}` } });
-    assert.equal(me.status, 200);
-    // Admin-only routes too — this is the account that approves helpers.
-    const staff = await request('/api/staff', {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    assert.equal(staff.status, 200);
+  test('the token it issues really works', async () => {
+    const { token } = (await (await tryPin(dan.id, PIN)).json()) as { token: string };
+    const res = await request('/api/orders', { headers: { Authorization: `Bearer ${token}` } });
+    assert.equal(res.status, 200);
   });
 
-  test('a wrong PIN is 401 and issues nothing', async () => {
-    const res = await tryPin('999999');
-    assert.equal(res.status, 401);
-    const body = (await res.json()) as { ok: boolean; token?: string };
-    assert.equal(body.ok, false);
-    assert.equal(body.token, undefined);
-  });
-
-  test('malformed input is refused without leaking how it failed', async () => {
-    const ip = freshIp();
-    for (const pin of ['', '1', '12345', '1234567', 'abcdef', '12 456']) {
-      const res = await request('/api/auth/pin', from(ip, { pin }));
-      assert.equal(res.status, 401, pin);
+  test('a wrong PIN, an unset PIN and a malformed one are indistinguishable', async () => {
+    // The whole point: nothing here says whether an account *has* a keypad, which
+    // would otherwise be a way to find out who does.
+    const wrong = await tryPin(dan.id, '000000');
+    const unset = await tryPin(noPin.id, '000000');
+    const malformed = await tryPin(dan.id, 'nope');
+    for (const [what, res] of [
+      ['a wrong PIN', wrong],
+      ['an account with no PIN', unset],
+      ['a malformed PIN', malformed],
+    ] as const) {
+      assert.equal(res.status, 401, what);
+      assert.deepEqual(await res.json(), { ok: false, error: 'wrong PIN' }, what);
     }
   });
 
-  test('a missing or non-string pin field is refused, not crashed', async () => {
-    for (const body of [{}, { pin: null }, { pin: 123456 }, { pin: ['1'] }, 'not json at all']) {
-      const res = await request('/api/auth/pin', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'cf-connecting-ip': freshIp() },
-        body: typeof body === 'string' ? body : JSON.stringify(body),
-      });
-      assert.equal(res.status, 401, JSON.stringify(body));
+  test('it will not sign you in to a party you are not working', async () => {
+    const elsewhere = partyFor(dan.id, 'A party Dan has no shift at');
+    const res = await request(
+      '/api/auth/pin',
+      send('POST', { userId: dan.id, pin: PIN, eventId: elsewhere }),
+    );
+    assert.equal(res.status, 401, 'the PIN proves who you are, not that you have a shift');
+  });
+
+  test('it needs to be told whose keypad, and which bar', async () => {
+    for (const body of [{ pin: PIN }, { pin: PIN, userId: dan.id }, { pin: PIN, eventId }]) {
+      const res = await request('/api/auth/pin', send('POST', body));
+      assert.equal(res.status, 422, JSON.stringify(body));
     }
   });
 });
 
 describe('throttling', () => {
-  beforeEach(async () => {
-    // A success clears the counters for the IP and globally, which keeps these
-    // cases independent of whatever the previous test spent.
-    await tryPin(PIN);
-  });
-
-  test('repeated wrong PINs from one IP are locked out with 429', async () => {
+  test('one account under attack is locked, and nobody else is', async () => {
     const ip = freshIp();
-    let sawLockout = false;
-    for (let i = 0; i < 15; i++) {
-      const res = await tryPin('000001', ip);
-      if (res.status === 429) {
-        sawLockout = true;
-        break;
-      }
+    let blocked = false;
+    for (let i = 0; i < 15 && !blocked; i++) {
+      if ((await tryPin(dan.id, '000000', ip)).status === 429) blocked = true;
     }
-    assert.ok(sawLockout, 'a 10^6 keyspace with no per-IP brake is brute-forceable');
-  });
+    assert.ok(blocked, 'a 10^6 keyspace needs a brake');
 
-  test('the lockout blocks the correct PIN too, so it cannot be probed around', async () => {
-    const ip = freshIp();
-    for (let i = 0; i < 15; i++) await tryPin('000002', ip);
-    const res = await tryPin(PIN, ip);
-    assert.equal(res.status, 429);
-  });
-
-  test('spreading attempts across many IPs still trips the global limit', async () => {
-    // Behind Cloudflare we see the real client IP, so a per-IP cap alone would let
-    // an attacker with a pool of addresses guess in parallel indefinitely.
-    let sawLockout = false;
-    for (let i = 0; i < 120 && !sawLockout; i++) {
-      const res = await tryPin('000003', `198.51.100.${i % 250}`);
-      if (res.status === 429) sawLockout = true;
-    }
-    assert.ok(sawLockout, 'distributed guessing must be bounded, not just per-IP guessing');
+    // A different account from a different address carries on — the reason the
+    // second layer is per-account rather than global.
+    const bystander = await tryPin(noPin.id, '000000', freshIp());
+    assert.notEqual(bystander.status, 429, 'one victim must not shut every keypad');
   });
 });

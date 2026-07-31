@@ -1,45 +1,50 @@
 import { json, type RequestEvent } from '@sveltejs/kit';
-import { cleanStr } from '$lib/shared';
-import { createEvent, createStaff, eventsForHost, genId } from '$lib/server/db';
-import { body, denied, requireAccount } from '$lib/server/guards';
+import { cleanStr, platform } from '$lib/shared';
+import { allEvents, createEvent, eventsForHost, userById } from '$lib/server/db';
+import { body, denied, fail, requireCapability, whoami } from '$lib/server/guards';
 
-/** The parties this host owns. */
+/**
+ * The parties you can see: **all of them if you're Admin, your own if you're a host.**
+ *
+ * Not a capability check, because there is no capability for "see your own things" —
+ * that isn't a permission, it's what the list *is*. The filter is the answer.
+ */
 export async function GET(event: RequestEvent) {
-  const auth = await requireAccount(event);
-  if (denied(auth)) return auth.denied;
-  return json({ ok: true, events: eventsForHost(auth.account.id) });
+  const actor = await whoami(event);
+  if (!actor.account) return fail(401, 'sign in to do that');
+  return json({
+    ok: true,
+    events: actor.account.role === 'admin' ? allEvents() : eventsForHost(actor.account.id),
+  });
 }
 
 /**
- * Create a party — and put the host behind its bar.
+ * Create a party, for a host.
  *
- * Both halves matter. Creating the event alone would leave the host owning a row
- * they have no way to work, which is precisely the gap that made signing up lead
- * nowhere: accounts existed, events existed, and nothing joined them.
+ * **Admin only, and the host must already exist.** A booking is a conversation, so
+ * Dan makes the event; and the menu is generated from the *host's* cupboard, so a
+ * party without an owner would be a party with no menu. Both halves of that are why
+ * `event.hostUserId` is NOT NULL now.
  *
- * The staff row deliberately carries **no email**. `staff.email` is UNIQUE because
- * it's a login identity, and a host running two parties would collide with
- * themselves. They don't need it: `userId` is their identity here, and they open
- * the bar through their account (see `[id]/bar`).
+ * It deliberately does not create a `staff` row for the host. They are a customer:
+ * they watch their queue through their account, and `resolveActor` gives them
+ * `owner` at their own party without anyone being added to a shift.
  */
 export async function POST(event: RequestEvent) {
-  const auth = await requireAccount(event);
+  const auth = await requireCapability(event, 'party:create', platform());
   if (denied(auth)) return auth.denied;
 
   const b = await body(event);
-  const name = cleanStr(b.name, 80) || `${auth.account.name}'s party`;
-  const created = createEvent({ hostUserId: auth.account.id, name });
+  const hostUserId = cleanStr(b.hostUserId, 64);
+  if (!hostUserId) return fail(422, 'hostUserId required');
 
-  createStaff({
-    id: genId(),
-    eventId: created.id,
-    userId: auth.account.id,
-    displayName: auth.account.name,
-    email: null,
-    role: 'admin',
-    status: 'active',
-    joinedVia: 'seed',
-  });
+  const host = userById(hostUserId);
+  if (!host) return fail(404, 'no such host');
 
-  return json({ ok: true, event: created });
+  const name = cleanStr(b.name, 80) || `${host.name}'s party`;
+  const startsAt = typeof b.startsAt === 'number' ? b.startsAt : null;
+
+  // Born `draft`: a party goes live when Dan says so, on the night. Nothing infers
+  // it from the date, because a mistyped date would lock the guests out.
+  return json({ ok: true, event: createEvent({ hostUserId, name, startsAt }) });
 }

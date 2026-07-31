@@ -20,7 +20,6 @@
   import { goto } from '$app/navigation';
   import { page } from '$app/state';
   import {
-    createParty,
     currentAccount,
     myParties,
     openBar,
@@ -50,7 +49,6 @@
   let name = $state('');
   let email = $state('');
   let password = $state('');
-  let partyName = $state('');
 
   /**
    * Who just signed up, when there is no session to show for it.
@@ -103,14 +101,6 @@
       }
       password = '';
       await refresh();
-    });
-
-  const makeParty = () =>
-    attempt(async () => {
-      const { event } = await createParty(partyName.trim());
-      partyName = '';
-      parties = [event, ...parties];
-      notice = `${event.name} is ready.`;
     });
 
   /**
@@ -272,7 +262,10 @@
     <h1 class="host-h1">Your parties</h1>
 
     {#if parties.length === 0}
-      <p class="host-quiet">Nothing yet. Name your first one.</p>
+      <p class="host-quiet">
+        No parties yet — Dan sets those up. Meanwhile, tell us what you've got in and we'll work out
+        what the bar can pour.
+      </p>
     {/if}
 
     <ul class="host-parties">
@@ -295,25 +288,9 @@
       {/each}
     </ul>
 
-    <form
-      class="host-form"
-      onsubmit={(e) => {
-        e.preventDefault();
-        void makeParty();
-      }}
-    >
-      <label class="host-label">
-        New party
-        <input
-          class="host-input"
-          bind:value={partyName}
-          placeholder="Saturday at ours"
-          maxlength="80"
-        />
-      </label>
-      <button class="host-go" type="submit" disabled={busy}>Create it</button>
-    </form>
-
+    <!-- Creating a party is Dan's job now, not the host's: a booking is a
+         conversation, and the party has to be attached to the right account. What
+         used to be a form here is a sentence. -->
     <button class="host-alt" type="button" onclick={leave}>Sign out</button>
   {/if}
 

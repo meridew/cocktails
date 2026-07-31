@@ -1,4 +1,3 @@
-// @vitest-environment node
 /**
  * Host accounts, end to end: sign up → verify → sign in → reset.
  *
@@ -190,5 +189,49 @@ describe('Google sign-in', () => {
   test('and the host page knows not to offer it', async () => {
     const { load } = await import('../src/routes/host/+page.server');
     assert.equal(load().googleEnabled, false, 'the button must not render without credentials');
+  });
+});
+
+describe('a sign-up cannot promote itself', () => {
+  test('role is not settable through the sign-up payload', async () => {
+    // The escalation vector the plan requires proving shut, not assuming: `role`
+    // lives on Better Auth's `user` table, so without `input: false` on the
+    // additional field, `{"role":"admin"}` in a sign-up body would hand the
+    // platform to whoever asked. Open registration makes that anyone at all.
+    const email = 'escalate@example.com';
+    const res = await request(
+      '/api/account/sign-up/email',
+      send('POST', {
+        name: 'Escalate',
+        email,
+        password: 'escalate-password-123',
+        role: 'admin',
+      }),
+    );
+    assert.equal(res.status, 200, 'the extra field should be ignored, not rejected');
+
+    const { userByEmail } = await import('$lib/server/db');
+    assert.equal(userByEmail(email)?.role, 'host', 'a sign-up must never choose its own role');
+  });
+
+  test('nor through the ban columns', async () => {
+    // Same shape of hole in the other direction: writing `bannedAt: null` over a
+    // suspension would let a banned account un-ban itself by signing up again.
+    const email = 'unban@example.com';
+    await request(
+      '/api/account/sign-up/email',
+      send('POST', {
+        name: 'Unban',
+        email,
+        password: 'unban-password-123',
+        bannedAt: null,
+        banReason: 'none',
+      }),
+    );
+    const { userByEmail, setUserBan } = await import('$lib/server/db');
+    const row = userByEmail(email);
+    assert.ok(row);
+    setUserBan(row.id, Date.now(), 'testing');
+    assert.ok(userByEmail(email)?.bannedAt, 'a ban set by us must stick');
   });
 });

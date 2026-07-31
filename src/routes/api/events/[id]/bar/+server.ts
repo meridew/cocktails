@@ -1,23 +1,34 @@
 import { json, type RequestEvent } from '@sveltejs/kit';
+import { party } from '$lib/shared';
 import { barSessionForAccount } from '$lib/server/auth';
-import { denied, fail, requireAccount } from '$lib/server/guards';
+import { denied, fail, requireCapability } from '$lib/server/guards';
 
 /**
- * Trade an account session for a bar session at an event you're staff on.
+ * Take a bar session at this party, as yourself.
  *
- * The bar endpoints all consume a staff session, and rightly so — most of the
- * people behind a bar have no account at all. Rather than teach every one of them
- * to understand a second kind of caller, a host swaps their account session for a
- * staff one here, once.
+ * **Strictly a convenience now, and worth saying why it still exists.** An Admin
+ * holding an account cookie already passes every party capability — `resolveActor`
+ * sees the role and `can()` short-circuits — so nothing here is needed to *work* a
+ * bar. What it buys is a bearer token, which matters for two reasons: a phone behind
+ * a bar keeps a token more comfortably than a cookie it might sign out of, and the
+ * keypad needs a staff row to unlock (`signInWithPin` looks one up).
  *
- * A 404 rather than a 403 when they aren't staff at that event: the id shouldn't
- * become a way to discover whose parties exist.
+ * It is gated on `orders:advance` rather than on holding an account, because the
+ * question this really asks is "may you work this bar" — and that is the capability
+ * that means it. A host, who may only watch, is refused: they have no shift to take.
+ *
+ * A 404 rather than a 403 for a party that isn't yours: the id must not become a way
+ * to discover whose parties exist.
  */
 export async function POST(event: RequestEvent) {
-  const auth = await requireAccount(event);
+  const eventId = event.params.id!;
+  const auth = await requireCapability(event, 'orders:advance', party(eventId));
   if (denied(auth)) return auth.denied;
 
-  const session = barSessionForAccount(event.params.id!, auth.account.id);
+  const userId = auth.actor.account?.id;
+  if (!userId) return fail(400, 'a bar session needs an account to belong to');
+
+  const session = barSessionForAccount(eventId, userId);
   if (!session) return fail(404, 'not found');
   return json({ ok: true, token: session.token, staff: session.staff });
 }

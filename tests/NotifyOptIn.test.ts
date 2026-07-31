@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 /**
  * The notification opt-in modal.
  *

@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 /**
  * Dev-only capability overrides.
  *

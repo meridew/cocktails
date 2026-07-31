@@ -11,12 +11,12 @@
  */
 import { test, describe, beforeAll } from 'vitest';
 import assert from 'node:assert/strict';
-import { LIMITS, type Staff } from '$lib/shared';
+import { LIMITS, type Actor } from '$lib/shared';
 import { request } from './app';
-import { hashPassword, ensureLiveEvent } from '$lib/server/auth';
-import { createStaff, genId } from '$lib/server/db';
+import { barToken, partyFor, person, useMemoryEmail, type Account } from './fixtures/people';
 
-const STAFF = { email: 'routes@local', password: 'routes-pw' };
+let dan: Account;
+let eventId = '';
 let token = '';
 
 const send = (method: string, body: unknown, headers: Record<string, string> = {}) => ({
@@ -32,25 +32,17 @@ const auth = (t = token) => ({ Authorization: `Bearer ${t}` });
 async function placeOrder(name = 'Guest', deviceId?: string): Promise<string> {
   const res = await request(
     '/api/orders',
-    json({ name, items: [{ name: 'Mojito', qty: 1 }], deviceId }),
+    json({ name, eventId, items: [{ name: 'Mojito', qty: 1 }], deviceId }),
   );
   assert.equal(res.status, 200);
   return ((await res.json()) as { id: string }).id;
 }
 
 beforeAll(async () => {
-  createStaff({
-    eventId: ensureLiveEvent(),
-    id: genId(),
-    displayName: 'Routes Admin',
-    email: STAFF.email,
-    passwordHash: await hashPassword(STAFF.password),
-    role: 'admin',
-    status: 'active',
-  });
-  const res = await request('/api/auth/login', json(STAFF));
-  assert.equal(res.status, 200, 'fixture login should succeed');
-  token = ((await res.json()) as { token: string }).token;
+  useMemoryEmail();
+  dan = await person('routes-dan', 'admin');
+  eventId = partyFor(dan.id, 'Routes party');
+  token = await barToken(dan, eventId);
   assert.ok(token);
 });
 
@@ -102,13 +94,15 @@ describe('public routes', () => {
 });
 
 describe('staff guard', () => {
+  // `/api/auth/logout` and `/api/auth/me` have left this list on purpose. Logging
+  // out asks for nothing — refusing an already-dead token would strand a client
+  // holding it — and "who am I" answers "nobody" rather than 401, because the
+  // signed-out front door asks it too.
   const guarded: [string, RequestInit][] = [
     ['/api/orders', { method: 'GET' }],
     ['/api/orders/x', { method: 'PATCH' }],
     ['/api/orders/x', { method: 'DELETE' }],
     ['/api/orders/clear', { method: 'POST' }],
-    ['/api/auth/logout', { method: 'POST' }],
-    ['/api/auth/me', { method: 'GET' }],
   ];
 
   test('every staff route rejects a missing, garbage, or non-bearer token', async () => {
@@ -133,58 +127,36 @@ describe('staff guard', () => {
   });
 });
 
-describe('auth routes', () => {
-  test('login rejects a wrong password and a non-JSON body without a 500', async () => {
-    const bad = await request('/api/auth/login', json({ ...STAFF, password: 'nope' }));
-    assert.equal(bad.status, 401);
-
-    const malformed = await request('/api/auth/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: 'not json',
-    });
-    assert.equal(malformed.status, 401, 'a malformed body must not surface as a 500');
+/**
+ * `POST /api/auth/login` used to be tested here — wrong password, malformed body,
+ * per-IP throttle. The endpoint is deleted: signing in with an email and a password
+ * is an account's job now, and the throttle that guarded it went with it. Its
+ * replacement, the per-account keypad, is covered in `auth.test.ts`.
+ */
+describe('who am I', () => {
+  test('answers with an actor, and never 401s', async () => {
+    const anon = await request('/api/auth/me');
+    assert.equal(anon.status, 200, '"nobody" is a real answer, not an error');
+    const empty = (await anon.json()) as { ok: boolean; actor: Actor };
+    assert.equal(empty.actor.account, null);
+    assert.equal(empty.actor.party, null);
   });
 
-  test('me returns the signed-in staff member, then logout invalidates the token', async () => {
-    const login = await request('/api/auth/login', json(STAFF));
-    const { token: scoped } = (await login.json()) as { token: string };
-
+  test('a bar session speaks for the account behind it', async () => {
+    const scoped = await barToken(dan, eventId);
     const me = await request('/api/auth/me', { headers: auth(scoped) });
     assert.equal(me.status, 200);
-    const body = (await me.json()) as { ok: boolean; staff: Staff };
+    const body = (await me.json()) as { ok: boolean; actor: Actor };
     assert.equal(body.ok, true);
-    assert.equal(body.staff.email, STAFF.email);
-    assert.equal(body.staff.role, 'admin');
-    assert.equal(body.staff.status, 'active');
+    assert.equal(body.actor.account?.id, dan.id, 'the staff row names the account');
+    assert.equal(body.actor.account?.role, 'admin');
 
     const out = await request('/api/auth/logout', { method: 'POST', headers: auth(scoped) });
     assert.equal(out.status, 200);
 
     const after = await request('/api/auth/me', { headers: auth(scoped) });
-    assert.equal(after.status, 401, 'the token should be dead after logout');
-  });
-
-  test('throttles after 10 failures, per IP', async () => {
-    const ip = '203.0.113.7';
-    for (let i = 0; i < 10; i++) {
-      const res = await request(
-        '/api/auth/login',
-        json({ ...STAFF, password: 'wrong' }, { 'x-forwarded-for': ip }),
-      );
-      assert.equal(res.status, 401, `attempt ${i + 1} should be 401, not throttled yet`);
-    }
-    const blocked = await request(
-      '/api/auth/login',
-      json({ ...STAFF, password: 'wrong' }, { 'x-forwarded-for': ip }),
-    );
-    assert.equal(blocked.status, 429, 'the 11th attempt should be throttled');
-
-    const other = await request(
-      '/api/auth/login',
-      json({ ...STAFF, password: 'wrong' }, { 'x-forwarded-for': '203.0.113.8' }),
-    );
-    assert.equal(other.status, 401, 'a different IP must not be throttled');
+    const gone = (await after.json()) as { actor: Actor };
+    assert.equal(gone.actor.account, null, 'the token should be dead after logout');
   });
 });
 
@@ -204,7 +176,10 @@ describe('POST /api/orders', () => {
   });
 
   test('accepts a valid order as pending', async () => {
-    const res = await request('/api/orders', json({ name: 'Dan', items: [{ name: 'Wine' }] }));
+    const res = await request(
+      '/api/orders',
+      json({ name: 'Dan', eventId, items: [{ name: 'Wine' }] }),
+    );
     assert.equal(res.status, 200);
     const { order } = (await res.json()) as { order: { status: string; items: unknown[] } };
     assert.equal(order.status, 'pending');
@@ -212,16 +187,20 @@ describe('POST /api/orders', () => {
   });
 
   test('sanitises strings through the boundary', async () => {
+    // NUL and DEL either side of the name, built from char codes rather than
+    // escape sequences: the literal form is invisible in a diff, and three
+    // separate tools mangled it on the way into this file.
+    const dirty = `${String.fromCharCode(0)}Da${String.fromCharCode(127)}n `;
     const res = await request(
       '/api/orders',
-      json({ name: '\u0000Da\u007fn ', items: [{ name: 'Mojito' }] }),
+      json({ name: dirty, eventId, items: [{ name: 'Mojito' }] }),
     );
     const { order } = (await res.json()) as { order: { name: string } };
     assert.equal(order.name, 'Dan', 'control characters should be stripped and the value trimmed');
 
     const long = await request(
       '/api/orders',
-      json({ name: 'x'.repeat(200), items: [{ name: 'Mojito' }] }),
+      json({ name: 'x'.repeat(200), eventId, items: [{ name: 'Mojito' }] }),
     );
     const { order: capped } = (await long.json()) as { order: { name: string } };
     assert.equal(capped.name.length, LIMITS.maxFieldLen, 'over-long names are capped');
@@ -232,6 +211,7 @@ describe('POST /api/orders', () => {
       '/api/orders',
       json({
         name: 'Coerce',
+        eventId,
         items: [
           { name: 'Zero', qty: 0 },
           { name: 'NaN', qty: 'abc' },
@@ -255,7 +235,7 @@ describe('POST /api/orders', () => {
       name: `Drink ${i}`,
       qty: 1,
     }));
-    const res = await request('/api/orders', json({ name: 'Many', items }));
+    const res = await request('/api/orders', json({ name: 'Many', eventId, items }));
     const { order } = (await res.json()) as { order: { items: unknown[] } };
     assert.equal(order.items.length, LIMITS.maxItemsPerOrder);
   });
@@ -268,7 +248,10 @@ describe('POST /api/orders', () => {
     for (let i = 0; i < 40; i++) {
       const res = await request(
         '/api/orders',
-        json({ name: `Flood${i}`, items: [{ name: 'Mojito' }] }, { 'x-forwarded-for': ip }),
+        json(
+          { name: `Flood${i}`, eventId, items: [{ name: 'Mojito' }] },
+          { 'x-forwarded-for': ip },
+        ),
       );
       if (res.status === 429) {
         sawThrottle = true;
@@ -280,7 +263,7 @@ describe('POST /api/orders', () => {
     const other = await request(
       '/api/orders',
       json(
-        { name: 'Innocent', items: [{ name: 'Mojito' }] },
+        { name: 'Innocent', eventId, items: [{ name: 'Mojito' }] },
         { 'x-forwarded-for': '198.51.100.43' },
       ),
     );

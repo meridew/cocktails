@@ -6,43 +6,58 @@
  * and forgetting the guard fails here rather than at a party.
  *
  * The bookkeeping half is the cheap part. The valuable half is that each entry is
- * then *exercised*: anonymous callers must be refused, and a bartender must be
- * refused the things only a host may do. A table that merely claims an endpoint is
- * protected would pass happily while the guard was commented out.
+ * then *exercised*: anonymous callers must be refused, and a helper must be refused
+ * the things only Dan may do. A table that merely claimed an endpoint was protected
+ * would pass happily while the guard was commented out.
+ *
+ * **The capability *matrix* is not here** — it moved to `permissions.test.ts`, which
+ * transcribes it from PLATFORM-PLAN §6 rather than from the implementation. This
+ * file is about the wiring: that every route has a guard and that the guard runs.
+ *
+ * This is also why the Better Auth `admin` plugin was rejected (PLATFORM-PLAN §2e):
+ * its endpoints would mount behind the catch-all below, which is declared `public`,
+ * so every admin power would have been invisible to this test.
  */
 import { test, describe, beforeAll } from 'vitest';
 import assert from 'node:assert/strict';
 import { readdirSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
-import { CAPABILITIES, can, type Capability } from '$lib/shared';
+import type { Capability } from '$lib/shared';
 import { ROUTES, request, send } from './app';
-import { hashPassword, ensureLiveEvent } from '$lib/server/auth';
-import { createStaff, genId } from '$lib/server/db';
+import {
+  barToken,
+  helper as makeHelper,
+  partyFor,
+  person,
+  useMemoryEmail,
+  type Account,
+} from './fixtures/people';
 
 /** What an endpoint demands of its caller. */
 type Requirement =
   /** Anyone, signed in or not — guests ordering, a device asking to help. */
   | 'public'
-  /** Any active staff member, but no particular power: the identity endpoints. */
+  /** Any valid credential, but no particular power. */
   | 'session'
-  /** A signed-in host account rather than a bar session. */
-  | 'account'
   | Capability;
 
 /**
  * `METHOD /route` → what it requires.
  *
- * Route ids are SvelteKit's, so `[id]` stays a parameter. Keep this in step with
- * the guard on the handler — the tests below fail if the two disagree about
- * whether a caller gets in, which is the point.
+ * Route ids are SvelteKit's, so `[id]` stays a parameter. Keep this in step with the
+ * guard on the handler — the tests below fail if the two disagree about whether a
+ * caller gets in, which is the point.
  */
 const GOVERNED: Record<string, Requirement> = {
   'GET /api/health': 'public',
   'GET /api/push/key': 'public',
-  'POST /api/auth/login': 'public',
+  // The keypad is how you *become* authenticated, so a capability gate would be
+  // circular. Its own defence is the throttle — see pin.test.ts.
   'POST /api/auth/pin': 'public',
-  'POST /api/auth/logout': 'session',
-  'GET /api/auth/me': 'session',
+  // Logging out asks for nothing: refusing an expired token would strand a client
+  // holding it. "Who am I" answers "nobody" rather than refusing.
+  'POST /api/auth/logout': 'public',
+  'GET /api/auth/me': 'public',
 
   'GET /api/orders': 'orders:read',
   'POST /api/orders': 'public', // a guest ordering a drink is the whole app
@@ -66,20 +81,19 @@ const GOVERNED: Record<string, Requirement> = {
   'POST /api/subscriptions': 'public', // keyed to an anonymous device id
   'DELETE /api/subscriptions': 'public',
 
-  // Owned by a host *account*, not a bar session — `requireAccount`, not a
-  // capability. The staff capability table has nothing to say about someone who
-  // isn't behind a bar yet.
-  'GET /api/inventory': 'inventory:read',
-  'PUT /api/inventory': 'inventory:edit',
+  // Scoped to a *person*, not a party — which is the whole of the phase 0 fix.
+  'GET /api/hosts/[id]/stock': 'stock:read',
+  'PUT /api/hosts/[id]/stock': 'stock:edit',
 
-  'GET /api/events': 'account',
-  'POST /api/events': 'account',
-  'POST /api/events/[id]/bar': 'account',
+  'GET /api/events': 'session',
+  'POST /api/events': 'party:create',
+  'POST /api/events/[id]/bar': 'orders:advance',
   // A menu is what's on the kitchen table under the QR code — not a secret.
   'GET /api/events/[id]/menu': 'public',
 
   // Better Auth's catch-all: these are how someone *becomes* authenticated, so a
-  // capability gate would be circular. Its own guards are inside the library.
+  // capability gate would be circular. Its own guards are inside the library — and
+  // §2e is why nothing of ours is allowed to hide behind that fact.
   'GET /api/account/[...all]': 'public',
   'POST /api/account/[...all]': 'public',
 };
@@ -97,88 +111,37 @@ function declared(): string[] {
   return out.sort();
 }
 
-/** A concrete path for a route id, so parameterised routes can be called. */
-const concrete = (id: string): string =>
-  id.replace(/\[\.\.\.\w+\]/g, 'anything').replace(/\[\w+\]/g, 'some-id');
+/**
+ * A concrete path for a route id.
+ *
+ * Party-scoped routes get `?eventId=` so the request names a real party — otherwise
+ * they'd refuse for want of a scope rather than for want of a capability, and this
+ * suite would be asserting the wrong refusal.
+ */
+let eventId = '';
+let danId = '';
+const concrete = (id: string): string => {
+  const path = id
+    .replace(/\[\.\.\.\w+\]/g, 'anything')
+    .replace('/api/hosts/[id]/', `/api/hosts/${danId}/`)
+    .replace('/api/events/[id]/', `/api/events/${eventId}/`)
+    .replace(/\[\w+\]/g, 'some-id');
+  return path.startsWith('/api/orders') || path.startsWith('/api/staff')
+    ? `${path}?eventId=${eventId}`
+    : path;
+};
 
-const ADMIN = { email: 'caps-admin@local', password: 'caps-admin-pw' };
+let dan: Account;
+let helperToken = '';
 let adminToken = '';
-let bartenderToken = '';
 
 beforeAll(async () => {
-  createStaff({
-    eventId: ensureLiveEvent(),
-    id: genId(),
-    displayName: 'Caps Admin',
-    email: ADMIN.email,
-    passwordHash: await hashPassword(ADMIN.password),
-    role: 'admin',
-    status: 'active',
-  });
-  const login = await request('/api/auth/login', send('POST', ADMIN));
-  assert.equal(login.status, 200, 'fixture admin login should succeed');
-  adminToken = ((await login.json()) as { token: string }).token;
-
-  // A real bartender, minted the way a real one is: the host reads out a code and
-  // the helper redeems it. Fabricating a session row directly would test the table
-  // rather than the system.
-  const minted = await request('/api/staff/join-code', {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${adminToken}` },
-  });
-  assert.equal(minted.status, 200, 'admin should be able to mint a join code');
-  const { code } = (await minted.json()) as { code: string };
-
-  const joined = await request(
-    '/api/staff/join',
-    send('POST', { code, deviceId: 'caps-helper-device', name: 'Caps Helper' }),
-  );
-  assert.equal(joined.status, 200, 'the code should let a helper in');
-  bartenderToken = ((await joined.json()) as { token: string }).token;
-  assert.ok(bartenderToken);
-});
-
-describe('the capability table', () => {
-  const admin = { role: 'admin', status: 'active' } as const;
-  const helper = { role: 'bartender', status: 'active' } as const;
-
-  test('an admin holds everything', () => {
-    for (const cap of CAPABILITIES) assert.equal(can(admin, cap), true, `admin lacks ${cap}`);
-  });
-
-  test('a bartender runs the service but does not decide who else does', () => {
-    // This is the rule `canApproveStaff` used to encode on its own, now stated once
-    // where the server guard reads it too.
-    for (const cap of ['orders:read', 'orders:advance', 'orders:delete', 'orders:clear'] as const) {
-      assert.equal(can(helper, cap), true, `a bartender should hold ${cap}`);
-    }
-    for (const cap of ['staff:approve', 'staff:revoke', 'staff:invite', 'staff:read'] as const) {
-      assert.equal(can(helper, cap), false, `a bartender must not hold ${cap}`);
-    }
-  });
-
-  test('the host owns the stock list; a helper only reads it', () => {
-    assert.equal(can(admin, 'inventory:edit'), true);
-    assert.equal(can(helper, 'inventory:read'), true);
-    assert.equal(can(helper, 'inventory:edit'), false);
-  });
-
-  test('status beats role, so a revoked admin holds nothing', () => {
-    // The session token outlives the revocation by design — it's the capability
-    // check that has to stop them, not the absence of a credential.
-    for (const status of ['pending', 'revoked'] as const) {
-      for (const cap of CAPABILITIES) {
-        assert.equal(can({ role: 'admin', status }, cap), false, `${status} admin held ${cap}`);
-      }
-    }
-  });
-
-  test('nobody is nobody', () => {
-    for (const cap of CAPABILITIES) {
-      assert.equal(can(null, cap), false);
-      assert.equal(can(undefined, cap), false);
-    }
-  });
+  useMemoryEmail();
+  dan = await person('caps-dan', 'admin');
+  danId = dan.id;
+  eventId = partyFor(dan.id, 'Caps party');
+  adminToken = await barToken(dan, eventId);
+  helperToken = await makeHelper(dan, eventId, 'Caps Helper', 'caps-helper-device');
 });
 
 describe('every endpoint declares what it requires', () => {
@@ -220,20 +183,12 @@ describe('every endpoint declares what it requires', () => {
 });
 
 describe('the declared requirement is actually enforced', () => {
-  /** Everything that needs a session at all. */
+  /** Everything that needs a credential at all. */
   const guarded = Object.entries(GOVERNED).filter(
     (e): e is [string, Exclude<Requirement, 'public'>] => e[1] !== 'public',
   );
-  /**
-   * Of those, the ones gated on a named power rather than mere identity.
-   * `account` endpoints are excluded: they answer to a host's account session, not
-   * to a bar session, so the staff capability table has nothing to say about them.
-   */
-  const capabilityGated = guarded.filter(
-    (e): e is [string, Capability] => e[1] !== 'session' && e[1] !== 'account',
-  );
 
-  test('anonymous callers are refused everywhere a session is needed', async () => {
+  test('anonymous callers are refused everywhere a credential is needed', async () => {
     for (const [key] of guarded) {
       const [method, id] = key.split(' ') as [string, string];
       const res = await request(concrete(id), { method });
@@ -241,38 +196,58 @@ describe('the declared requirement is actually enforced', () => {
     }
   });
 
-  test('a bartender is refused the capabilities they do not hold', async () => {
-    const helper = { role: 'bartender', status: 'active' } as const;
-    const forbidden = capabilityGated.filter(([, cap]) => !can(helper, cap));
-    assert.ok(forbidden.length > 0, 'this test proves nothing if nothing is admin-only');
+  test('a helper is refused everything that is not running the bar', async () => {
+    // A helper holds a real bar session and no account. Anything they are refused
+    // must come back 403 or 404 — never 401, which `api.ts` reads as "your session
+    // expired" and would use to sign them out mid-service.
+    const forbidden: [string, Requirement][] = guarded.filter(
+      ([, r]) =>
+        r !== 'session' &&
+        !['orders:read', 'orders:advance', 'orders:delete', 'orders:clear'].includes(r),
+    );
+    assert.ok(forbidden.length > 0, 'this test proves nothing if nothing is restricted');
 
     for (const [key] of forbidden) {
       const [method, id] = key.split(' ') as [string, string];
       const res = await request(concrete(id), {
         method,
-        headers: { Authorization: `Bearer ${bartenderToken}` },
+        headers: { Authorization: `Bearer ${helperToken}` },
+        ...(method === 'GET' || method === 'DELETE' ? {} : { body: {} }),
       });
-      assert.equal(res.status, 403, `${key} should be refused to a bartender`);
+      assert.ok(
+        res.status === 403 || res.status === 404,
+        `${key} answered ${res.status} to a helper; expected 403 or 404`,
+      );
     }
   });
 
-  test('a bartender is allowed the capabilities they do hold', async () => {
-    const helper = { role: 'bartender', status: 'active' } as const;
-    const allowed = capabilityGated.filter(([, cap]) => can(helper, cap));
-    assert.ok(allowed.length > 0, 'this test proves nothing if a bartender can do nothing');
-
-    for (const [key] of allowed) {
+  test('a helper is allowed the queue they are there to run', async () => {
+    for (const key of [
+      'GET /api/orders',
+      'POST /api/orders/clear',
+      'POST /api/orders/[id]/bump',
+    ] as const) {
       const [method, id] = key.split(' ') as [string, string];
       const res = await request(concrete(id), {
         method,
-        headers: { Authorization: `Bearer ${bartenderToken}` },
-        // A body only where the verb permits one — fetch refuses to build a GET
-        // with one. The content is irrelevant: these assert on the guard, and a
-        // 404 or 422 past it is a pass.
-        ...(method === 'GET' || method === 'DELETE' ? {} : { body: {} }),
+        headers: { Authorization: `Bearer ${helperToken}` },
+        ...(method === 'GET' ? {} : { body: {} }),
       });
-      assert.notEqual(res.status, 401, `${key} rejected a valid bartender session`);
-      assert.notEqual(res.status, 403, `${key} refused a capability a bartender holds`);
+      assert.notEqual(res.status, 401, `${key} rejected a valid bar session`);
+      assert.notEqual(res.status, 403, `${key} refused a capability a helper holds`);
+    }
+  });
+
+  test('Admin is allowed everything the helper was not', async () => {
+    for (const key of ['GET /api/staff', 'POST /api/staff/join-code'] as const) {
+      const [method, id] = key.split(' ') as [string, string];
+      const res = await request(concrete(id), {
+        method,
+        headers: { Authorization: `Bearer ${adminToken}` },
+        ...(method === 'GET' ? {} : { body: {} }),
+      });
+      assert.notEqual(res.status, 403, `${key} refused Admin`);
+      assert.notEqual(res.status, 401, `${key} rejected a valid admin session`);
     }
   });
 });

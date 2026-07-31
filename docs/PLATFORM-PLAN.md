@@ -235,22 +235,55 @@ Forgetting it is a compile error. That is the whole point of the exercise.
 
 Each was asked and answered explicitly. Don't reopen without a reason.
 
-| Area              | Decision                                              | Why                                                                                                                                                                                                  |
-| ----------------- | ----------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Roles             | **Admin · Host · Staff**, from two axes underneath    | Three words to the user. Underneath it stays account-role × event-role, because a host _is_ staff at their own party and Dan is Admin globally _and_ behind the bar locally — §6                     |
-| Admin identity    | **`ADMIN_EMAILS` env lists admin accounts**           | Config is the source of truth, so it survives a database wipe and a bad edit in the app can't lock Dan out of his own service. Same pattern the old `STAFF_EMAIL` used                               |
-| Admin plumbing    | **Better Auth's `admin` plugin**                      | Provides `user.role`, ban/unban with reason and expiry, list/update/remove users, and set-role — three of the four admin powers, already written and maintained. Only party management is ours       |
-| Permission source | **`$lib/shared/permissions.ts` stays the authority**  | The admin plugin ships its own access-control system. Using both would be two permission models, which is the exact bug §6 exists to kill. Better Auth owns _who you are_; we own _what you may do_  |
-| Cupboard          | **On the host account, not the event**                | A home bar is stable; per-party re-ticking is a chore nobody repeats. One cupboard per host, read by every party they have                                                                           |
-| Party creation    | **Admin only, and the host must already exist**       | A booking is a conversation. `event.hostUserId` becomes NOT NULL, which kills the seeded ownerless event and every "which party is live?" guess with it                                              |
-| Registration      | **Open sign-up**                                      | A friend can join without Dan doing admin. Costs the hardening in §10 — the door faces the internet                                                                                                  |
-| The menu          | **Generated from the cupboard**                       | What §1 always promised. The curated six become the first entries of a short list rather than the whole menu                                                                                         |
-| Menu curation     | **Short list, curated by Admin or Host; empty = all** | A well-stocked bar yields 40+ drinks including six margaritas. Nobody is forced to curate: with no short list the guest simply sees everything                                                       |
-| Recipe model      | **Base drink + stackable variants**                   | "Chili unlocks a Spicy Margarita; Tajín as well unlocks the spicy rim." The six margaritas become one drink with upgrades. Deferred to phase 7 — it needs research, and it needs the data redesigned |
-| The keypad        | **A PIN on your own account**                         | Set in the app, stored hashed against the user. Sign in properly once per device, keypad thereafter. Replaces the shared `STAFF_PIN` secret, which had no owner and could not be rotated             |
-| Party lifecycle   | **Dan opens and closes by hand**                      | A date that opens a party on its own means a mistyped date locks guests out on the night                                                                                                             |
-| The look          | **Restore the original, don't redesign it**           | `neo.css` is the verbatim original and has _never actually rendered as designed_ — the display fonts are referenced in CSS variables and never loaded. It stays byte-identical                       |
-| Front end         | **Structure rebuilt, styling restored**               | The current component tree was built for one bar and one screen of admin. Four audiences need four shapes                                                                                            |
+| Area              | Decision                                               | Why                                                                                                                                                                                                                                                                                                        |
+| ----------------- | ------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Roles             | **Admin · Host · Staff**, from two axes underneath     | Three words to the user. Underneath it stays account-role × event-role, because a host _is_ staff at their own party and Dan is Admin globally _and_ behind the bar locally — §6                                                                                                                           |
+| Admin identity    | **`ADMIN_EMAILS` env lists admin accounts**            | Config is the source of truth, so it survives a database wipe and a bad edit in the app can't lock Dan out of his own service. Same pattern the old `STAFF_EMAIL` used                                                                                                                                     |
+| Admin plumbing    | ~~Better Auth's `admin` plugin~~ **our own endpoints** | **Reversed 31 Jul before writing any code — see §2e.** The plugin's endpoints land behind Better Auth's catch-all, which `capabilities.test.ts` declares `public` because its guards are inside the library. Every admin power would ship ungoverned by the one test whose entire job is that nothing does |
+| Role storage      | **Columns on `user` that Better Auth never sees**      | Declared in our Drizzle schema only — **not** in `user.additionalFields`. The plan first said `input: false`; not declaring them at all is stricter, because there is then no input path to exclude. Better Auth reads and writes neither. `accounts.test.ts` proves a sign-up cannot name its own role    |
+| Permission source | **`$lib/shared/permissions.ts` is the only authority** | One table, both sides, and now genuinely only one — there is no second access-control system in the build at all                                                                                                                                                                                           |
+| Cupboard          | **On the host account, not the event**                 | A home bar is stable; per-party re-ticking is a chore nobody repeats. One cupboard per host, read by every party they have                                                                                                                                                                                 |
+| Party creation    | **Admin only, and the host must already exist**        | A booking is a conversation. `event.hostUserId` becomes NOT NULL, which kills the seeded ownerless event and every "which party is live?" guess with it                                                                                                                                                    |
+| Registration      | **Open sign-up**                                       | A friend can join without Dan doing admin. Costs the hardening in §10 — the door faces the internet                                                                                                                                                                                                        |
+| The menu          | **Generated from the cupboard**                        | What §1 always promised. The curated six become the first entries of a short list rather than the whole menu                                                                                                                                                                                               |
+| Menu curation     | **Short list, curated by Admin or Host; empty = all**  | A well-stocked bar yields 40+ drinks including six margaritas. Nobody is forced to curate: with no short list the guest simply sees everything                                                                                                                                                             |
+| Recipe model      | **Base drink + stackable variants**                    | "Chili unlocks a Spicy Margarita; Tajín as well unlocks the spicy rim." The six margaritas become one drink with upgrades. Deferred to phase 7 — it needs research, and it needs the data redesigned                                                                                                       |
+| The keypad        | **A PIN on your own account**                          | Set in the app, stored hashed against the user. Sign in properly once per device, keypad thereafter. Replaces the shared `STAFF_PIN` secret, which had no owner and could not be rotated                                                                                                                   |
+| Party lifecycle   | **Dan opens and closes by hand**                       | A date that opens a party on its own means a mistyped date locks guests out on the night                                                                                                                                                                                                                   |
+| The look          | **Restore the original, don't redesign it**            | `neo.css` is the verbatim original and has _never actually rendered as designed_ — the display fonts are referenced in CSS variables and never loaded. It stays byte-identical                                                                                                                             |
+| Front end         | **Structure rebuilt, styling restored**                | The current component tree was built for one bar and one screen of admin. Four audiences need four shapes                                                                                                                                                                                                  |
+
+### 2e. The admin plugin, reversed before a line was written
+
+This plan named Better Auth's `admin` plugin, and the first act of executing it was to
+check the claim rather than install it. The claim doesn't hold.
+
+The plugin's endpoints — `listUsers`, `setRole`, `banUser`, `removeUser`,
+`impersonateUser` — mount under Better Auth's catch-all route, and
+`tests/capabilities.test.ts` declares that route:
+
+```ts
+// Better Auth's catch-all: these are how someone *becomes* authenticated, so a
+// capability gate would be circular. Its own guards are inside the library.
+'GET /api/account/[...all]': 'public',
+```
+
+That reasoning is right for sign-in and wrong for user administration. Adopting the
+plugin would put **every** admin power behind a route the enumeration test calls
+public — so the one test whose whole job is "nothing ships ungoverned" would be
+blind to the most dangerous endpoints in the app. It would also add impersonation,
+which nobody asked for and which is a session-as-another-person on a box facing the
+internet.
+
+What the plugin actually saves is four endpoints of about a hundred lines. What it
+costs is the safety property the plan is built on. So: **our own endpoints, under our
+own guard, enumerated by the same test as everything else.** The `role` and ban
+columns still live on `user` — `additionalFields` extends Better Auth's model without
+adopting its endpoints.
+
+Recorded here rather than quietly done because §0 says a reversed decision gets its
+reason written down, and because "use the thing that already exists" is exactly the
+instinct that put the stock screen inside the bar.
 
 ## 3. What this rewrite overturns
 
@@ -453,9 +486,17 @@ guest menu keeps working exactly as it does today until phase 5 replaces it.
 
 Server only. No new screens. This is the phase the last three were quietly blocked on.
 
-1. **Better Auth `admin` plugin.** Adds `role`, `banned`, `banReason`, `banExpires`
-   to `user` and `impersonatedBy` to `session`. Regenerate `schema.auth.ts` and the
-   migration. Its own access-control system stays **unused** — see §2d.
+1. **`role` and ban columns on `user`** — declared in `schema.auth.ts` **and nowhere
+   else**. **No admin plugin** (§2e), and no `additionalFields` either.
+
+   > **Amended while building it.** This said to declare them to Better Auth with
+   > `input: false`. Not declaring them at all turned out to be both simpler and
+   > stricter: Better Auth neither reads nor writes columns it doesn't know about, so
+   > there is no input path to exclude and nothing to get wrong in a later version.
+   > They are ours; only our code touches them. `accounts.test.ts` proves a sign-up
+   > body containing `role: 'admin'` is ignored — with open registration that is the
+   > difference between a hobby project and handing the platform to a stranger.
+
 2. **`ADMIN_EMAILS`.** A comma-separated list in config. Any account whose verified
    email is on it resolves as `role: 'admin'`, re-asserted every time a session is
    resolved rather than written once, so the file is the truth and nothing can lock
@@ -463,12 +504,37 @@ Server only. No new screens. This is the phase the last three were quietly block
 3. **`Actor`, `Scope`, `can()`** per §6, in `$lib/shared/permissions.ts`.
 4. **One guard.** `requireCapability(event, cap, scope)` resolving either credential.
    Every endpoint moves onto it. `requireStaff` and `requireAccount` go.
+
+   > **Route paths stay where they are until phase 4.** The tidy end state is
+   > `/api/events/[id]/orders` — the scope in the path, where it can't be forgotten.
+   > But phase 4 rebuilds the bar and every client call with it, so moving fourteen
+   > routes now means moving them, rewriting the client, and then rewriting both
+   > again. Deferred for that reason and no other.
+   >
+   > **The scope is still explicit today.** Each endpoint names the party it is
+   > acting on — from the bar session, the route, or the body — and passes it to the
+   > guard. What is fixed now is the thing that actually mattered: an account-holder
+   > can act without holding a bar session, so no screen has to live in the wrong
+   > place to find a credential.
+
 5. **Stock moves to the host.** `inventory(event_id, …)` becomes `stock(user_id, …)`.
    `GET /api/events/[id]/menu` resolves event → host → stock.
 6. **`event.hostUserId` NOT NULL.** `POST /api/events` becomes admin-only and takes a
    `hostUserId`. Party status gains explicit `draft | live | done` transitions.
-7. **The PIN becomes personal.** `user_pin`, set by the signed-in account, exchanged
-   for _their own account session_ on that device — not for a staff session.
+7. **The PIN becomes personal.** `user_pin`, set by the signed-in account.
+
+   > **Amended while building it.** The plan said the PIN should mint an _account_
+   > session. Better Auth has **no supported API for creating a session without a
+   > credential** — only `internalAdapter.createSession`, which is undocumented and
+   > carries no stability guarantee. Depending on a private API for the auth path,
+   > on a dependency that updates itself, is not a trade worth making.
+   >
+   > So the PIN mints a **staff session whose row is linked to the user**, and the
+   > actor resolver reads the account role _through_ that link. Same outcome where it
+   > matters — the keypad gets Dan back behind the bar as himself, with his
+   > capabilities — using no private APIs and no second session system. What it does
+   > not do is open `/admin`, which is a desk activity and can afford a password.
+
 8. **Delete, and check they are gone:** `staff.role`, `liveEvent()`,
    `ensureLiveEvent()`, the boot-seeded event, `seedStaff()`, `STAFF_EMAIL`,
    `STAFF_PASSWORD`, `STAFF_PIN`, `POST /api/auth/login`, `eventsForHost()`, and the
