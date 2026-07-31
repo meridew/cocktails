@@ -561,112 +561,6 @@
   cursor: not-allowed;
 }
 
-/* the host's stock list — shares .bt-staff-* for the panel chrome */
-.bt-stock {
-  max-width: 760px;
-  margin: 0 auto;
-  padding: 12px 14px 28px;
-}
-/* The number the screen exists to move; pinned under the header so the effect of
-   a tick is never off-screen. */
-.bt-stock-count {
-  position: sticky;
-  top: 0;
-  z-index: 2;
-  margin: 0;
-  padding: 10px 0;
-  background: #0a0a12;
-  font-family: 'Bungee', system-ui, sans-serif;
-  font-size: 0.9rem;
-}
-.bt-stock-count b {
-  color: #ffe600;
-}
-.bt-stock-acts {
-  margin-bottom: 4px;
-}
-.bt-stock-search input {
-  width: 100%;
-  margin-top: 18px;
-  padding: 10px 12px;
-  min-height: 44px;
-  font: inherit;
-  color: inherit;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  border-radius: 8px;
-}
-/* auto-fill rather than fixed columns: one column on a phone, three on a laptop,
-   without a media query per breakpoint. */
-.bt-stock-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: 4px 10px;
-}
-.bt-stock-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 6px;
-  min-height: 44px; /* thumb-sized: this list is worked through standing up */
-  border-radius: 8px;
-  font-size: 0.9rem;
-  cursor: pointer;
-}
-.bt-stock-item.is-in {
-  background: rgba(255, 230, 0, 0.12);
-}
-.bt-stock-item input {
-  width: 20px;
-  height: 20px;
-  flex: none;
-  accent-color: #ffe600;
-}
-.bt-stock-item:has(input:disabled) {
-  cursor: default;
-  opacity: 0.75;
-}
-.bt-stock-suggest {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-.bt-stock-tip {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  min-height: 40px;
-  font: inherit;
-  font-size: 0.85rem;
-  color: inherit;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  border-radius: 999px;
-  cursor: pointer;
-}
-.bt-stock-tip b {
-  color: #ffe600;
-}
-.bt-stock-tip:disabled {
-  cursor: default;
-  opacity: 0.7;
-}
-/* Names, not cards: at ~40 drinks this is a glance-able list, and each one in its
-   own box would be four screens of scrolling. */
-.bt-stock-pourable {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin: 0;
-  font-size: 0.85rem;
-}
-.bt-stock-pourable span {
-  padding: 4px 10px;
-  background: rgba(255, 255, 255, 0.08);
-  border-radius: 999px;
-}
-
 /* "Notify me" Web Push opt-in (celebrate dialog) */
 .notify-btn {
   display: inline-block;
@@ -1137,4 +1031,331 @@ a.bt-gate-alt {
   flex: 1;
   height: 1px;
   background: currentColor;
+}
+
+/* ============================================================
+   WORKING SURFACES — the front door, /admin, /host, the cupboard.
+   ============================================================
+
+   These exist because the first version of those screens borrowed the bar's
+   `.bt-*` classes, and the bar is a **dark full-screen panel**. Dropped onto the
+   ordinary loud background every colour assumption inverted: the stock counter
+   rendered #0a0a12 text on a #0a0a12 bar (invisible), and 173 checkbox labels came
+   out white-on-yellow in a display face.
+
+   So each primitive here states its own surface *and* its own contrast, rather than
+   inheriting whatever the page behind it happened to provide. They are built from
+   neo.css's variables — `--surface`, `--line`, `--shadow`, `--text` — so the look is
+   the original's, applied the way the original applies it: content lives on cards,
+   and only rails and app bars are dark. neo.css stays byte-identical.
+*/
+
+/*
+ * The page a working screen sits on: one readable column, never full-bleed.
+ *
+ * Called `deck` and not `sheet` because **`.sheet` is already neo.css's modal
+ * dialog** — a fixed-position overlay with a dark backdrop. Using it here turned
+ * three pages into overlapping floating cards on a black screen. `neo.css` is frozen,
+ * so its names are a fixed set; `tests/styles.test.ts` now checks nothing in
+ * `app.css` redefines one.
+ */
+.deck {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  min-height: 0;
+}
+.deck > * {
+  max-width: 760px;
+  margin-left: auto;
+  margin-right: auto;
+}
+.deck {
+  padding: 16px 14px 48px;
+}
+
+/*
+ * The shell a working screen needs, and why it needs one.
+ *
+ * `neo.css` sets `html, body { height: 100% }` and `body { overflow: hidden }` — the
+ * app-shell layout, where the page is exactly the viewport and a `.stage` inside it
+ * does the scrolling. That is right for the guest menu and the bar, and it means
+ * **any page that doesn't bring its own scrolling region simply cannot scroll**.
+ *
+ * The first version of these screens didn't, so the cupboard rendered 13,800px of
+ * content into an 812px window with the rest unreachable — and nothing said so: the
+ * DOM was complete, the tests passed, and the top of the page looked finished.
+ */
+.workshell {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+}
+
+/* A card. The unit everything else sits in — same shape as `.cocktail`. */
+.panel {
+  background: var(--surface);
+  color: var(--text);
+  border: var(--border) solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 16px;
+  margin: 0 0 18px;
+}
+.panel > h2 {
+  font-family: var(--font-display);
+  text-transform: var(--ttu);
+  letter-spacing: var(--ls-head);
+  font-size: 1rem;
+  margin: 0 0 12px;
+  color: var(--text);
+}
+.panel > p {
+  margin: 0 0 12px;
+  color: var(--text-soft);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+.panel > :last-child {
+  margin-bottom: 0;
+}
+
+/* The headline number a screen exists to move. Dark on purpose — it is the one
+   thing that should read as a readout rather than as content. */
+.stat {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+  background: var(--panel-bg);
+  color: var(--panel-text);
+  border-radius: var(--radius);
+  padding: 12px 16px;
+  margin: 0 0 14px;
+  font-family: var(--font-accent);
+  font-size: 0.8rem;
+  letter-spacing: var(--ls-accent);
+  text-transform: var(--ttu);
+}
+.stat b {
+  font-size: 1.5rem;
+  color: var(--h2-color);
+}
+
+/* A row in a list of things — a host, a party, a helper. */
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  padding: 12px 0;
+  border-bottom: 2px solid rgba(10, 10, 18, 0.12);
+  background: none;
+  border-left: 0;
+  border-right: 0;
+  border-top: 0;
+  color: var(--text);
+  font: inherit;
+}
+.row:last-child {
+  border-bottom: 0;
+}
+button.row {
+  cursor: pointer;
+}
+button.row:hover {
+  background: rgba(10, 10, 18, 0.04);
+}
+.row-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.row-name {
+  font-family: var(--font-display);
+  text-transform: var(--ttu);
+  font-size: 0.95rem;
+  letter-spacing: var(--ls-head);
+}
+.row-note {
+  font-size: 0.8rem;
+  color: var(--text-soft);
+}
+.row-acts {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  flex: none;
+}
+
+/* Buttons. `btn` is the quiet one; the modifiers are the loud ones. */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 10px 16px;
+  font-family: var(--font-accent);
+  font-size: 0.72rem;
+  letter-spacing: var(--ls-accent);
+  text-transform: var(--ttu);
+  color: var(--text);
+  background: var(--surface);
+  border: 3px solid var(--line);
+  border-radius: 999px;
+  box-shadow: var(--shadow-sm);
+  cursor: pointer;
+  text-decoration: none;
+}
+.btn:active {
+  box-shadow: var(--shadow-press);
+  transform: translate(2px, 2px);
+}
+.btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+  box-shadow: var(--shadow-sm);
+  transform: none;
+}
+.btn-go {
+  background: var(--send-bg);
+  color: var(--send-text);
+}
+.btn-danger {
+  background: var(--accent);
+  color: var(--accent-text);
+}
+
+/* A form field. Label above, because a placeholder is not a label. */
+.field {
+  display: block;
+  margin: 0 0 14px;
+  font-family: var(--font-accent);
+  font-size: 0.68rem;
+  letter-spacing: var(--ls-accent);
+  text-transform: var(--ttu);
+  color: var(--text);
+}
+.field input,
+.field select {
+  display: block;
+  width: 100%;
+  margin-top: 6px;
+  padding: 12px 14px;
+  min-height: 48px;
+  font-family: var(--font-body);
+  font-size: 1rem;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--field-text);
+  background: var(--field-bg);
+  border: 3px solid var(--line);
+  border-radius: 12px;
+}
+.field input:focus-visible {
+  outline: 3px solid var(--hint);
+  outline-offset: 2px;
+}
+
+/* Nothing here yet — said plainly rather than left blank. */
+.empty {
+  margin: 0;
+  padding: 12px 0;
+  color: var(--text-soft);
+  font-size: 0.9rem;
+}
+
+/* ---- the cupboard ---------------------------------------------------------- */
+
+/* Sticky so the effect of a tick is never scrolled off. Opaque, because it sits
+   over a scrolling list and a translucent readout is unreadable over text. */
+.cupboard-stat {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+/* auto-fill rather than fixed columns: one column on a phone, three on a laptop,
+   without a media query per breakpoint. */
+.tick-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 2px 12px;
+}
+.tick {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 8px;
+  min-height: 44px; /* thumb-sized: worked through standing up */
+  border-radius: 10px;
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  color: var(--text);
+  cursor: pointer;
+}
+.tick.is-in {
+  background: var(--send-bg);
+  font-weight: 700;
+}
+.tick input {
+  width: 22px;
+  height: 22px;
+  flex: none;
+  accent-color: var(--line);
+}
+.tick:has(input:disabled) {
+  cursor: default;
+  opacity: 0.75;
+}
+
+/* "One more bottle" — the question a tick list can't answer on its own. */
+.suggests {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.suggest b {
+  color: var(--accent);
+}
+
+/* What the cupboard pours: names, not cards. At ~40 drinks a card each would be
+   four screens of scrolling. */
+.pours {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+}
+.pours span {
+  padding: 5px 12px;
+  background: var(--card1);
+  border: 2px solid var(--line);
+  border-radius: 999px;
+  font-size: 0.85rem;
+}
+
+/* ---- messages -------------------------------------------------------------- */
+
+.says {
+  margin: 14px 0 0;
+  padding: 12px 16px;
+  border: 3px solid var(--line);
+  border-radius: var(--radius);
+  font-family: var(--font-accent);
+  font-size: 0.72rem;
+  letter-spacing: var(--ls-accent);
+  text-transform: var(--ttu);
+}
+.says-bad {
+  background: var(--accent);
+  color: var(--accent-text);
+}
+.says-good {
+  background: var(--card2);
+  color: var(--text);
 }

@@ -17,18 +17,29 @@
   import { DRINKS, type Drink } from '$lib/data';
   import { eventMenu } from '$lib/api';
 
-  /** From `+page.ts`: the party this page *is*, rather than the one this device recalls. */
-  let { data }: { data: { eventId: string } } = $props();
   import { addLine, basketCount } from '$lib/stores/basket.svelte';
   import { favourites } from '$lib/stores/favourites.svelte';
   import { applyDeepLink, settings, view } from '$lib/stores/view.svelte';
   import { staffRequest } from '$lib/stores/staffRequest.svelte';
-  import { celebrate as fireConfetti } from '$lib/confetti';
+  import { celebrate as fireConfetti, startBackgroundCannon } from '$lib/confetti';
   import { lockBackground } from '$lib/dialog';
   import Configurator from '$lib/components/Configurator.svelte';
   import InstallButton from '$lib/components/InstallButton.svelte';
   import OrderRail from '$lib/components/OrderRail.svelte';
   import SentCelebration from '$lib/components/SentCelebration.svelte';
+
+  /** From `+page.ts`: the party this page *is*, rather than the one this device recalls. */
+  let { data }: { data: { eventId: string } } = $props();
+
+  /**
+   * The party-popper cannon, which used to live in the layout and therefore rained
+   * emoji over every form in the app. It belongs here: this screen is a wall of
+   * opaque cards, which is exactly what it was designed to sit behind.
+   */
+  let cannon = $state<HTMLCanvasElement>();
+  $effect(() => {
+    if (cannon) return startBackgroundCannon(cannon);
+  });
 
   let selected = $state<Drink | null>(null);
   let celebrating = $state(false);
@@ -118,6 +129,8 @@
     else if (orderOpen) view.order = false;
   }}
 />
+
+<canvas class="bg-cannon" bind:this={cannon} aria-hidden="true"></canvas>
 
 <div class="app">
   <header class="appbar">

@@ -117,15 +117,15 @@
   const revert = () => adopt(saved);
 </script>
 
-<div class="bt-stock">
-  {#if err}<p class="bt-conn" role="status">{err}</p>{/if}
+<div class="cupboard">
+  {#if err}<p class="says says-bad" role="status">{err}</p>{/if}
 
   {#if !loaded}
-    <p class="bt-empty">Loading…</p>
+    <p class="empty">Loading…</p>
   {:else}
     <!-- The number this screen exists to move. Sticky, so the effect of a tick is
          never off-screen while you work down a long list. -->
-    <p class="bt-stock-count" aria-live="polite">
+    <p class="stat cupboard-stat" aria-live="polite">
       <b>{pourable.length}</b>
       {pourable.length === 1 ? 'drink' : 'drinks'} from
       <b>{ticked.size}</b>
@@ -133,14 +133,14 @@
     </p>
 
     {#if readonly}
-      <p class="bt-staff-note">This is their list — you can look, not change it.</p>
+      <p class="empty">This is their list — you can look, not change it.</p>
     {:else}
-      <div class="bt-acts bt-stock-acts">
-        <button type="button" class="bt-act start" disabled={!dirty || busy} onclick={save}>
+      <div class="row-acts">
+        <button type="button" class="btn btn-go" disabled={!dirty || busy} onclick={save}>
           {busy ? 'Saving…' : dirty ? 'Save' : 'Saved'}
         </button>
         {#if dirty}
-          <button type="button" class="bt-act" disabled={busy} onclick={revert}>Undo</button>
+          <button type="button" class="btn" disabled={busy} onclick={revert}>Undo</button>
         {/if}
       </div>
     {/if}
@@ -149,13 +149,13 @@
       <!-- The question a tick list can't answer on its own: not "what can I make"
            but "what should I buy". Only counts bottles that are the sole thing
            standing between this cupboard and a recipe. -->
-      <section class="bt-staff-group">
-        <h4>One more bottle</h4>
-        <div class="bt-stock-suggest">
+      <section class="panel">
+        <h2>One more bottle</h2>
+        <div class="suggests">
           {#each nextBest as s (s.ingredient)}
             <button
               type="button"
-              class="bt-stock-tip"
+              class="btn suggest"
               disabled={readonly}
               onclick={() => toggle(s.ingredient)}
             >
@@ -166,22 +166,22 @@
       </section>
     {/if}
 
-    <div class="bt-stock-search">
-      <input
-        type="search"
-        bind:value={filter}
-        placeholder="Search the cupboard…"
-        aria-label="Search ingredients"
-        autocomplete="off"
-      />
-    </div>
+    <section class="panel">
+      <label class="field">
+        Search
+        <input
+          type="search"
+          bind:value={filter}
+          placeholder="Gin, lime, tonic…"
+          autocomplete="off"
+        />
+      </label>
 
-    {#each groups as group (group.category)}
-      <section class="bt-staff-group">
-        <h4>{group.label}</h4>
-        <div class="bt-stock-grid">
+      {#each groups as group (group.category)}
+        <h2>{group.label}</h2>
+        <div class="tick-grid">
           {#each group.items as item (item)}
-            <label class="bt-stock-item" class:is-in={ticked.has(item)}>
+            <label class="tick" class:is-in={ticked.has(item)}>
               <input
                 type="checkbox"
                 checked={ticked.has(item)}
@@ -192,25 +192,23 @@
             </label>
           {/each}
         </div>
-      </section>
-    {/each}
+      {/each}
 
-    {#if groups.length === 0}
-      <p class="bt-empty">Nothing matches “{filter}”.</p>
-    {/if}
+      {#if groups.length === 0}
+        <p class="empty">Nothing matches “{filter}”.</p>
+      {/if}
+    </section>
 
-    <section class="bt-staff-group">
-      <h4>What that pours</h4>
+    <section class="panel">
+      <h2>What that pours</h2>
       {#if pourable.length === 0}
-        <p class="bt-empty">Tick a spirit and something to mix it with.</p>
+        <p class="empty">Tick a spirit and something to mix it with.</p>
       {:else}
-        <p class="bt-stock-pourable">
+        <p class="pours">
           {#each pourable as r (r.id)}<span>{r.name}</span>{/each}
         </p>
       {/if}
-      <p class="bt-staff-note">
-        Garnishes don't count against a drink — a missing olive shouldn't hide a Martini.
-      </p>
+      <p>Garnishes don't count against a drink — a missing olive shouldn't hide a Martini.</p>
     </section>
   {/if}
 </div>

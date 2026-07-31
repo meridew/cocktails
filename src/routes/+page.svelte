@@ -124,107 +124,114 @@
 
 <svelte:head><title>COCKTAILS!!!</title></svelte:head>
 
-<header class="appbar">
-  <span class="brand">COCKTAILS</span>
-</header>
+<div class="workshell">
+  <header class="appbar">
+    <span class="brand">COCKTAILS</span>
+  </header>
 
-<main class="host">
-  {#if loading}
-    <p class="host-quiet">One moment…</p>
-  {:else if awaitingConfirmation || (user && !user.emailVerified)}
-    <!-- Signed up, waiting on the email. Sign-up issues no session when verification
+  <main class="deck">
+    {#if loading}
+      <p class="empty">One moment…</p>
+    {:else if awaitingConfirmation || (user && !user.emailVerified)}
+      <!-- Signed up, waiting on the email. Sign-up issues no session when verification
          is required, so this state must not depend on `user`. -->
-    {@const who = user?.email ?? awaitingConfirmation}
-    <h1 class="host-h1">Check your email</h1>
-    <p class="host-quiet">We sent a link to <strong>{who}</strong>. Open it and you're in.</p>
-    <p class="host-quiet">Nothing arrived? It can take a minute, and it may be in spam.</p>
-    <button class="host-go" type="button" onclick={() => resend(who)} disabled={busy}>
-      Send it again
-    </button>
-    <button
-      class="host-alt"
-      type="button"
-      onclick={() => {
-        awaitingConfirmation = '';
-        error = '';
-        notice = '';
-        void leave();
-      }}
-    >
-      Use a different account
-    </button>
-  {:else}
-    {#if verified}
-      <p class="host-good">Email confirmed — you're all set.</p>
-    {/if}
-
-    <h1 class="host-h1">{registering ? 'Set up your account' : 'Welcome back'}</h1>
-    <p class="host-quiet">
-      {registering
-        ? "Tell us what you've got in, and we'll work out what the bar can pour."
-        : 'Sign in to your parties.'}
-    </p>
-
-    {#if data.googleEnabled}
-      <button class="host-google" type="button" onclick={withGoogle} disabled={busy}>
-        <span class="host-google-g" aria-hidden="true">G</span>
-        Continue with Google
-      </button>
-      <p class="host-or"><span>or</span></p>
-    {/if}
-
-    <form
-      class="host-form"
-      onsubmit={(e) => {
-        e.preventDefault();
-        void submit();
-      }}
-    >
-      {#if registering}
-        <label class="host-label">
-          Your name
-          <input class="host-input" bind:value={name} autocomplete="name" required />
-        </label>
+      {@const who = user?.email ?? awaitingConfirmation}
+      <section class="panel">
+        <h2>Check your email</h2>
+        <p>We sent a link to <strong>{who}</strong>. Open it and you're in.</p>
+        <p>Nothing arrived? It can take a minute, and it may be in spam.</p>
+        <div class="row-acts">
+          <button class="btn btn-go" type="button" onclick={() => resend(who)} disabled={busy}>
+            Send it again
+          </button>
+          <button
+            class="btn"
+            type="button"
+            onclick={() => {
+              awaitingConfirmation = '';
+              error = '';
+              notice = '';
+              void leave();
+            }}
+          >
+            Different account
+          </button>
+        </div>
+      </section>
+    {:else}
+      {#if verified}
+        <p class="says says-good">Email confirmed — you're all set.</p>
       {/if}
-      <label class="host-label">
-        Email
-        <input class="host-input" type="email" bind:value={email} autocomplete="email" required />
-      </label>
-      <label class="host-label">
-        Password
-        <input
-          class="host-input"
-          type="password"
-          bind:value={password}
-          autocomplete={registering ? 'new-password' : 'current-password'}
-          required
-        />
-      </label>
-      <button class="host-go" type="submit" disabled={busy}>
-        {busy ? 'One moment…' : registering ? 'Create my account' : 'Sign in'}
-      </button>
-    </form>
 
-    <button
-      class="host-alt"
-      type="button"
-      onclick={() => {
-        registering = !registering;
-        error = '';
-        notice = '';
-      }}
-    >
-      {registering ? 'I already have an account' : 'I need an account'}
-    </button>
+      <section class="panel">
+        <h2>{registering ? 'Set up your account' : 'Welcome back'}</h2>
+        <p>
+          {registering
+            ? "Tell us what you've got in, and we'll work out what the bar can pour."
+            : 'Sign in to your parties.'}
+        </p>
 
-    <!-- The one thing a guest might need from this page. They should never be here —
+        {#if data.googleEnabled}
+          <button class="btn btn-go" type="button" onclick={withGoogle} disabled={busy}>
+            Continue with Google
+          </button>
+        {/if}
+
+        <form
+          onsubmit={(e) => {
+            e.preventDefault();
+            void submit();
+          }}
+        >
+          {#if registering}
+            <label class="field">
+              Your name
+              <input bind:value={name} autocomplete="name" required />
+            </label>
+          {/if}
+          <label class="field">
+            Email
+            <input type="email" bind:value={email} autocomplete="email" required />
+          </label>
+          <label class="field">
+            Password
+            <input
+              type="password"
+              bind:value={password}
+              autocomplete={registering ? 'new-password' : 'current-password'}
+              required
+            />
+          </label>
+          <div class="row-acts">
+            <button class="btn btn-go" type="submit" disabled={busy}>
+              {busy ? 'One moment…' : registering ? 'Create my account' : 'Sign in'}
+            </button>
+            <button
+              class="btn"
+              type="button"
+              onclick={() => {
+                registering = !registering;
+                error = '';
+                notice = '';
+              }}
+            >
+              {registering ? 'I have an account' : 'I need an account'}
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <!-- The one thing a guest might need from this page. They should never be here —
          their link goes straight to a party — but somebody will type the bare domain
          after being sent the app, and "you're in the wrong place" is a dead end. -->
-    <p class="host-quiet host-footnote">
-      At a party? Open the link or QR code your host gave you — it goes straight to their menu.
-    </p>
-  {/if}
+      <section class="panel">
+        <p>
+          At a party? Open the link or QR code your host gave you — it goes straight to their menu.
+        </p>
+      </section>
+    {/if}
 
-  {#if error}<p class="host-bad" role="alert">{error}</p>{/if}
-  {#if notice}<p class="host-good" role="status">{notice}</p>{/if}
-</main>
+    {#if error}<p class="says says-bad" role="alert">{error}</p>{/if}
+    {#if notice}<p class="says says-good" role="status">{notice}</p>{/if}
+  </main>
+</div>

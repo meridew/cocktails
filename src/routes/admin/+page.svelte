@@ -189,187 +189,207 @@
 
 <svelte:head><title>Admin · COCKTAILS!!!</title></svelte:head>
 
-<header class="appbar">
-  <div class="brand">🍸 Admin</div>
-  <button class="appbar-bartender" type="button" onclick={leave}>Sign out</button>
-</header>
+<div class="workshell">
+  <header class="appbar">
+    <div class="brand">🍸 Admin</div>
+    <button class="appbar-bartender" type="button" onclick={leave}>Sign out</button>
+  </header>
 
-<main class="host">
-  {#if loading}
-    <p class="host-quiet">One moment…</p>
-  {:else if !isAdmin}
-    <p class="host-bad">Not your door.</p>
-  {:else if openHost}
-    {@const host = openHost}
-    <header class="bt-staff-top">
-      <h1 class="host-h1">{host.name}</h1>
-      <button class="bt-chip" type="button" onclick={() => (openHost = null)}>All hosts</button>
-    </header>
-    <p class="host-quiet">
-      {host.email}{host.role === 'admin' || host.adminByConfig ? ' · admin' : ''}{host.emailVerified
-        ? ''
-        : ' · unverified'}{host.bannedAt ? ' · suspended' : ''}
-    </p>
+  <main class="deck">
+    {#if loading}
+      <p class="empty">One moment…</p>
+    {:else if !isAdmin}
+      <p class="says says-bad">Not your door.</p>
+    {:else if openHost}
+      {@const host = openHost}
+      <section class="panel">
+        <div class="row">
+          <span class="row-main">
+            <span class="row-name">{host.name}</span>
+            <span class="row-note">
+              {host.email}{host.role === 'admin' || host.adminByConfig
+                ? ' · admin'
+                : ''}{host.emailVerified ? '' : ' · unverified'}{host.bannedAt
+                ? ' · suspended'
+                : ''}
+            </span>
+          </span>
+          <span class="row-acts">
+            <button class="btn" type="button" onclick={() => (openHost = null)}>All hosts</button>
+          </span>
+        </div>
+      </section>
 
-    <section class="bt-staff-group">
-      <h4>Their cupboard</h4>
-      {#if showCupboard}
-        <!-- The "do the chore for them" case: Dan fills it in when they haven't.
+      <section class="panel">
+        <h2>Their cupboard</h2>
+        {#if showCupboard}
+          <!-- The "do the chore for them" case: Dan fills it in when they haven't.
              Same component the host uses on their own screen — one set of rules
              about what counts as pourable, not two. -->
-        <Cupboard userId={host.id} onsaved={() => (notice = `Saved ${host.name}'s cupboard.`)} />
-        <button class="bt-chip" type="button" onclick={() => (showCupboard = false)}>Done</button>
-      {:else}
-        <p class="bt-empty">
-          {host.hasStock ? 'They have recorded what they have in.' : "They haven't opened it yet."}
-        </p>
-        <button class="bt-chip" type="button" onclick={() => (showCupboard = true)}>
-          {host.hasStock ? 'Look at it' : 'Fill it in for them'}
-        </button>
-      {/if}
-    </section>
+          <Cupboard userId={host.id} onsaved={() => (notice = `Saved ${host.name}'s cupboard.`)} />
+          <button class="btn" type="button" onclick={() => (showCupboard = false)}>Done</button>
+        {:else}
+          <p>
+            {host.hasStock
+              ? 'They have recorded what they have in.'
+              : "They haven't opened it yet."}
+          </p>
+          <button class="btn" type="button" onclick={() => (showCupboard = true)}>
+            {host.hasStock ? 'Look at it' : 'Fill it in for them'}
+          </button>
+        {/if}
+      </section>
 
-    <section class="bt-staff-group">
-      <h4>Their parties</h4>
-      {#each partiesFor(host) as party (party.id)}
-        <div class="bt-staff-row">
-          <div class="bt-staff-who">
-            <span class="bt-name">{party.name}</span>
-            <span class="bt-ago">{party.status} · {when(party.startsAt)}</span>
+      <section class="panel">
+        <h2>Their parties</h2>
+        {#each partiesFor(host) as party (party.id)}
+          <div class="row">
+            <span class="row-main">
+              <span class="row-name">{party.name}</span>
+              <span class="row-note">{party.status} · {when(party.startsAt)}</span>
+            </span>
+            <span class="row-acts">
+              {#if party.status !== 'live'}
+                <button
+                  class="btn btn-go"
+                  type="button"
+                  disabled={!!busy}
+                  onclick={() => setStatus(party, 'live')}
+                >
+                  Open
+                </button>
+              {:else}
+                <button
+                  class="btn"
+                  type="button"
+                  disabled={!!busy}
+                  onclick={() => setStatus(party, 'done')}
+                >
+                  Close
+                </button>
+                <button
+                  class="btn btn-go"
+                  type="button"
+                  disabled={!!busy}
+                  onclick={() => enterBar(party)}
+                >
+                  Work it
+                </button>
+              {/if}
+              <button class="btn" type="button" onclick={() => copyLink(party)}>Link</button>
+              <button
+                class="btn btn-danger"
+                type="button"
+                disabled={!!busy}
+                onclick={() => removeParty(party)}
+                aria-label="Delete {party.name}">Delete</button
+              >
+            </span>
           </div>
-          <div class="bt-acts">
-            {#if party.status !== 'live'}
-              <button
-                class="bt-act start"
-                type="button"
-                disabled={!!busy}
-                onclick={() => setStatus(party, 'live')}>Open</button
-              >
-            {:else}
-              <button
-                class="bt-act"
-                type="button"
-                disabled={!!busy}
-                onclick={() => setStatus(party, 'done')}>Close</button
-              >
-              <button
-                class="bt-act start"
-                type="button"
-                disabled={!!busy}
-                onclick={() => enterBar(party)}>Work it</button
-              >
-            {/if}
-            <button class="bt-act" type="button" onclick={() => copyLink(party)}>Link</button>
+        {:else}
+          <p class="empty">No parties yet.</p>
+        {/each}
+
+        <form
+          onsubmit={(e) => {
+            e.preventDefault();
+            void makeParty(host);
+          }}
+        >
+          <label class="field">
+            New party
+            <input bind:value={newPartyName} placeholder="Saturday at theirs" maxlength="80" />
+          </label>
+          <label class="field">
+            When (optional)
+            <input type="date" bind:value={newPartyDate} />
+          </label>
+          <button class="btn btn-go" type="submit" disabled={!!busy}>Create it</button>
+        </form>
+      </section>
+
+      <section class="panel">
+        <h2>The account</h2>
+        {#if host.banReason}<p>Suspended: {host.banReason}</p>{/if}
+        <div class="row-acts">
+          {#if host.bannedAt}
             <button
-              class="bt-act del"
+              class="btn btn-go"
               type="button"
               disabled={!!busy}
-              onclick={() => removeParty(party)}
-              aria-label="Delete {party.name}">🗑</button
+              onclick={() => setBan(host, false)}
             >
-          </div>
+              Reinstate
+            </button>
+          {:else}
+            <button class="btn" type="button" disabled={!!busy} onclick={() => setBan(host, true)}>
+              Suspend
+            </button>
+          {/if}
+          {#if host.adminByConfig}
+            <span class="row-note">Admin by configuration — edit ADMIN_EMAILS to change</span>
+          {:else if host.role === 'admin'}
+            <button
+              class="btn"
+              type="button"
+              disabled={!!busy}
+              onclick={() => setRole(host, 'host')}
+            >
+              Remove admin
+            </button>
+          {:else}
+            <button
+              class="btn"
+              type="button"
+              disabled={!!busy}
+              onclick={() => setRole(host, 'admin')}
+            >
+              Make admin
+            </button>
+          {/if}
+          <button
+            class="btn btn-danger"
+            type="button"
+            disabled={!!busy}
+            onclick={() => removeHost(host)}
+          >
+            Delete
+          </button>
         </div>
-      {:else}
-        <p class="bt-empty">No parties yet.</p>
-      {/each}
-
-      <form
-        class="host-form"
-        onsubmit={(e) => {
-          e.preventDefault();
-          void makeParty(host);
-        }}
-      >
-        <label class="host-label">
-          New party
-          <input
-            class="host-input"
-            bind:value={newPartyName}
-            placeholder="Saturday at theirs"
-            maxlength="80"
-          />
-        </label>
-        <label class="host-label">
-          When (optional)
-          <input class="host-input" type="date" bind:value={newPartyDate} />
-        </label>
-        <button class="host-go" type="submit" disabled={!!busy}>Create it</button>
-      </form>
-    </section>
-
-    <section class="bt-staff-group">
-      <h4>The account</h4>
-      <div class="bt-acts">
-        {#if host.bannedAt}
-          <button
-            class="bt-act start"
-            type="button"
-            disabled={!!busy}
-            onclick={() => setBan(host, false)}
-          >
-            Reinstate
-          </button>
-        {:else}
-          <button class="bt-act" type="button" disabled={!!busy} onclick={() => setBan(host, true)}>
-            Suspend
-          </button>
-        {/if}
-        {#if host.adminByConfig}
-          <span class="bt-ago">Admin by configuration — edit ADMIN_EMAILS to change</span>
-        {:else if host.role === 'admin'}
-          <button
-            class="bt-act"
-            type="button"
-            disabled={!!busy}
-            onclick={() => setRole(host, 'host')}
-          >
-            Remove admin
-          </button>
-        {:else}
-          <button
-            class="bt-act"
-            type="button"
-            disabled={!!busy}
-            onclick={() => setRole(host, 'admin')}
-          >
-            Make admin
-          </button>
-        {/if}
-        <button class="bt-act del" type="button" disabled={!!busy} onclick={() => removeHost(host)}>
-          Delete
-        </button>
-      </div>
-      {#if host.banReason}<p class="bt-staff-note">Suspended: {host.banReason}</p>{/if}
-    </section>
-  {:else}
-    <h1 class="host-h1">Hosts</h1>
-    <div class="bt-stock-search">
-      <input type="search" bind:value={filter} placeholder="Search…" aria-label="Search hosts" />
-    </div>
-
-    {#each shown as host (host.id)}
-      <button class="bt-staff-row admin-row" type="button" onclick={() => open(host)}>
-        <span class="bt-staff-who">
-          <span class="bt-name">{host.name}</span>
-          <span class="bt-ago">
-            {host.email}
-            <!-- Effective role, not the column. Dan's own adminness comes from
-                 ADMIN_EMAILS and is never written to `role`, so reading the column
-                 alone showed the operator as an ordinary host in his own list. -->
-            {#if host.role === 'admin' || host.adminByConfig}· admin{/if}
-            {#if host.bannedAt}· suspended{/if}
-            {#if !host.hasStock}· no cupboard{/if}
-          </span>
-        </span>
-        <span class="bt-ago">{host.parties} {host.parties === 1 ? 'party' : 'parties'}</span>
-      </button>
+      </section>
     {:else}
-      <p class="bt-empty">
-        {filter ? `Nobody matches “${filter}”.` : 'Nobody has registered yet.'}
-      </p>
-    {/each}
-  {/if}
+      <section class="panel">
+        <h2>Hosts</h2>
+        <label class="field">
+          Search
+          <input type="search" bind:value={filter} placeholder="Name or email…" />
+        </label>
 
-  {#if error}<p class="host-bad" role="alert">{error}</p>{/if}
-  {#if notice}<p class="host-good" role="status">{notice}</p>{/if}
-</main>
+        {#each shown as host (host.id)}
+          <button class="row" type="button" onclick={() => open(host)}>
+            <span class="row-main">
+              <span class="row-name">{host.name}</span>
+              <span class="row-note">
+                {host.email}
+                <!-- Effective role, not the column. Dan's own adminness comes from
+                   ADMIN_EMAILS and is never written to `role`, so reading the
+                   column alone showed the operator as an ordinary host. -->
+                {#if host.role === 'admin' || host.adminByConfig}· admin{/if}
+                {#if host.bannedAt}· suspended{/if}
+                {#if !host.hasStock}· no cupboard{/if}
+              </span>
+            </span>
+            <span class="row-note">{host.parties} {host.parties === 1 ? 'party' : 'parties'}</span>
+          </button>
+        {:else}
+          <p class="empty">
+            {filter ? `Nobody matches “${filter}”.` : 'Nobody has registered yet.'}
+          </p>
+        {/each}
+      </section>
+    {/if}
+
+    {#if error}<p class="says says-bad" role="alert">{error}</p>{/if}
+    {#if notice}<p class="says says-good" role="status">{notice}</p>{/if}
+  </main>
+</div>

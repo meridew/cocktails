@@ -60,56 +60,58 @@
 
 <svelte:head><title>Your bar · COCKTAILS!!!</title></svelte:head>
 
-<header class="appbar">
-  <div class="brand">🍸 Your bar</div>
-  <button class="appbar-bartender" type="button" onclick={leave}>Sign out</button>
-</header>
+<div class="workshell">
+  <header class="appbar">
+    <div class="brand">🍸 Your bar</div>
+    <button class="appbar-bartender" type="button" onclick={leave}>Sign out</button>
+  </header>
 
-<main class="host">
-  {#if loading}
-    <p class="host-quiet">One moment…</p>
-  {:else}
-    <h1 class="host-h1">What you've got in</h1>
-    <p class="host-quiet">
-      Tick what's actually in the house and we'll work out what the bar can pour. It's optional —
-      leave it and your guests just see everything.
-    </p>
-
-    {#if me}
-      <Cupboard userId={me.id} onsaved={() => (notice = 'Saved.')} />
-    {/if}
-
-    <section class="bt-staff-group">
-      <h4>Your parties</h4>
-      {#if parties.length === 0}
-        <p class="bt-empty">
-          None yet — Dan sets those up. Your cupboard is ready whenever he does.
+  <main class="deck">
+    {#if loading}
+      <p class="empty">One moment…</p>
+    {:else}
+      <section class="panel">
+        <h2>What you've got in</h2>
+        <p>
+          Tick what's actually in the house and we'll work out what the bar can pour. It's optional
+          — leave it and your guests just see everything.
         </p>
-      {:else}
-        {#each parties as party (party.id)}
-          <div class="bt-staff-row">
-            <div class="bt-staff-who">
-              <span class="bt-name">{party.name}</span>
-              <span class="bt-ago">
-                {party.status}{when(party.startsAt) ? ` · ${when(party.startsAt)}` : ''}
+      </section>
+
+      {#if me}
+        <Cupboard userId={me.id} onsaved={() => (notice = 'Saved.')} />
+      {/if}
+
+      <section class="panel">
+        <h2>Your parties</h2>
+        {#if parties.length === 0}
+          <p class="empty">
+            None yet — Dan sets those up. Your cupboard is ready whenever he does.
+          </p>
+        {:else}
+          {#each parties as party (party.id)}
+            <div class="row">
+              <span class="row-main">
+                <span class="row-name">{party.name}</span>
+                <span class="row-note">
+                  {party.status}{when(party.startsAt) ? ` · ${when(party.startsAt)}` : ''}
+                </span>
+              </span>
+              <span class="row-acts">
+                {#if party.status === 'live'}
+                  <!-- Watch, not work. There is deliberately no control here that
+                     changes anything about the queue — see the capability table. -->
+                  <a class="btn" href="/e/{party.id}">See the menu</a>
+                {/if}
+                <button class="btn" type="button" onclick={() => copyLink(party)}>Guest link</button
+                >
               </span>
             </div>
-            <div class="bt-acts">
-              {#if party.status === 'live'}
-                <!-- Watch, not work. There is deliberately no control here that
-                     changes anything about the queue — see the capability table. -->
-                <a class="bt-act" href="/e/{party.id}">See the menu</a>
-              {/if}
-              <button class="bt-act" type="button" onclick={() => copyLink(party)}>
-                Guest link
-              </button>
-            </div>
-            <code class="host-link">{guestLink(party)}</code>
-          </div>
-        {/each}
-      {/if}
-    </section>
-  {/if}
+          {/each}
+        {/if}
+      </section>
+    {/if}
 
-  {#if notice}<p class="host-good" role="status">{notice}</p>{/if}
-</main>
+    {#if notice}<p class="says says-good" role="status">{notice}</p>{/if}
+  </main>
+</div>
