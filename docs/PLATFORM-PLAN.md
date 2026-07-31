@@ -28,24 +28,34 @@ scheduled phase is done**; what remains is 7 and 8, both deferred by Dan.
 **Phase 1 was withdrawn, not skipped.** Its premise — that the look was broken — was
 a claim in a document rather than an observed fact, and it was false.
 
-**The wipe permission still holds, and it is the reason this is affordable.** The
-live database on the Mac holds one unverified test account (`bar@meridew.com`, mine),
-one boot-seeded event, and nothing else:
+**The wipe happened — 31 Jul 2026.** The old database held one unverified test
+account and nothing else, and the phase-0 restructure changed the schema beyond
+migrating, so it was deleted rather than migrated. The live database is now empty and
+on the new schema:
 
 ```
-users 1 · events 1 · orders 0 · staff 1 · inventory 0
+users 0 · events 0 · orders 0 · stock 0 · event_menu 0
 ```
 
-**So the schema gets restructured outright, not migrated.** That freedom ends the
-moment a real host signs up — which is also the moment Litestream stops being
-optional (§10).
+`ADMIN_EMAILS` is set on the Mac, and `STAFF_EMAIL` / `STAFF_PASSWORD` / `STAFF_PIN`
+were removed from its environment in the same pass — the actor model replaced all
+three, nothing had read them since phase 0, and one of them had been echoed into a
+transcript.
 
-**⚠️ Nothing since `1ba0771` is deployed.** That is what the Mac serves; check with
-`git log --oneline 1ba0771..main`. Deploying is manual and on Dan's say-so:
+**The wipe permission narrows from here.** Wiping now costs Dan a re-registration.
+Once a host who is _not_ Dan signs up it costs somebody else their data, and that is
+the same moment Litestream stops being optional (§10).
+
+**`7fd3d19` is deployed** — the Mac serves it, verified over the tunnel. Deploying
+stays manual and on Dan's say-so:
 
 ```bash
 gh workflow run "gate + deploy (Mac)" --ref main -f deploy=true
 ```
+
+**Nobody has registered yet.** Until Dan signs up at `cock.meridew.com` with the
+address in `ADMIN_EMAILS` there is no admin, and therefore no party can be created —
+party creation is admin-only by design.
 
 ---
 
@@ -814,9 +824,13 @@ Work around these per §0 — interface + dev implementation + a note in
 
 2. **Cloudflare R2 bucket** + an API token for Litestream. _Blocks: phase 4.6._
 3. **OAuth client IDs** for Google and Apple, if that sign-in path is wanted.
-4. **The tunnel's Public Hostname**, which lives in the Cloudflare dashboard rather
-   than in this repo. It must point at the app's new address on the Mac.
-5. ~~**Mac mini access**~~ — **done, 30 Jul 2026.** Recorded because it isn't
+4. ~~**The tunnel's Public Hostname**~~ — **confirmed working, 31 Jul 2026.**
+   `https://cock.meridew.com` serves the front door from the Mac.
+5. **Registering the admin account.** Only Dan can: it means choosing a password, and
+   the address must be the one in `ADMIN_EMAILS`. Until then the database has no
+   admin and no party can exist. Verification goes through Graph from
+   `bar@meridew.com`, so the link arrives in a real inbox rather than the log.
+6. ~~**Mac mini access**~~ — **done, 30 Jul 2026.** Recorded because it isn't
    discoverable from the repo:
    - `~/.ssh/mac_cocktails` (ed25519, no passphrase) → `dan@mac.home.meridew.com`
      (192.168.1.9), via the `Host mac` entry in `~/.ssh/config`.
