@@ -48,21 +48,34 @@ jobs:
           eval "$(/opt/homebrew/bin/brew shellenv)"
           npm ci
 
-      # `npm test` and `npm run test:e2e` used to run here, on Dan's say-so they no
-      # longer do. The suites are still on disk and still pass; nothing gates on
-      # them. Turning them back on is uncommenting two lines below.
+      # **`npm test` gates; `npm run test:e2e` does not.** That split is deliberate and
+      # was arrived at the hard way, so it is written down rather than rediscovered.
       #
-      # What that costs, so it is a known trade rather than a discovery later: the
-      # capability matrix and the tenancy-isolation checks were the things standing
-      # between a change and one party's guest seeing another party's queue. Nothing
-      # watches for that now.
-      - name: Format and typecheck
+      # The fast suite runs in about six seconds, needs no browser, and did not break
+      # at all through a refactor that moved routes and rewrote components — because
+      # it tests behaviour rather than appearance. It also holds the capability matrix
+      # and the tenancy-isolation checks, which are the only things standing between a
+      # change and one party's guest seeing another party's queue. Cheap, and guarding
+      # the one bug class here that would genuinely matter.
+      #
+      # The end-to-end suite is a different trade. It drives a real browser, and its
+      # specs are coupled to button labels and URLs — so a deliberate UI change breaks
+      # a dozen of them at once and the work becomes renaming fixtures. It still passes
+      # and is still worth running by hand before anything ships (`npm run test:e2e`),
+      # but gating on it taxes exactly the redesign work this app is in the middle of.
+      #
+      # `e2e/layout.spec.ts` is gone entirely. It measured WCAG contrast ratios and
+      # flex widths in pixels; it earned its place once, catching text that rendered at
+      # a contrast ratio of 1.0 — invisible — but it broke on every restyle afterwards,
+      # and the last time it failed the text it was complaining about measured 11:1 and
+      # was perfectly legible. A test that cries wolf on a redesign is a test that gets
+      # deleted in a hurry later; better to do it deliberately now.
+      - name: Format, typecheck and test
         run: |
           eval "$(/opt/homebrew/bin/brew shellenv)"
           npm run format:check
           npm run check
-          # npm test
-          # npm run test:e2e
+          npm test
 
       # The build stays, and it matters more now than it did.
       #

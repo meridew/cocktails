@@ -71,10 +71,14 @@ export async function verificationLink(email: string, timeoutMs = 10_000): Promi
  * that used to type straight into the page has to knock first.
  */
 export async function openSignIn(page: Page): Promise<Locator> {
-  // Scoped to the app bar: once the drawer is open there are two "Sign in" buttons
-  // on the page — this icon and the form's submit — and an unscoped locator matches
-  // both. Returns the drawer so callers can scope their own clicks the same way.
-  await page.locator('.appbar').getByRole('button', { name: 'Sign in' }).click();
+  // **"Host sign-in", not "Sign in".** The corner used to be a key glyph whose only
+  // name was an `aria-label`, and it stood for both "it's my party" and "I'm pouring
+  // tonight" — two different people, one of whom that door is wrong for. Naming it
+  // is half of what stops a barman registering a host account.
+  //
+  // Still scoped to the app bar: the drawer's own submit is "Sign in", and this
+  // returns the drawer so callers can scope their clicks the same way.
+  await page.locator('.appbar').getByRole('button', { name: 'Host sign-in' }).click();
   const drawer = page.getByRole('dialog', { name: 'Sign in' });
   await expect(drawer).toBeVisible();
   return drawer;
@@ -257,9 +261,13 @@ export async function askAndApprove(
   name: string,
 ): Promise<void> {
   await arriveAt(helper, eventId, name);
-  await helper.goto('/bar');
+  // **The party is in the path.** It used to be bare `/bar`, which took its party
+  // from device storage — the value any guest menu overwrites — so this fixture was
+  // quietly depending on the bug that made a bartender's queue vanish mid-shift.
+  // This is also the real journey now: the menu's "I'm pouring here" links here.
+  await helper.goto(`/bar/${eventId}`);
   await helper.getByPlaceholder('your name').fill(name);
-  await helper.getByRole('button', { name: 'Ask to help' }).click();
+  await helper.getByRole('button', { name: "I'm pouring here" }).click();
 
   // The approver is already behind the bar; the request shows up under Bar staff.
   await approver.getByRole('button', { name: /Bar options/ }).click();
@@ -269,6 +277,6 @@ export async function askAndApprove(
   await row.getByRole('button', { name: '✓ Approve' }).click();
 
   // The helper's device is polling for the decision, so the queue simply appears.
-  await helper.goto('/bar');
+  await helper.goto(`/bar/${eventId}`);
   await expect(helper.locator('.bt-gate')).toHaveCount(0);
 }

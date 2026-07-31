@@ -78,7 +78,12 @@ test('a host can watch their party but not work it', async ({ browser }) => {
 
   // And the bar itself refuses them: an account cookie is not a bar session, and
   // being the owner does not mint one.
-  await host.goto('/bar');
+  //
+  // Named, rather than bare `/bar` — which now asks *which* bar rather than reading
+  // one out of device storage, and answers a host with "you're hosting, not pouring"
+  // before they ever reach a gate. This is the sharper question anyway: it is about
+  // this party, not about whichever the device last saw.
+  await host.goto(`/bar/${id}`);
   await expect(host.locator('.bt-gate')).toBeVisible();
   await expect(host.locator('.ord')).toHaveCount(0);
 });

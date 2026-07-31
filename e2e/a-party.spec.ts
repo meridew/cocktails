@@ -106,7 +106,9 @@ test('a host stocks up, Dan opens the bar, a guest orders and a helper pours it'
     .locator('.row', { hasText: partyName })
     .getByRole('button', { name: 'Work it' })
     .click();
-  await expect(dan).toHaveURL(/\/bar$/);
+  // Named in the address: the bar used to be told which party by device storage,
+  // which any guest menu could overwrite behind its back.
+  await expect(dan).toHaveURL(new RegExp(`/bar/${id}$`));
   await expect(dan.locator('.ord', { hasText: 'Priya' })).toBeVisible();
 
   // ---- the helper: asked for, waved in, and pouring ----------------------
