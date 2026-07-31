@@ -9,7 +9,7 @@
  * **Not SMTP.** Exchange Online disables basic auth for SMTP AUTH by default from
  * the end of December 2026, so building on it would have had a five-month life.
  *
- * The app registration this needs is the one human step (`PLATFORM-PLAN.md` §8.1),
+ * The app registration this needs is the one human step (`PLATFORM-PLAN.md` §9.1),
  * and `Mail.Send` is **tenant-wide by default** — a leaked secret could send as
  * anybody in the tenant. The Application Access Policy scoping it to one mailbox is
  * not optional; §8.2, and don't skip it.
@@ -26,7 +26,7 @@ export interface GraphConfig {
    * A certificate rather than a client secret, for three reasons. Only the
    * *public* half is ever uploaded to Entra, so no secret passes through a
    * clipboard or a chat window. Client secrets are hard-capped at 24 months and
-   * `PLATFORM-PLAN.md` §7 lists that expiry as an accepted risk with nothing to
+   * `PLATFORM-PLAN.md` §10 lists that expiry as an accepted risk with nothing to
    * remind us — a certificate's lifetime is ours to choose. And Microsoft
    * recommends certificates over secrets for app-only auth.
    */

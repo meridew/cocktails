@@ -49,7 +49,7 @@ So:
 `scripts/mac.ps1 -Script <file.sh>` runs a shell script on the Mac. Read its
 header before hand-rolling an `ssh mac …` — it normalises encodings that
 otherwise produce baffling remote errors. Keys, sudo and the host's state are
-recorded in `docs/PLATFORM-PLAN.md` §8.
+recorded in `docs/PLATFORM-PLAN.md` §9.
 
 ## Conventions
 

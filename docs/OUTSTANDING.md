@@ -110,7 +110,7 @@ live database — the plan is explicit that an untested backup is not a backup.
 Microsoft Graph, authenticated with a **certificate** rather than a client secret, so
 nothing secret ever passed through a clipboard or this repo. Proven end to end
 against the live tenant: certificate → token → `sendMail` → shared mailbox. Details
-and identifiers in [`PLATFORM-PLAN.md`](PLATFORM-PLAN.md) §8.1.
+and identifiers in [`PLATFORM-PLAN.md`](PLATFORM-PLAN.md) §9.1.
 
 Still unset: **`BETTER_AUTH_SECRET`**… actually no — it is set on the Mac. What
 remains unset is **`STAFF_PIN`**, so PIN sign-in is off; email and password work.

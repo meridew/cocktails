@@ -1,74 +1,71 @@
-# Platform plan — hosts, accounts and the cocktail generator
+# Platform plan — Dan's bar, as a service for hosts
 
 > **Read this first if you're a fresh session.** `HANDOFF.md` describes the stack as
-> it is; this describes where it's going and why. `CLAUDE.md` has the shell rules —
-> read those before running anything, they are not optional on Windows. The decisions
-> in §2 were made deliberately after research; don't relitigate them without a reason,
-> and if you do, record the reason here.
+> it is. `HISTORY.md` records how it got here and why things are shaped the way they
+> are. `CLAUDE.md` has the shell rules — read those before running anything, they are
+> not optional on Windows. The decisions in §2 were made deliberately after research;
+> don't relitigate them without a reason, and if you do, record the reason here.
 
 ## Where this actually stands — 31 Jul 2026
 
-**Phases 0, 1, 2, 2.5, 2.6, 3 and 4 are done. Phase 5 hasn't started.** 361 tests,
-0 type errors, working tree clean.
+**This plan was rewritten on 31 Jul 2026 after Dan reviewed what had been built and
+found it wasn't what he'd asked for.** The phases below supersede the old ones; the
+completed work is recorded in `HISTORY.md`.
 
-**⚠️ Nothing since `1ba0771` is deployed.** That is what the Mac serves; check it with
-`git log --oneline 1ba0771..main` rather than trusting a count written here, which
-goes stale on the next commit. The host screen, Google sign-in, menu gating and the
-stock screen are all **written, tested and not live**. Deploying is manual and on
-Dan's say-so:
+The short version of what went wrong: the plan described a permission model with two
+axes — account role × event role — and it was never built. Everything therefore hung
+off a **staff session scoped to one party**, obtained by "opening the bar". So each
+new feature got built wherever that credential already worked, rather than where it
+belonged. The host's stock screen ended up inside the bartender's screen. That is a
+symptom; the missing axis is the cause, and §8 phase 0 fixes the cause first.
+
+**The wipe permission still holds, and it is the reason this is affordable.** The
+live database on the Mac holds one unverified test account (`bar@meridew.com`, mine),
+one boot-seeded event, and nothing else:
+
+```
+users 1 · events 1 · orders 0 · staff 1 · inventory 0
+```
+
+**So the schema gets restructured outright, not migrated.** That freedom ends the
+moment a real host signs up — which is also the moment Litestream stops being
+optional (§10).
+
+**⚠️ Nothing since `1ba0771` is deployed.** That is what the Mac serves; check with
+`git log --oneline 1ba0771..main`. Deploying is manual and on Dan's say-so:
 
 ```bash
 gh workflow run "gate + deploy (Mac)" --ref main -f deploy=true
 ```
 
-### What is left, and who it's waiting on
-
-|                                                | Whose | Notes                                                                                                                              |
-| ---------------------------------------------- | ----- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| **Widen `can()` to account-role × event-role** | mine  | §6 promises this and the code doesn't do it — see `OUTSTANDING.md` concession 3.                                                   |
-| **Phase 5 — Playwright**                       | mine  | Not started.                                                                                                                       |
-| **Make-a-Drink, the interactive walk**         | mine  | `reachable()` is ported and tested and nothing calls it. Phase 3 said to do it once the inventory had proved the port; it now has. |
-| **Google credentials**                         | Dan's | Code is done and tested; needs a client id + secret. `OUTSTANDING.md`.                                                             |
-| **`STAFF_PIN`**                                | Dan's | Empty on the Mac, so PIN sign-in is off. Email + password works.                                                                   |
-| **Litestream → R2**                            | Dan's | **Parked by Dan.** There are currently no backups of anything.                                                                     |
-
-### Two habits this plan cost me, recorded so they don't repeat
-
-- **I marked phase 1 done while quietly moving Google OAuth to "optional".** Scope
-  narrowed without asking. Dan caught it. If a deliverable is being dropped, say so
-  and let him decide.
-- **I asked Dan to choose whether the generated list replaces the curated menu.** The
-  plan already said "the main menu is then _gated_ by stock". Read the plan before
-  asking a question it answers.
-
 ---
 
 ## 0. How to work this plan
 
-This is written to be executed by an agent working alone, iterating until genuinely
-blocked. The operating contract:
+Written to be executed by an agent working alone, iterating until genuinely blocked.
 
-**This is a green field.** The app is not live, has no users, and no data worth
-keeping. Nobody else works in this repo. So:
+**This is still a green field**, per the counts above. So:
 
 - **Make large changes in one go.** Don't stage a refactor across three commits to
   "keep things working" between them — nothing depends on the intermediate states.
 - **No backwards compatibility. No deprecation cycles. No compatibility shims.**
-- **Delete freely.** If code is replaced, remove it; don't leave the old path beside
-  the new one.
-- **The database may be dropped and recreated at will** — see the caveat in §3, which
-  turns this off permanently the moment a real account exists.
+- **Delete freely.** If code is replaced, remove it. §3 lists what dies; if something
+  there is still present at the end of its phase, the phase isn't done.
+- **The database may be dropped and recreated at will**, until the first real host.
 
 **Decide, don't ask,** about: naming, file layout, test structure, minor library
-choices, error copy, and anything else where two reasonable answers produce the same
+choices, error copy, and anything where two reasonable answers produce the same
 product. Ambiguity is only worth a question when different readings produce a
 _materially different app_.
 
-**When you hit something that needs a human** (§8 lists them — all are browser logins
+**Do not build where the plumbing happens to work.** Build where the thing belongs,
+and if the plumbing isn't there yet, that is the work. This sentence exists because
+ignoring it is what caused this rewrite.
+
+**When you hit something that needs a human** (§9 lists them — all are browser logins
 for external services), do not stop the whole plan. In order:
 
-1. Put the dependency behind an interface with a working development implementation
-   (e.g. an email sender that writes to the log instead of calling Graph).
+1. Put the dependency behind an interface with a working development implementation.
 2. Carry on to the end of the phase and every later phase that doesn't need it.
 3. Record the outstanding step in `docs/OUTSTANDING.md` with exactly what's needed.
 4. Report it at the end. **Only stop entirely when nothing else can proceed.**
@@ -80,26 +77,46 @@ npm run format && npm run check && npm test
 ```
 
 Never mark a phase done on a green typecheck alone — the tests are the definition of
-done. **Do not deploy between phases.** Pushes gate; deploying is manual and on Dan's
-say-so.
+done, and **a phase that ships a screen is not done until it has been walked in a
+browser.** Two of the three worst mistakes in `HISTORY.md` were caught by opening the
+app, and neither would have been caught by a test. **Do not deploy between phases.**
 
 ## 1. What we're building
 
-Dan bartends at friends' house parties. Today the app assumes **one bar, his** —
-a single seeded admin, a shared PIN, and orders in one flat queue.
+**Dan bartends at friends' house parties. This is the app he runs it on, and the
+thing his hosts use to prepare for it.**
 
-The idea: **hosts become accounts.** A host signs up, lists the spirits, mixers and
-garnishes they actually have in, and the app generates the cocktail menu that stock
-can support. Dan works their event, sometimes with helpers. Guests at that event
-order from that host's generated menu.
+That sentence is the whole product, and it settles most arguments. It is _Dan's
+service_, not a party-planning tool that Dan happens to use. Three kinds of person
+touch it, plus the guests:
 
-That is **multi-tenancy**, and it invalidates several things we chose on purpose
-when the app had exactly one user (see §3).
+| Who       | Is                    | Does                                                                             |
+| --------- | --------------------- | -------------------------------------------------------------------------------- |
+| **Admin** | Dan                   | Everything. Sees every host and every party, creates parties, works the bar      |
+| **Host**  | a friend, a customer  | Registers, optionally says what they've got in, watches their queue on the night |
+| **Staff** | a helper on the night | Takes orders. Joins with a code, has no account, evaporates afterwards           |
+| _Guest_   | anyone at the party   | Anonymous. Scans a QR code, orders a drink                                       |
 
-**Scale reality check:** this is a hobby project for friends' parties. A handful of
-hosts, a few dozen emails a year. Design for correctness and low maintenance, _not_
-for throughput. Where a decision trades scale for simplicity, take simplicity —
-and say so in a comment.
+**A host is a customer, not an operator.** They do not take orders — Dan does, with
+helpers. Their whole job is: register, tick their cupboard, and watch.
+
+**Dan creates the parties.** A booking is a conversation, so the event is made by Dan
+against a host's account. A host who has registered but has no party yet is a
+perfectly normal state.
+
+**The cupboard belongs to the host, not the party.** A home bar is fairly stable, and
+re-ticking 173 bottles for every party would be a chore nobody does twice. Every party
+a host has reads their one cupboard.
+
+**The menu is generated from that cupboard.** Not a fixed list filtered by it — a
+menu the 270-recipe engine produces from what they actually have. Guests land on a
+**short list** somebody curated, and can also browse everything or be walked through
+a choice. This is the promise the old plan made in its first paragraph and never kept.
+
+**Scale reality check:** a handful of hosts, a few parties a year. Design for
+correctness and low maintenance, _not_ throughput. But sign-up is open on a machine
+in Dan's house, so build the parts a stranger can reach as though a stranger will
+reach them (§10).
 
 ## 2. Decisions already made
 
@@ -112,7 +129,7 @@ Researched July 2026. Sources at the bottom.
 | DB driver       | **`better-sqlite3`** (was `node:sqlite`)       | `drizzle-kit` does not support `node:sqlite` (drizzle-orm#5471). We rejected `better-sqlite3` because native modules need build tooling in an Alpine image — running natively on macOS there is no Alpine and no image, so the objection is gone.                                                                    |
 | Runtime         | **Native Node under launchd. No Docker.**      | Docker on macOS means a Linux VM under everything. Native is faster, simpler to debug, and makes native modules a non-event. Costs reproducible builds; accepted.                                                                                                                                                    |
 | Auth library    | **Better Auth**                                | Lucia was deprecated (Mar 2025) and the Auth.js team joined Better Auth (Sep 2025). SvelteKit-native, keeps every row in our own database, has a first-class Drizzle adapter, and makes Google/Apple sign-in configuration rather than a project.                                                                    |
-| Hosting         | **The spare Mac mini M4, macOS (_not_ Asahi)** | Free, and it removes the contention that made a CI gate take 472s at load average 74 on the NAS. §2a covers the platform survey; §8 covers the box.                                                                                                                                                                  |
+| Hosting         | **The spare Mac mini M4, macOS (_not_ Asahi)** | Free, and it removes the contention that made a CI gate take 472s at load average 74 on the NAS. §2a covers the platform survey; §9 covers the box.                                                                                                                                                                  |
 | Backups         | **Litestream → Cloudflare R2**                 | Streams the WAL continuously, so the recovery point is seconds rather than hours. Separate process, no code changes. R2's free tier covers it and the Cloudflare account already exists.                                                                                                                             |
 | Email           | **Microsoft Graph `sendMail`, app-only**       | The M365 tenant is already on `meridew.com` with SPF/DKIM/DMARC configured and warm. Zero new vendors, zero new DNS, **zero new npm packages** (it's a `fetch` POST). At a few dozen emails a year the "don't use Exchange for transactional mail" guidance doesn't apply — that's a volume and reputation argument. |
 | Email transport | **Graph, NOT SMTP AUTH**                       | SMTP AUTH basic auth is disabled by default from end of December 2026, unavailable for new tenants after, removal announced H2 2027. Building on it would have a five-month shelf life.                                                                                                                              |
@@ -214,24 +231,53 @@ no lazy loading, no identity map. Typed query builder over SQL you can still rea
 enforced by making the event a **required parameter** of every query function.
 Forgetting it is a compile error. That is the whole point of the exercise.
 
-## 3. What this overturns
+### 2d. Decisions added by the 31 Jul rewrite
 
-Recorded because these were deliberate, documented choices and reversing them
-quietly would be worse than reversing them loudly.
+Each was asked and answered explicitly. Don't reopen without a reason.
 
-| Was                                                   | Now                                              | Trigger                                                                                   |
-| ----------------------------------------------------- | ------------------------------------------------ | ----------------------------------------------------------------------------------------- |
-| No migrations; the database is disposable             | Migrations exist from phase 0, via `drizzle-kit` | Schema change is about to become constant, and hand-rolling a runner is wasted work       |
-| Identity is an anonymous device id + one seeded admin | Real accounts with verified email                | Hosts must be able to sign in from any device and own their data                          |
-| One flat `orders` table                               | Everything is scoped to an event                 | Two hosts must never see each other's party                                               |
-| No ORM                                                | Drizzle — §2c                                    | Phase 0 and phase 2 were both about to hand-build what it provides                        |
-| Docker containers on the NAS                          | Native Node under launchd on the Mac             | Docker on macOS is a Linux VM; the reason for containers (Alpine reproducibility) is gone |
+| Area              | Decision                                              | Why                                                                                                                                                                                                  |
+| ----------------- | ----------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Roles             | **Admin · Host · Staff**, from two axes underneath    | Three words to the user. Underneath it stays account-role × event-role, because a host _is_ staff at their own party and Dan is Admin globally _and_ behind the bar locally — §6                     |
+| Admin identity    | **`ADMIN_EMAILS` env lists admin accounts**           | Config is the source of truth, so it survives a database wipe and a bad edit in the app can't lock Dan out of his own service. Same pattern the old `STAFF_EMAIL` used                               |
+| Admin plumbing    | **Better Auth's `admin` plugin**                      | Provides `user.role`, ban/unban with reason and expiry, list/update/remove users, and set-role — three of the four admin powers, already written and maintained. Only party management is ours       |
+| Permission source | **`$lib/shared/permissions.ts` stays the authority**  | The admin plugin ships its own access-control system. Using both would be two permission models, which is the exact bug §6 exists to kill. Better Auth owns _who you are_; we own _what you may do_  |
+| Cupboard          | **On the host account, not the event**                | A home bar is stable; per-party re-ticking is a chore nobody repeats. One cupboard per host, read by every party they have                                                                           |
+| Party creation    | **Admin only, and the host must already exist**       | A booking is a conversation. `event.hostUserId` becomes NOT NULL, which kills the seeded ownerless event and every "which party is live?" guess with it                                              |
+| Registration      | **Open sign-up**                                      | A friend can join without Dan doing admin. Costs the hardening in §10 — the door faces the internet                                                                                                  |
+| The menu          | **Generated from the cupboard**                       | What §1 always promised. The curated six become the first entries of a short list rather than the whole menu                                                                                         |
+| Menu curation     | **Short list, curated by Admin or Host; empty = all** | A well-stocked bar yields 40+ drinks including six margaritas. Nobody is forced to curate: with no short list the guest simply sees everything                                                       |
+| Recipe model      | **Base drink + stackable variants**                   | "Chili unlocks a Spicy Margarita; Tajín as well unlocks the spicy rim." The six margaritas become one drink with upgrades. Deferred to phase 7 — it needs research, and it needs the data redesigned |
+| The keypad        | **A PIN on your own account**                         | Set in the app, stored hashed against the user. Sign in properly once per device, keypad thereafter. Replaces the shared `STAFF_PIN` secret, which had no owner and could not be rotated             |
+| Party lifecycle   | **Dan opens and closes by hand**                      | A date that opens a party on its own means a mistyped date locks guests out on the night                                                                                                             |
+| The look          | **Restore the original, don't redesign it**           | `neo.css` is the verbatim original and has _never actually rendered as designed_ — the display fonts are referenced in CSS variables and never loaded. It stays byte-identical                       |
+| Front end         | **Structure rebuilt, styling restored**               | The current component tree was built for one bar and one screen of admin. Four audiences need four shapes                                                                                            |
+
+## 3. What this rewrite overturns
+
+Recorded because these were deliberate, documented choices, and reversing them
+quietly would be worse than reversing them loudly. **Several are my own work from
+30–31 July.** They were built correctly against a plan that was wrong.
+
+| Was                                                  | Now                                                         | Why                                                                                                                                |
+| ---------------------------------------------------- | ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `can()` keys off `staff.role` alone                  | Keys off the account-role × event-role pair                 | The promise §6 made and never kept. Everything else here follows from it                                                           |
+| A capability check needs a bar session               | One actor resolution accepting either credential            | This is what forced the stock screen into the bar                                                                                  |
+| Stock screen lives inside the bartender's screen     | Lives in the host's own area, on their account              | A cupboard is filled in on Tuesday for a party on Saturday                                                                         |
+| `inventory` is scoped to an event                    | `stock` is scoped to a host                                 | §2d                                                                                                                                |
+| Hosts create their own parties                       | Dan creates parties for them                                | §2d                                                                                                                                |
+| Hosts get a `staff` row with `role: 'admin'`         | Hosts are not staff at all; they get read-only order access | A host is a customer                                                                                                               |
+| `event.hostUserId` is nullable for the boot seed     | NOT NULL; the boot seed is deleted                          | The seed only existed so the app worked before anyone signed up. With a real front door and Dan creating parties, nothing needs it |
+| `liveEvent()` picks the newest live party            | Deleted. A guest always arrives via `/e/<id>`               | It was a guess that is wrong the moment two parties run, which is now the normal case                                              |
+| `STAFF_PIN` — one shared secret in the Mac's env     | A PIN each account sets on itself                           | A shared secret with no owner that can't be rotated without editing a file and restarting                                          |
+| `POST /api/auth/login` — email+password for staff    | Deleted. Dan signs in with his account                      | It existed as break-glass for a PIN throttle that no longer guards a shared PIN                                                    |
+| `staff.role` (`admin \| bartender`)                  | Deleted. Everyone in the `staff` table is staff             | The distinction moved up to the account role where it belonged                                                                     |
+| The guest menu is six curated drinks, gated by stock | Generated from the cupboard, with a curated short list      | §1                                                                                                                                 |
+| `src/lib/data.ts` — six drinks with option axes      | Folded into the recipe data as variants (phase 7)           | The axes _are_ a modifier system, hand-built for six drinks. Generalising them is phase 7                                          |
 
 > **The wipe permission, precisely.** The database may be deleted and recreated at
-> will **right now** — nothing is live and no account exists. That ends the moment the
-> first real account is created in phase 1: from then on the data belongs to someone
-> else and migrations are forward-only. Build the migration machinery in phase 0
-> regardless; the freedom is about _data_, not about skipping the tooling.
+> will **right now** — see the counts at the top. That ends the moment the first real
+> host account is created: from then the data belongs to someone else, migrations are
+> forward-only, and Litestream comes off the back burner the same day.
 
 ## 4. Target architecture
 
@@ -267,259 +313,288 @@ The code keeps its current shape; the platform work adds nouns, not layers:
 ## 5. Domain model
 
 ```
-account       id · email · name · verified_at · created_at        (Better Auth owns credentials)
-event         id · host_account_id · name · starts_at · status
-event_member  event_id · account_id · role      (owner | bartender | helper)
-inventory     event_id · ingredient · in_stock
-order         event_id · guest_device_id · …    ← every existing column, plus scope
+user            id · email · name · emailVerified                 ← Better Auth
+                role          'admin' | 'host'                    ← admin plugin
+                banned · banReason · banExpires                   ← admin plugin
+session · account · verification                                  ← Better Auth, untouched
+
+user_pin        user_id (PK) · pin_hash · created_at              the keypad, owned by one person
+stock           user_id · ingredient · in_stock                   PK (user_id, ingredient)
+event           id · host_user_id NOT NULL · name · starts_at
+                status  'draft' | 'live' | 'done' · created_at
+event_menu      event_id · recipe_id                              the short list. No rows = show everything
+staff           id · event_id · user_id? · display_name
+                device_id? · status · joined_via · approved_by    no role column: staff are staff
+staff_sessions  token_hash (PK) · staff_id · expires_at
+join_codes      code_hash (PK) · expires_at · created_by
+orders          id · event_id · … unchanged
+subscriptions   … unchanged
 ```
 
-Two axes of permission rather than one, which is what makes it robust:
+Three things worth stating because they are easy to get wrong:
 
-- **Account role** — `operator` (Dan) or `host` (a customer)
-- **Event role** — `owner`, `bartender`, `helper`
+**`stock` hangs off the user, `event_menu` off the event.** What a host _owns_ is
+stable and personal; what a party _offers_ is a decision made per night. A host who
+buys mezcal changes their cupboard once and every future party benefits; a short list
+curated for a birthday doesn't leak into their Christmas do.
 
-Capabilities come from the _pair_. A host owns their event but can't touch another's;
-an operator can act on any event they're a member of; a helper is scoped to one event
-and evaporates afterwards. "Select a host and do the chore for them" falls out of
-this: Dan is an operator with membership of their event.
+**`staff` has no role column.** It is a membership list for one party, and everyone on
+it does the same job. The distinction that used to live there — admin vs bartender —
+is an _account_ fact now, and Dan is the only admin.
+
+**`event_menu` being empty is meaningful.** No rows means "nobody has curated this",
+which shows the full generated list. That is the same "never asked ≠ answered no"
+rule as the cupboard (§13), and it is the reason curation can be optional without
+every uncurated party looking broken.
 
 ## 6. Permission model
 
-Today there are two roles and two guards (`requireStaff`, `requireAdmin`), and the
-rule is encoded **twice** — server-side as `staff.role !== 'admin'`, client-side as
-`canApproveStaff()`. They agree now; nothing makes them keep agreeing.
-
-Replace with **capabilities derived from roles, in one shared table**:
+**One table, both sides**, as before — but the actor is finally the pair.
 
 ```ts
 // $lib/shared/permissions.ts
-export type Capability =
-  | 'orders:read' | 'orders:advance' | 'orders:delete' | 'orders:clear'
-  | 'staff:read'  | 'staff:approve'  | 'staff:revoke'  | 'staff:invite'
-  | 'inventory:read' | 'inventory:edit'
-  | 'event:create' | 'event:edit';
+export interface Actor {
+  /** Who they are, globally. Null for a device-only helper with no account. */
+  account: { id: string; role: 'admin' | 'host' } | null;
+  /** What they are at the party in scope. Null when no party is in scope. */
+  party: { id: string; role: 'owner' | 'staff' } | null;
+}
 
-export const can = (member: Membership | null, cap: Capability): boolean => …
+/** What the capability is being asked *about*. A capability without a subject is a bug. */
+export type Scope =
+  | { kind: 'platform' }
+  | { kind: 'party'; eventId: string }
+  | { kind: 'host'; userId: string };
+
+export const can = (actor: Actor, cap: Capability, scope: Scope): boolean => …
 ```
 
-- Server: `requireCapability(event, 'inventory:edit')` replaces `requireAdmin`
-- Client: `can(...)` decides whether the control is rendered at all
-- **One table, both sides.** The drift becomes impossible rather than unlikely.
+The `Scope` is the part the old model lacked, and its absence is exactly why stock
+editing could only be expressed as "holds a bar session". `stock:edit` is a question
+about a **host**; `orders:advance` is a question about a **party**; `host:suspend` is
+a question about the **platform**. Three different subjects, one predicate.
 
-## 7. Phases
+| Capability                                                | Admin | Host            | Staff           |
+| --------------------------------------------------------- | ----- | --------------- | --------------- |
+| `orders:read`                                             | any   | **own party**   | **their party** |
+| `orders:advance` · `orders:delete` · `orders:clear`       | any   | —               | **their party** |
+| `staff:read` · `:approve` · `:revoke` · `:invite`         | any   | —               | —               |
+| `stock:read` · `stock:edit`                               | any   | **own account** | —               |
+| `party:create` · `:edit` · `:open` · `:close` · `:delete` | any   | —               | —               |
+| `menu:curate`                                             | any   | **own party**   | —               |
+| `host:list` · `host:suspend` · `host:delete`              | ✓     | —               | —               |
+| `admin:grant`                                             | ✓     | —               | —               |
 
-### ~~Phase 0 — Drizzle, migrations, capabilities~~ ✅ done, 30 Jul 2026
+A host reading their own queue is the whole of "watch the queue, nothing more". They
+cannot advance a drink, approve a helper, or end their own party — Dan does all three.
 
-1. **Adopt Drizzle.** Add `drizzle-orm`, `drizzle-kit`, `better-sqlite3`; drop
-   `node:sqlite`. Declare the current schema in `src/lib/server/schema.ts`.
-2. **Rewrite `db.ts` against Drizzle.** All ~96 prepared statements. Delete the raw
-   SQL as you go — don't leave both. Keep the exported function names so callers and
-   their tests move unchanged where possible.
-3. **Generate the baseline migration** with `drizzle-kit generate`, applied at boot.
-4. **Capability model** per §6, replacing `requireAdmin` / `canApproveStaff`.
-5. **An enumeration test** walking every `+server.ts`, failing if it declares no
-   capability — the same trick that already guards the test dispatcher, so a new
-   endpoint can't ship ungoverned.
+**Guests hold nothing.** They are anonymous by design: a device id, no account, no
+capability. The endpoints they use — the menu and placing an order — are public, and
+`tests/capabilities.test.ts` records that as a deliberate declaration rather than an
+omission.
 
-_Gate: **met** — 261 tests green (251 + 10 new), 820 files 0 type errors. The baseline
-migration was generated from the schema and produces the same five tables, defaults,
-composite key and unique index as the old declared DDL; the app was booted to confirm
-it applies at first query and round-trips an order._
+### The guard
 
-**Two things worth knowing before phase 1:**
+One entry point, and endpoints call nothing else:
 
-- Migrations are applied by `createDb`, not a separate boot step, so one code path
-  covers the server, the dev loop and every `createDb(':memory:')` in the tests.
-- A database created **before** this phase has the tables but no
-  `__drizzle_migrations` row, so the baseline collides with "table orders already
-  exists". Deliberately not solved with adoption code — see `OUTSTANDING.md`.
+```ts
+requireCapability(event, 'stock:edit', { kind: 'host', userId });
+```
 
-### ~~Phase 1 — accounts~~ ✅ done, 30 Jul 2026
+It resolves the caller from **either** credential — a Better Auth cookie or a bearer
+staff token — into an `Actor`, then asks `can()`. Endpoints stop knowing which kind
+of caller they have, which is the property that was missing: today an endpoint is
+account-authenticated or staff-authenticated and its location in the app follows from
+that accident.
 
-Better Auth on the Drizzle handle; email + password with verification; Google/Apple
-OAuth as configuration.
+Refusals stay **404 rather than 403 when the id is the secret** — another host's party
+must not be confirmed to exist — and 403 when the caller is legitimately in scope but
+under-powered, so a host learns they are signed in and not permitted rather than
+mistaking it for an expired session.
 
-> **Google was left out and later put back.** This phase was marked done with OAuth
-> quietly moved to OUTSTANDING as "optional" — a deliverable narrowed without asking.
-> Built on 30 Jul 2026 once Dan noticed. Apple stays out on a stated judgement, not
-> silently: it needs a paid developer membership and a client secret that expires
-> every six months, which is four times faster than the Entra secret we avoided by
-> using a certificate.
+## 7. The four audiences, and the screens they get
 
-**Email is an interface.** Define `EmailSender` with a development implementation that
-logs to the console, so this phase completes without the Entra registration (§8.1).
-Wiring Graph `sendMail` behind it is then a small, separate task.
+The old plan described endpoints and scheduled no screens, and both times that
+produced a working API nobody could reach. So the screens are named here.
 
-**The PIN survives.** Typing an email and password behind a bar mid-party is exactly
-the misery the keypad removed. Accounts are for hosts and for signing in from a new
-device; the PIN and join codes stay as the fast door into an event.
+**Guest** — anonymous, arrives at `/e/<id>` from a QR code.
 
-_Gate: **met** — 270 tests green, 1360 files 0 type errors. `tests/accounts.test.ts`
-drives sign up → verify → sign in → reset through the real HTTP surface, reading the
-verification link out of the captured message the way a person reads their inbox._
+- The party's menu: a **short list** by default, `Show everything` to browse the full
+  generated list, `Help me choose` for the Make-a-Drink walk
+- Their basket, their order, and notification of it being poured
 
-**Worth knowing:**
+**Staff** — a helper on the night, joins with a code, no account.
 
-- Mounted at **`/api/account`**, not Better Auth's default `/api/auth` — that path is
-  already the staff PIN/session routes, which survive.
-- Better Auth's tables live in `schema.auth.ts`, apart from ours, because their shape
-  is the library's to dictate: it looks properties up by name, so a rename breaks at
-  runtime rather than at compile time.
-- `tests/accounts.test.ts` runs under **node, not jsdom**: Better Auth signs tokens
-  with `jose`, which checks `instanceof Uint8Array`, and jsdom's is a different realm.
-  `tests/setup.ts` now guards its DOM cleanup so node-environment files can exist.
-- Real email needs the Entra registration — see `OUTSTANDING.md`. It is _not_ blocking:
-  the sender is an interface and the dev implementation logs.
+- `/bar` — the queue, unchanged in spirit: tabs, cards, progress, handoff
+- Nothing else. No stock, no settings, no party management
 
-### ~~Phase 2 — tenancy~~ ✅ done, 30 Jul 2026
+**Host** — a customer.
 
-`account`, `event`, `event_member`, `inventory`. Every existing query gains a scope.
+- `/` when signed in — their parties, and their cupboard
+- **My cupboard**: the full 173 ingredients across ten shelves, ticked or not, with
+  what it can pour and what one more bottle would unlock
+- **A party**: its date, its guest link and QR code, its short list to curate, and a
+  read-only view of the queue on the night
 
-**The scope must be a required parameter of every query function**, so omitting it is
-a _type error_ rather than a silent cross-tenant leak. This is the phase where a
-mistake is invisible and expensive; the type system is the defence, not care.
+**Admin** — Dan.
 
-_Gate: **met** — `tests/tenancy.test.ts`, 282 tests total, 0 type errors._
+- `/admin` — every host, every party
+- **A host**: their cupboard (editable), their parties, suspend or delete, promote
+- **A party**: create against a host, name and date, open and close, curate the short
+  list, and `Open the bar` — which is a staff session at any party, no invitation
 
-**Two corrections to §5's domain model, made while building it:**
+## 8. Phases
 
-- **There is no separate `account` table.** Better Auth's `user` already is one, and
-  it owns a different table literally named `account` for provider credentials.
-  `event.hostUserId` points at `user`.
-- **`staff` _is_ `event_member`.** A separate membership table only works if every
-  participant has an account, and helpers deliberately don't — a join code gets them
-  in with nothing to invent. Two membership tables would then have to be kept in
-  agreement about who may do what, which is the exact bug §6 exists to kill. So one
-  table, with a nullable `userId` for the rows that do have an account.
+Sequenced deliberately: **identity first, because it is the blocker for everything
+else, and the menu last, because it is the part that can be got wrong cheaply.** The
+guest menu keeps working exactly as it does today until phase 5 replaces it.
 
-**`event.hostUserId` is nullable**, for exactly one case: the default event seeded at
-boot, before anybody has signed up. Making it NOT NULL would mean inventing a user
-account to satisfy a foreign key.
+### Phase 0 — the actor model
 
-**The gate caught three real leaks**, which is the argument for writing it before
-believing the refactor. Orders were correctly isolated, but `staffById` was a global
-lookup, so a host could approve, revoke or delete another host's helper. Fixed by
-splitting it into `staffInEvent(eventId, id)` and `staffByIdUnscoped(id)` — the latter
-is genuinely needed when resolving a session, and its name now makes misuse obvious.
+Server only. No new screens. This is the phase the last three were quietly blocked on.
 
-### ~~Phase 2.5 — close the loop~~ ✅ done, 30 Jul 2026
+1. **Better Auth `admin` plugin.** Adds `role`, `banned`, `banReason`, `banExpires`
+   to `user` and `impersonatedBy` to `session`. Regenerate `schema.auth.ts` and the
+   migration. Its own access-control system stays **unused** — see §2d.
+2. **`ADMIN_EMAILS`.** A comma-separated list in config. Any account whose verified
+   email is on it resolves as `role: 'admin'`, re-asserted every time a session is
+   resolved rather than written once, so the file is the truth and nothing can lock
+   Dan out. `daniel.meridew@gmail.com` is the first entry.
+3. **`Actor`, `Scope`, `can()`** per §6, in `$lib/shared/permissions.ts`.
+4. **One guard.** `requireCapability(event, cap, scope)` resolving either credential.
+   Every endpoint moves onto it. `requireStaff` and `requireAccount` go.
+5. **Stock moves to the host.** `inventory(event_id, …)` becomes `stock(user_id, …)`.
+   `GET /api/events/[id]/menu` resolves event → host → stock.
+6. **`event.hostUserId` NOT NULL.** `POST /api/events` becomes admin-only and takes a
+   `hostUserId`. Party status gains explicit `draft | live | done` transitions.
+7. **The PIN becomes personal.** `user_pin`, set by the signed-in account, exchanged
+   for _their own account session_ on that device — not for a staff session.
+8. **Delete, and check they are gone:** `staff.role`, `liveEvent()`,
+   `ensureLiveEvent()`, the boot-seeded event, `seedStaff()`, `STAFF_EMAIL`,
+   `STAFF_PASSWORD`, `STAFF_PIN`, `POST /api/auth/login`, `eventsForHost()`, and the
+   stock screen's home inside `Bartender.svelte`.
 
-**Not in the original plan.** Added after phases 1 and 2 turned out not to join up:
-accounts existed, events existed, and nothing connected them — signing up led
-nowhere, and a guest's order went to whichever event happened to be live.
+_Gate: a **capability matrix test** — every capability × every actor shape × every
+scope, asserted against a table written from §6 rather than from the implementation.
+The cross-tenant isolation suite rewritten against the new actor, still driving host
+A's real credential at host B's real ids and still expecting 404. `capabilities.test.ts`
+still failing any endpoint that declares no capability. Database wiped and recreated._
 
-Taken _before_ phase 3 deliberately. The generator's whole point is a menu per host
-from their own stock, so building it first would have meant `listInventory(ensureLiveEvent())`
-everywhere and testing the interesting part against a singleton. Same argument as
-doing Drizzle before tenancy: do the structural work while already in there.
+### Phase 1 — the look, delivered at last
 
-- `requireAccount()` resolves a Better Auth session in our own routes — the missing
-  bridge between phase 1 and phase 2.
-- `POST /api/events` creates a party and makes the host its owner behind the bar,
-  writing `staff.userId` so that column stops being dead.
-- `POST /api/events/[id]/bar` trades an account session for a bar session, so the bar
-  endpoints don't have to learn a second kind of caller.
-- Orders name their party; `/e/<id>` is the link behind the QR code. `liveEvent()`
-  survives only as the single-party fallback.
+Before three new areas get built, establish what they are built _from_. `neo.css` is
+the verbatim original design and **has never once rendered as designed**: the display
+fonts are referenced in CSS variables and never loaded, so every screen so far has
+fallen back to system fonts.
 
-_Gate: `tests/host-loop.test.ts` — sign up → verify → create → open the bar → guests
-order, with **two events live at once**, which the isolation suite cannot set up._
+1. **Self-host and load Bungee, Archivo Black and Playfair.** Self-hosted, not
+   hotlinked — this is an offline-first PWA and a third-party font request is both a
+   dependency and a privacy leak.
+2. **Restore the background confetti cannon** and the celebrate burst.
+3. **Extract the shared vocabulary** the new screens need — app bar, panel, list row,
+   form field, keypad, empty state, danger action — as components styled from
+   `neo.css`. Additions go in `app.css`.
+4. **`neo.css` stays byte-identical.** This is restoration, not redesign. The original
+   is retrievable for comparison: `git show 5a41824:index.html`.
 
-### ~~Phase 2.6 — the missing door: auth and host UI~~ ✅ done, 30 Jul 2026
+_Gate: walked in a browser at phone and desktop widths, screenshotted beside the
+original, and the fonts confirmed loading in the network panel rather than assumed._
 
-**A gap in this plan, spotted by Dan on 30 Jul 2026.** Every phase here is written in
-terms of endpoints, and phase 1's gate — "sign up → verify → sign in → reset, end to
-end" — was met through the API. The plan never scheduled the _screens_. The only UI
-it mentions anywhere is phase 3's stock screen.
+### Phase 2 — the front door and the admin area
 
-The result: guests, helpers and Dan-via-PIN all have working doors, and the **host —
-the entire point of the overhaul — has none.** Signing up requires curl. Building the
-stock screen first would have meant designing for a person who cannot yet exist.
+1. **`/` is the front door.** Signed out: sign in, or register. Signed in: the host's
+   own area (phase 3) or, for Dan, `/admin`. Guests never see it — they arrive at
+   `/e/<id>`.
+2. **Sign-up hardening**, because this door faces the internet: rate limit by IP,
+   require a verified email before anything can be created, and make an unverified
+   account able to do precisely nothing.
+3. **`/admin` — hosts.** List, search, open. Per host: their cupboard (editable by
+   Dan), their parties, ban/unban with a reason, delete, promote to admin.
+4. **`/admin` — parties.** Create against a host, name and date, open and close,
+   delete. The guest link and its QR code. `Open the bar`.
 
-So, before phase 3:
+_Gate: walked in a browser end to end — register a host from a private window, then
+as Dan find them, fill their cupboard, create their party, open it, and open its bar._
 
-1. **Graph `sendMail` behind the existing `EmailSender`** — writable and testable now
-   against a faked `fetch`; the Entra registration (§8.1) becomes the last 5% rather
-   than a prerequisite.
-2. **Sign up / sign in / verification landing.**
-3. **Create your party**, and **open its bar** — the two endpoints from phase 2.5,
-   with a face.
+### Phase 3 — the host area
 
-_Gate: **met**, and walked in a browser rather than asserted — sign up → follow the
-emailed link → verified and signed in → create a party → open its bar → a guest order
-at that party's link appears in it._
+1. **My cupboard.** All 173 ingredients, ten shelves, search, and the live count of
+   what it pours. Optional: a host who never opens it is a normal host (§13).
+2. **My parties.** Read-only except for the short list and the guest link — Dan owns
+   the rest.
+3. **Watch the queue.** A read-only view of the night, reachable from the party.
 
-**One thing the walk caught that no test would have.** Sign-up with verification
-required deliberately issues no session, so the screen fell straight back to "signed
-out" and redrew the form the host had just submitted — the same "it dumped me back at
-the login screen with no idea what happened" that made the ask-to-help flow feel
-broken. Signing up is a thing that _happened_; the screen has to say so, and now does,
-without depending on a session that by design doesn't exist yet.
+_Gate: walked in a browser as a real registered host, in a browser profile that has
+never held an admin session — the check that no screen depends on being Dan._
 
-`/host` is reachable from the bar door ("It's my party"), because it was otherwise
-findable only by typing the URL.
+### Phase 4 — the bar, rebuilt
 
-### ~~Phase 3 — inventory and the generator~~ ✅ done, 31 Jul 2026
+Same job, new foundations. The queue, tabs, cards, per-drink progress, bump, handoff
+and join codes all survive; what changes is that the bar is now **only** the bar.
 
-- Restore the data: `git show 5a41824:cocktails.json` — **270 recipes**, an 11-step
-  `categoryOrder` (liquor → citrus → juice → sweetener → bitters → texture → herb →
-  top → aromatic → finish → method), plus an ingredients table.
-- Port `reachable()` from the deleted `app.js` (~200 lines of ES5, around line 900 at
-  the same commit) to typed TS **with tests first**, checked against known recipes.
-- Host's stock screen → the makeable list. The main menu is then gated by stock.
+1. Rebuilt on the phase 1 vocabulary and the phase 0 actor.
+2. Staff join with a code; Dan approves. No stock, no party management, no settings
+   beyond notifications.
+3. Dan opens any party's bar from `/admin` without an invitation.
 
-**The inventory feature and Make-a-Drink are the same engine.** "What can I make from
-this cupboard" is one `reachable()` call with the stock as the picked set;
-Make-a-Drink is the interactive walk over the same function. Port once, use twice —
-which is why the interactive flow should come _after_ the inventory proves the port.
+_Gate: a helper joins with a code on a second device, takes an order through to
+served, and the guest is notified — walked, not asserted._
 
-_Gate: the ported engine agrees with the old one on a fixture set of ingredient
-combinations._
+### Phase 5 — the generated menu
 
-**Two things this phase turned up that the plan didn't predict, both in
-`tests/stock.test.ts`:**
+The promise §1 has made since the beginning.
 
-1. **The two screens were already disagreeing.** `GET /api/inventory` computed
-   `makeable(stock)` and `GET /api/events/[id]/menu` computed
-   `makeable(stock, { ignore: ['finish'] })`, so a Dry Martini counted at the bar and
-   not on the menu. Nothing failed — the numbers were just different, on two screens
-   nobody sees side by side. The rule is now `OPTIONAL_CATEGORIES` in `$lib/shared`,
-   read by both, with a test asserting the two agree.
-2. **An unrecorded cupboard is not an empty one.** Gating on "no stock rows" greyed
-   out four of six drinks for every brand-new party, before the host had been asked a
-   single question. `rows.length === 0` now means "never asked" and offers everything;
-   the `false` rows the PUT already writes are what make the first tick real.
+1. **`GET /api/events/[id]/menu` returns the generated list** from the host's
+   cupboard, not the curated six filtered by it.
+2. **The short list.** `event_menu` rows, curated by Dan or the host. **No rows means
+   show everything** — curation is optional and its absence is not a broken menu.
+3. **Three doors for the guest**: the short list (default), `Show everything`
+   (grouped by base spirit, searchable), and `Help me choose` — the Make-a-Drink walk
+   over `reachable()`, which has been ported and tested since phase 3 and never used.
+4. `src/lib/data.ts`'s six drinks become the seed of a short list rather than the menu.
 
-Make-a-Drink — the interactive walk over `reachable()` — is still unbuilt. The port is
-done and tested, which is the precondition the plan set for it.
+_Gate: a host with a real cupboard yields a menu a person would actually order from,
+checked by eye; a host with an empty cupboard still gets a working party (§13); and
+the walk reaches a drink the browse list also offers._
 
-### Phase 4 — move to the Mac, natively — ⏳ mostly done, 30 Jul 2026
+### Phase 6 — end to end
 
-No code change; this is the host move, and it can be done any time after phase 0.
-
-1. Homebrew, Node 24, `cloudflared`, `litestream`, `tmux`.
-2. The app as a **launchd** job with `RunAtLoad` + `KeepAlive`. Auto-login is on, so a
-   LaunchAgent survives reboot; a LaunchDaemon wouldn't need the login session at all.
-3. `cloudflared` likewise. Repoint the tunnel's Public Hostname at the app's port —
-   the ingress rule lives in the Cloudflare dashboard, not this repo (§8.5).
-4. Move the GitHub Actions runner off the NAS. **Record the gate time** — the NAS
-   managed 472 s; this is the number the move was made for.
-5. **Delete `infra/` and the Docker build** from the workflow. Don't leave both paths.
-6. Litestream → R2, **and a restore drill**. An untested backup is not a backup:
-   restore to a scratch path and diff it against the live database.
-
-_Needs a human for the R2 bucket and the tunnel ingress rule (§8)._
-
-### Phase 5 — end-to-end tests
-
-Playwright over the real flows now that they're stable: guest orders → bar sees it →
-advances it → guest is notified; host defines stock → menu reflects it; a helper joins
-and is scoped to one event. Shard across cores.
+Playwright over the flows that now exist, sharded across the M4's ten cores: register
+→ cupboard → Dan creates a party → guest orders from the generated menu → helper
+serves it → guest notified. Plus the negative ones: a host cannot advance an order, a
+banned host cannot sign in, one party's guest cannot see another's menu.
 
 _Gate: the suite runs in CI on the Mac runner._
 
-## 8. Steps that need a human at a browser
+### Phase 7 — the variant model _(deferred, needs research)_
+
+**Not scheduled yet, and deliberately so.** Dan's example: chili in the cupboard
+unlocks a Spicy Margarita; Tajín as well unlocks the spicy rim. The first half already
+works — `Spicy Margarita` is its own recipe requiring `Fresh Chili`. The second half
+cannot: its Tajín rim lives in a free-text `garnish` string with no connection to the
+`Tajín Rim` ingredient a host can tick.
+
+The target is **a base drink plus stackable modifiers driven by stock**, which
+collapses the six margaritas into one drink with upgrades and generalises the
+Boozy/Boring axes from six drinks to all 270.
+
+Before any code: **research how this is modelled elsewhere** — cocktail databases,
+recipe ontologies, the IBA classifications, and how ordering systems represent
+modifier groups. Then design the data model, then transform the 270. It is a data
+redesign, not a field addition, and doing it badly would be worse than not doing it.
+
+Two rules it must preserve, both learned the hard way:
+
+- **A missing garnish never blocks a drink.** An absent olive must not hide a Martini.
+- **A present garnish may add a variant.** That is the whole point.
+
+### Phase 8 — mocktails and the rest of the bar _(deferred)_
+
+The 270 are all cocktails. Wine, beer, soft drinks and non-alcoholic versions are not
+in the data, so a generated menu currently offers a non-drinker nothing (§13). Extend
+the recipe data rather than bolting on a second list.
+
+## 9. Steps that need a human at a browser
 
 Work around these per §0 — interface + dev implementation + a note in
 `docs/OUTSTANDING.md` — rather than stopping the plan.
@@ -569,7 +644,7 @@ Work around these per §0 — interface + dev implementation + a note in
 Secrets go to `gh secret set` piped, **never echoed**, and reach the app through the
 launchd job's environment.
 
-## 9. Accepted risks
+## 10. Accepted risks
 
 - **Availability.** Once a host has signed up and their event is tonight, Dan's home
   internet is in someone else's critical path. The dedicated Mac removes the
@@ -578,13 +653,22 @@ launchd job's environment.
   _uptime_. Dan chose this knowingly, and moving to Fly or Cloudflare later is a
   deploy-target change rather than a rewrite (§2a).
 - **`Mail.Send` is tenant-wide by default.** A leaked client secret could send as any
-  mailbox in the tenant. Mitigated by the Application Access Policy in §8.2.
+  mailbox in the tenant. Mitigated by the Application Access Policy in §9.2.
 - **Client secrets expire** (24 months maximum). It will need renewing, and nothing
   will remind us.
 - **No reproducible builds** once Docker is gone. The Mac's toolchain versions become
   part of the deployment. Accepted for a single-host hobby project.
 
-## 10. Guardrails
+- **Open sign-up faces the internet.** `cock.meridew.com` resolves to a Mac in Dan's
+  house, and anyone who finds it can create an account. Mitigated in phase 2 by
+  per-IP rate limiting, mandatory email verification before anything can be created,
+  and Dan's ability to ban. Accepted rather than solved: the door is deliberately open.
+- **Other people's data, on one SSD.** From the first real host, the database holds
+  someone else's name, email and evening. Litestream is parked (`OUTSTANDING.md`),
+  which is fine while the counts at the top of this file hold and stops being fine
+  that same day.
+
+## 11. Guardrails
 
 - `src/lib/neo.css` is a **verbatim** copy of the original design. It's in
   `.prettierignore`; keep it byte-identical. Additions go in `app.css`.
@@ -594,21 +678,55 @@ launchd job's environment.
 - Deploy only when asked.
 - Read `CLAUDE.md` before running shell commands. The Windows shell rules there exist
   because ignoring them cost three failed commands in one session.
+- **Build where the thing belongs, not where the plumbing already works.** If the
+  credential, the guard or the route doesn't exist yet, that is the work — §0.
+- **Screens are deliverables.** A phase that adds an endpoint without the screen that
+  reaches it is not done. Twice now that has produced an API nobody could use.
+- **Build the parts a stranger can reach as though a stranger will reach them** — §10.
+- **`ADMIN_EMAILS` is the only route to admin that cannot be revoked from inside the
+  app.** Keep it that way; an in-app mistake must never lock Dan out of his own service.
 
-## 11. Out of scope
+## 12. Out of scope
 
-| Not doing                 | Why                                                                                             |
-| ------------------------- | ----------------------------------------------------------------------------------------------- |
-| Payments / billing        | It's a hobby project for friends                                                                |
-| Postgres or any server DB | Asked and answered twice — §2b                                                                  |
-| A separate API service    | SvelteKit's server routes _are_ the backend; splitting them would undo the collapse we just did |
-| Native app                | Capacitor was removed; see `HANDOFF.md`                                                         |
-| Moving off self-hosting   | §2a. Fly is the documented fallback if it stops being fun                                       |
+| Not doing                 | Why                                                                                                     |
+| ------------------------- | ------------------------------------------------------------------------------------------------------- |
+| Payments / billing        | Not now. It is Dan's mates — but the role model no longer forbids it, and §10 says build like a product |
+| Postgres or any server DB | Asked and answered twice — §2b                                                                          |
+| A separate API service    | SvelteKit's server routes _are_ the backend; splitting them would undo the collapse already done        |
+| Native app                | Capacitor was removed; see `HANDOFF.md`                                                                 |
+| Moving off self-hosting   | §2a. Fly is the documented fallback if it stops being fun                                               |
+| Guest accounts            | Guests stay anonymous. A device id is enough to notify someone their drink is ready                     |
+| Apple sign-in             | A judgement, not an omission — see `OUTSTANDING.md`                                                     |
+
+## 13. Gaps carried on purpose
+
+Written down so nobody has to discover them, and so nobody "fixes" one by accident.
+
+- **A generated menu offers a non-drinker nothing.** The 270 recipes are all
+  cocktails. Until phase 8, a host with a well-stocked bar and a pregnant guest has a
+  problem the app doesn't know about. Dan accepted this to get the generated menu
+  sooner. **If phase 5 ships before phase 8, say so out loud at the time.**
+- **Nothing recorded is not nothing in stock.** A host who has never opened their
+  cupboard gets a menu offering everything, not a menu offering nothing. Same rule for
+  an uncurated short list. Absence of an answer is not a "no", and the `false` rows
+  written on unticking are what make the distinction real.
+- **A drink we know nothing about is available.** A curated name with no matching
+  recipe reports pourable. Hiding wine because the ingredient table doesn't model wine
+  punishes a guest for a gap in our data.
+- **Six margaritas.** Until phase 7 the generated list shows recipe families as
+  separate drinks. Known, ugly, temporary.
+- **The `staff` table is `event_member`.** The old plan named a separate membership
+  table; one table with a nullable `user_id` is what actually works, because helpers
+  deliberately have no account. See `HISTORY.md`.
+- **`staffByIdUnscoped` is guarded by its name, not the type system.** The plan's own
+  principle is that the type system is the defence and a name is care. A branded
+  `TrustedStaffId` would make it real.
 
 ---
 
 **Sources:** [SvelteKit issue: remove deprecated Lucia](https://github.com/sveltejs/kit/issues/12990) ·
 [Better Auth](https://better-auth.com/docs/adapters/sqlite) ·
+[Better Auth admin plugin](https://www.better-auth.com/docs/plugins/admin) ·
 [drizzle-kit lacks node:sqlite support](https://github.com/drizzle-team/drizzle-orm/issues/5471) ·
 [Drizzle SQLite drivers](https://orm.drizzle.team/docs/sqlite/get-started-sqlite) ·
 [Litestream](https://litestream.io/) ·

@@ -4,7 +4,7 @@
  * The production sender is Microsoft Graph `sendMail` against the existing M365
  * tenant on `meridew.com` — no new vendor, no new DNS, and no new npm package
  * because it is a `fetch` POST. It needs an Entra app registration that only a
- * human at a browser can create (`docs/PLATFORM-PLAN.md` §8.1), so it is not
+ * human at a browser can create (`docs/PLATFORM-PLAN.md` §9.1), so it is not
  * wired yet.
  *
  * Rather than let that block accounts, this is an interface with a development

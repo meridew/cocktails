@@ -19,7 +19,7 @@ export * from './schema.auth';
 /**
  * A party. Everything below is scoped to one.
  *
- * **`user` is the plan's `account`.** The domain model in PLATFORM-PLAN §5 lists an
+ * **`user` is the plan's `account`.** The original domain model (now `HISTORY.md`) listed an
  * `account` table, but Better Auth already provides exactly that under the name
  * `user` — *and* it owns a different table literally called `account`, which holds
  * provider credentials. Adding a third identity table to match the doc's wording
@@ -113,7 +113,7 @@ export const staff = sqliteTable('staff', {
   /**
    * Which party they are working. This table *is* the plan's `event_member`.
    *
-   * A separate membership table was the obvious reading of PLATFORM-PLAN §5, but it
+   * A separate membership table was the obvious reading of the original §5, but it
    * only works if every participant has an account — and helpers deliberately don't.
    * Their whole appeal is that a join code gets them in with nothing to invent or
    * remember. Two membership tables, one for account-holders and one for devices,

@@ -2,11 +2,15 @@
 
 > Context snapshot so a fresh session (started in **this** folder,
 > `C:\Users\danie\vscode-workspace\cocktails`) can continue seamlessly.
-> **Active work:** [`PLATFORM-PLAN.md`](PLATFORM-PLAN.md) — hosts as accounts,
-> multi-tenancy, and restoring the cocktail generator. Point a goal at it. It also
-> records decisions this doc's §7 no longer reflects.
+> **Active work:** [`PLATFORM-PLAN.md`](PLATFORM-PLAN.md) — **rewritten 31 Jul 2026**
+> around three roles (Admin · Host · Staff), a cupboard that belongs to the host, and
+> a menu generated from it. Point a goal at it. [`HISTORY.md`](HISTORY.md) records
+> what was built before that and why several of those decisions are now overturned.
 >
-> This, that, and `OUTSTANDING.md` (parked decisions) are the only docs. The old planning documents —
+> ⚠️ **Parts of this file predate the platform work and are wrong.** Where it and the
+> plan disagree, the plan wins. Each stale section is marked.
+>
+> This, that, `HISTORY.md` and `OUTSTANDING.md` (parked decisions) are the only docs. The old planning documents —
 > the modernisation roadmap, the quality programme, the Cloudflare cutover, the app-readiness
 > design and the SvelteKit migration plan — all shipped and were deleted rather than left to rot;
 > they're in git history if the reasoning is ever wanted (`git log -- docs/`).
@@ -99,10 +103,12 @@ src/
 - **Permissions live in one table**, `$lib/shared/permissions.ts`, which the server
   guard and the UI both read — so what the client offers and what the server allows
   cannot drift.
-- **No SQLite migrations.** The schema is declared; a change means editing it and
-  running `npm run db:reset`. Still fine — nothing is live. **PLATFORM-PLAN.md phase
-  0** replaces this with Drizzle + `drizzle-kit`, and ⚠️ **the freedom to wipe ends
-  when phase 1 creates the first real account** — from then the data is a host's.
+- ~~**No SQLite migrations.**~~ **Stale — this changed on 30 Jul 2026.** The schema is
+  declared in `src/lib/server/schema.ts` for Drizzle, and `drizzle-kit generate`
+  produces migrations in `drizzle/` which `createDb` applies at first query. ⚠️ **The
+  freedom to wipe ends when the first real host account is created** — from then the
+  data is somebody else's and migrations are forward-only. It has not ended yet; the
+  counts at the top of `PLATFORM-PLAN.md` say so.
 - **`neo.css` is still a verbatim port.** Keep it that way.
 
 Commands: `npm run dev` · `npm test` · `npm run check` · `npm run build` ·
