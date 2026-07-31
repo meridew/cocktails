@@ -39,12 +39,27 @@ export default {
      * to the tab. An old worker that activates also runs its own `activate` cleanup,
      * which deletes every cache that is not its own, including the current one.
      *
-     * `'none'` makes the browser fetch this script bypassing its HTTP cache, which
-     * sends a revalidating request that the edge has to honour rather than answering
-     * from its copy. It is the registration option that exists for exactly this.
+     * `'none'` makes the browser fetch this script bypassing its **own** HTTP cache.
+     * That is worth having and it is not the whole fix — an earlier version of this
+     * comment claimed it was, and testing said otherwise:
      *
-     * A Cloudflare cache rule that bypasses `/service-worker.js` outright is the
-     * belt-and-braces version and belongs in the dashboard, not here.
+     *     curl -H 'Cache-Control: no-cache' …/service-worker.js
+     *     cf-cache-status: HIT      Age: 929      (identical to the plain request)
+     *
+     * Cloudflare's documented rule is that it declines to cache when the **origin**
+     * response carries `no-store`, `private`, `no-cache` or `max-age=0`. Request
+     * headers do not enter into it. So the edge keeps answering from its copy for the
+     * full four hours no matter what the browser asks for, and the real fix has to
+     * come from the origin or from Cloudflare.
+     *
+     * Neither is possible from here: adapter-node serves static files through sirv
+     * with no way to configure it — `setHeaders` is hard-coded to `/_app/immutable/`
+     * (sveltejs/kit#11875, #2060, #3194) — so this file cannot set a header on
+     * `/service-worker.js`. The two real options are a Cloudflare cache rule
+     * bypassing that path, or adapter-node's documented custom-server pattern:
+     * import `build/handler.js`, set `cache-control: no-cache` for that one path,
+     * delegate everything else. The latter fixes the origin and so holds for any CDN,
+     * at the cost of owning the entry point that launchd starts.
      */
     serviceWorker: { register: true, options: { updateViaCache: 'none' } },
 
