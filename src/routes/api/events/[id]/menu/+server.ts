@@ -57,7 +57,13 @@ export function GET(event: RequestEvent) {
 
   return json({
     ok: true,
-    event: { id: found.id, name: found.name },
+    /**
+     * `status` ships with the menu so the guest screen can say the bar is shut
+     * **before** somebody builds a round. Only a live party takes orders, and
+     * refusing at send time alone would mean choosing three drinks, typing a name and
+     * then being told none of it counted.
+     */
+    event: { id: found.id, name: found.name, status: found.status },
     /** Where the list came from, so the guest screen can say so honestly. */
     source: recorded ? 'cupboard' : 'house',
     recorded,

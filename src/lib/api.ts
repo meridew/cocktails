@@ -285,7 +285,8 @@ export interface MenuItem {
 
 export interface EventMenu {
   ok: true;
-  event: { id: string; name: string };
+  /** `status` is here so the menu can say the bar is shut before a round is built. */
+  event: { id: string; name: string; status: 'draft' | 'live' | 'done' };
   /** `cupboard` when generated from what the host has in; `house` when they never said. */
   source: 'cupboard' | 'house';
   recorded: boolean;

@@ -197,3 +197,36 @@ test('a helper pours, but does not decide what is on the menu', async ({ browser
   const owner = await host.request.put(`/api/events/${id}/menu`, { data: { recipes: [] } });
   expect(owner.status()).toBe(200);
 });
+
+test('a closed bar says so before anyone builds a round', async ({ browser }) => {
+  // Status used to be decorative: `Close` changed a label and the party kept taking
+  // orders. Now only a live party does — and the guest is told at the top of the
+  // menu rather than after choosing drinks and typing their name.
+  const { dan, id, hostName, partyName } = await aParty(browser, 'closing-time', [
+    'Gin',
+    'Tonic Water',
+  ]);
+
+  const guest = await phone(browser);
+  await arriveAt(guest, id);
+  const gt = guest.locator('.cocktail', { hasText: 'Gin & Tonic' }).first();
+  await expect(gt.getByRole('button', { name: 'Add to order' })).toBeEnabled();
+
+  // Dan calls last orders.
+  await dan.goto('/admin');
+  await dan.getByRole('button', { name: new RegExp(hostName) }).click();
+  await dan.locator('.row', { hasText: partyName }).getByRole('button', { name: 'Close' }).click();
+
+  await guest.reload();
+  await expect(guest.getByText(/The bar has closed/)).toBeVisible();
+  // The menu stays readable — knowing what you would have had is the friendly half
+  // of being told you can't. Only the ordering is off.
+  await expect(gt).toBeVisible();
+  await expect(gt.getByRole('button', { name: 'Bar closed' })).toBeDisabled();
+
+  // And the server agrees, which is what makes it real rather than a greyed button.
+  const res = await guest.request.post('/api/orders', {
+    data: { name: 'Late', items: [{ name: 'Gin & Tonic', qty: 1 }], eventId: id },
+  });
+  expect(res.status()).toBe(409);
+});

@@ -31,10 +31,13 @@
 
   let {
     stock,
+    canOrder = true,
     onpick,
     onclose,
   }: {
     stock: string[];
+    /** False when the party isn't taking orders — the walk still runs, it just can't add. */
+    canOrder?: boolean;
     onpick: (recipe: Recipe) => void;
     onclose: () => void;
   } = $props();
@@ -124,8 +127,10 @@
     {/if}
   {:else if finished}
     <p><strong>{finished.name}</strong>{finished.blurb ? ` — ${finished.blurb}` : ''}</p>
-    <button class="btn btn-go" type="button" onclick={() => onpick(finished)}>
-      Add it to my round
+    <!-- Still worth walking when the bar is shut: knowing what you'd have had is the
+         friendly half of being told you can't have it. Only the adding is off. -->
+    <button class="btn btn-go" type="button" disabled={!canOrder} onclick={() => onpick(finished)}>
+      {canOrder ? 'Add it to my round' : 'The bar is not taking orders'}
     </button>
   {:else if askable}
     <p>{CATEGORY_LABELS[askable.category]}</p>
@@ -148,7 +153,9 @@
     <p>{inPlay.length === 0 ? 'Nothing matches that combination.' : 'Any of these:'}</p>
     <div class="suggests">
       {#each inPlay.slice(0, 12) as r (r.id)}
-        <button class="btn btn-go" type="button" onclick={() => onpick(r)}>{r.name}</button>
+        <button class="btn btn-go" type="button" disabled={!canOrder} onclick={() => onpick(r)}>
+          {r.name}
+        </button>
       {/each}
     </div>
   {/if}

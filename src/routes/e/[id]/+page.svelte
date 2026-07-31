@@ -83,6 +83,28 @@
   const stock = $derived(menu?.stock ?? []);
 
   /**
+   * Whether the bar is taking orders, and what to say when it isn't.
+   *
+   * Only a live party does — `POST /api/orders` answers 409 otherwise. Saying so up
+   * here rather than only at send time is the difference between "the bar isn't open"
+   * and choosing three drinks, typing your name, and *then* being told none of it
+   * counted.
+   *
+   * Defaults to open while the menu is loading and if the request fails, for the same
+   * reason the menu itself fails open: a guest wrongly told the bar is shut goes and
+   * finds something else to do.
+   */
+  const closed = $derived(
+    menu
+      ? menu.event.status === 'done'
+        ? 'closed'
+        : menu.event.status === 'draft'
+          ? 'soon'
+          : null
+      : null,
+  );
+
+  /**
    * What the party leads with. Curation is optional, so **no short list means show
    * everything** — its absence is a default, not a broken menu.
    */
@@ -186,8 +208,9 @@
     };
   });
 
-  /** Only ever suggests something the bar can actually pour. */
+  /** Only ever suggests something the bar can actually pour, and only when it's open. */
   function surprise() {
+    if (closed) return;
     const pool = featured.length > 0 ? featured : items;
     if (pool.length === 0) return;
     choose(pool[Math.floor(Math.random() * pool.length)]!);
@@ -272,9 +295,21 @@
         </a>
       {/if}
 
+      {#if closed}
+        <!-- Said once, at the top, and the menu stays readable underneath: knowing
+             what they *would* have been able to order is the friendly half of being
+             told the bar is shut. -->
+        <p class="ask-banner ask-declined">
+          {closed === 'closed'
+            ? '🌙 The bar has closed — no more orders tonight.'
+            : "⏳ This party isn't open yet. Have a look at the menu; the bar will start taking orders shortly."}
+        </p>
+      {/if}
+
       {#if door === 'walk'}
         <ChooseADrink
           {stock}
+          canOrder={!closed}
           onpick={(r) => {
             addLine(r.name);
             door = 'featured';
@@ -302,7 +337,9 @@
           <button type="button" class="chip" onclick={() => (door = 'walk')}
             >🤔 Help me choose</button
           >
-          <button type="button" class="chip chip-surprise" onclick={surprise}>🎲 Surprise</button>
+          <button type="button" class="chip chip-surprise" disabled={!!closed} onclick={surprise}>
+            🎲 Surprise
+          </button>
           <InstallButton />
         </div>
 
@@ -353,9 +390,11 @@
 </div>
 
 {#snippet card(item: MenuItem)}
-  <!-- Nothing is drawn as unavailable any more: the list *is* what's pourable, so a
-       greyed-out card would be a drink the host can't make and never claimed to. -->
-  <article class="cocktail" class:is-fav={favourites.has(item.name)}>
+  <!-- Nothing is drawn as unavailable on stock grounds any more: the list *is* what's
+       pourable, so a greyed-out card would be a drink the host can't make and never
+       claimed to. A shut bar is different — that is about the party, not the drink,
+       and it applies to every card at once. -->
+  <article class="cocktail" class:is-fav={favourites.has(item.name)} class:is-out={!!closed}>
     <button
       type="button"
       class="fav"
@@ -366,7 +405,9 @@
       {favourites.has(item.name) ? '⭐' : '☆'}
     </button>
     <h3><span class="emoji">{emojiFor(item)}</span> {item.name}</h3>
-    <button type="button" class="order" onclick={() => choose(item)}>Add to order</button>
+    <button type="button" class="order" disabled={!!closed} onclick={() => choose(item)}>
+      {closed === 'closed' ? 'Bar closed' : closed ? 'Not yet' : 'Add to order'}
+    </button>
   </article>
 {/snippet}
 

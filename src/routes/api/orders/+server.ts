@@ -59,8 +59,28 @@ export async function POST(event: RequestEvent) {
    * parties running is now the normal case, so an unnamed party is an error.
    */
   const asked = cleanStr(b.eventId, 40);
-  const eventId = asked ? eventById(asked)?.id : null;
-  if (!eventId) return fail(404, 'no such party');
+  const found = asked ? eventById(asked) : null;
+  if (!found) return fail(404, 'no such party');
+
+  /**
+   * **Only a live party takes orders.**
+   *
+   * Status used to be decorative: this endpoint never looked at it, so `Open` and
+   * `Close` on the admin screen changed a label and nothing else — a closed bar
+   * accepted drinks exactly like an open one. Found by Dan creating the first real
+   * party and it sitting in `draft` while its link worked.
+   *
+   * **409, not 403.** Nothing is wrong with the caller or their request; the party is
+   * in a state that doesn't accept one. A 403 would say "you may not", which invites
+   * a guest to go looking for permission they don't need.
+   *
+   * The two messages differ because the two situations do, and a guest can act on
+   * one of them: "not open yet" means wait, "closed" means stop.
+   */
+  if (found.status !== 'live') {
+    return fail(409, found.status === 'done' ? 'the bar has closed' : "this party isn't open yet");
+  }
+  const eventId = found.id;
 
   const order = createOrder(eventId, { name, items, note, deviceId });
   void pushToRole('bartender', newOrderPush(order)); // fire-and-forget

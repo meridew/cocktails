@@ -57,6 +57,16 @@ async function party(label: string): Promise<Party> {
   assert.equal(event.hostUserId, host.id, 'the party belongs to the host, not to Dan');
   assert.equal(event.status, 'draft', 'a party is born draft and opened by hand');
 
+  // And opened, because **only a live party takes orders**. This step used to be
+  // missing and nothing noticed: the order endpoint ignored status entirely, so a
+  // suite that never opened a party still had guests ordering at it. Adding the gate
+  // is what surfaced that, which is the test doing its job rather than a regression.
+  const opened = await request(`/api/events/${event.id}`, {
+    ...send('PATCH', { status: 'live' }),
+    headers: { 'Content-Type': 'application/json', ...asAccount(dan) },
+  });
+  await okJson(opened, 'open the party');
+
   const bar = await request(`/api/events/${event.id}/bar`, {
     ...send('POST', {}),
     headers: { 'Content-Type': 'application/json', ...asAccount(dan) },
@@ -311,5 +321,83 @@ describe('what Admin may do', () => {
       hers.events.map((e) => e.id),
       [ana.eventId],
     );
+  });
+});
+
+describe('a party only takes orders while it is open', () => {
+  /**
+   * Status used to be decorative. `POST /api/orders` resolved which party was meant
+   * and never looked at `status`, so `Open` and `Close` on the admin screen changed a
+   * label and nothing else — a party still in `draft` accepted drinks, and so did one
+   * that had been closed hours ago.
+   *
+   * Found by Dan making the first real party on the live service and its link working
+   * while it sat in `draft`.
+   */
+  const orderAt = (eventId: string) =>
+    request(
+      '/api/orders',
+      send('POST', { name: 'Guest', items: [{ name: 'Mojito', qty: 1 }], eventId }),
+    );
+
+  const setStatus = (eventId: string, status: string) =>
+    request(`/api/events/${eventId}`, {
+      ...send('PATCH', { status }),
+      headers: { 'Content-Type': 'application/json', ...asAccount(dan) },
+    });
+
+  test('a draft party turns a guest away', async () => {
+    const fresh = await party('gate-draft');
+    await setStatus(fresh.eventId, 'draft');
+    const res = await orderAt(fresh.eventId);
+    // 409, not 403: nothing is wrong with the caller, the party is in a state that
+    // doesn't accept one. 403 would invite them to go looking for permission.
+    assert.equal(res.status, 409);
+    assert.match(((await res.json()) as { error: string }).error, /open yet/);
+  });
+
+  test('opening it lets them in', async () => {
+    const fresh = await party('gate-open');
+    assert.equal((await orderAt(fresh.eventId)).status, 200);
+  });
+
+  test('and closing it turns them away again', async () => {
+    const fresh = await party('gate-close');
+    assert.equal((await orderAt(fresh.eventId)).status, 200, 'open first, to be sure');
+
+    await setStatus(fresh.eventId, 'done');
+    const res = await orderAt(fresh.eventId);
+    assert.equal(res.status, 409);
+    assert.match(((await res.json()) as { error: string }).error, /closed/);
+  });
+
+  test('closing does not touch the drinks already ordered', async () => {
+    // The bar has to be able to finish what it started. Closing stops new orders; it
+    // is not a way to clear the queue, and a helper mid-pour keeps their list.
+    const fresh = await party('gate-inflight');
+    await orderAt(fresh.eventId);
+    await setStatus(fresh.eventId, 'done');
+
+    const queue = await okJson<{ orders: unknown[] }>(
+      await request(`/api/orders?eventId=${fresh.eventId}`, { headers: asBar(fresh) }),
+      'the queue after closing',
+    );
+    assert.equal(queue.orders.length, 1);
+  });
+
+  test('the menu says which it is, so nobody builds a round at a shut bar', async () => {
+    const fresh = await party('gate-menu');
+    const live = await okJson<{ event: { status: string } }>(
+      await request(`/api/events/${fresh.eventId}/menu`),
+      'menu while open',
+    );
+    assert.equal(live.event.status, 'live');
+
+    await setStatus(fresh.eventId, 'done');
+    const shut = await okJson<{ event: { status: string } }>(
+      await request(`/api/events/${fresh.eventId}/menu`),
+      'menu once closed',
+    );
+    assert.equal(shut.event.status, 'done', 'the guest screen decides what to say from this');
   });
 });

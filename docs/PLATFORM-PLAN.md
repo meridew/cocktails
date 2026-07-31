@@ -374,6 +374,7 @@ user_pin        user_id (PK) · pin_hash · created_at              the keypad, 
 stock           user_id · ingredient · in_stock                   PK (user_id, ingredient)
 event           id · host_user_id NOT NULL · name · starts_at
                 status  'draft' | 'live' | 'done' · created_at
+                        **only `live` takes orders** — see §5a
 event_menu      event_id · recipe_id                              the short list. No rows = show everything
 staff           id · event_id · user_id? · display_name
                 device_id? · status · joined_via · approved_by    no role column: staff are staff
@@ -398,6 +399,33 @@ is an _account_ fact now, and Dan is the only admin.
 which shows the full generated list. That is the same "never asked ≠ answered no"
 rule as the cupboard (§13), and it is the reason curation can be optional without
 every uncurated party looking broken.
+
+### 5a. Party status — decided 31 Jul 2026
+
+**Only a `live` party takes orders.** `draft` answers "this party isn't open yet",
+`done` answers "the bar has closed", both **409** — the caller and their request are
+fine; the party is in a state that doesn't accept one. A 403 would say "you may not",
+which sends a guest looking for permission they don't need.
+
+This was decided because it wasn't true. `POST /api/orders` resolved which party was
+meant and never looked at `status`, so `Open` and `Close` on the admin screen changed
+a label and nothing else — a party still in draft accepted drinks, and so did one
+closed hours ago. **Found the first time a real party existed:** Dan created one on
+the live service, it sat in `draft`, and its link worked.
+
+Two consequences worth stating:
+
+- **The guest is told at the top of the menu, not at send time.** `GET
+/api/events/[id]/menu` returns `event.status` for exactly this. Refusing only on
+  send would mean choosing drinks, typing a name, and then learning none of it
+  counted. The menu itself stays readable — knowing what you would have had is the
+  friendly half of being told you can't.
+- **Closing does not touch the queue.** The bar has to finish what it started, so
+  `Close` stops new orders and nothing else. It is not a way to clear the night.
+
+It also exposed a gap in `host-loop.test.ts`, which created parties through the real
+API — born `draft` — and had guests order at them without ever opening one. Nothing
+noticed, because nothing checked.
 
 ## 6. Permission model
 
