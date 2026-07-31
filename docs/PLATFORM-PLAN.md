@@ -46,16 +46,16 @@ transcript.
 Once a host who is _not_ Dan signs up it costs somebody else their data, and that is
 the same moment Litestream stops being optional (§10).
 
-**`7fd3d19` is deployed** — the Mac serves it, verified over the tunnel. Deploying
+**`f33c7c0` is deployed** — the Mac serves it, verified over the tunnel. Deploying
 stays manual and on Dan's say-so:
 
 ```bash
 gh workflow run "gate + deploy (Mac)" --ref main -f deploy=true
 ```
 
-**Nobody has registered yet.** Until Dan signs up at `cock.meridew.com` with the
-address in `ADMIN_EMAILS` there is no admin, and therefore no party can be created —
-party creation is admin-only by design.
+**Dan is registered and is admin**, through the real front door with a real
+verification email from Graph. `users 1 · events 0`: the next thing that has never
+been done on the live service is creating a party.
 
 ---
 
@@ -826,10 +826,10 @@ Work around these per §0 — interface + dev implementation + a note in
 3. **OAuth client IDs** for Google and Apple, if that sign-in path is wanted.
 4. ~~**The tunnel's Public Hostname**~~ — **confirmed working, 31 Jul 2026.**
    `https://cock.meridew.com` serves the front door from the Mac.
-5. **Registering the admin account.** Only Dan can: it means choosing a password, and
-   the address must be the one in `ADMIN_EMAILS`. Until then the database has no
-   admin and no party can exist. Verification goes through Graph from
-   `bar@meridew.com`, so the link arrives in a real inbox rather than the log.
+5. ~~**Registering the admin account**~~ — **done, 31 Jul 2026.** Through the real
+   front door, with a real verification email delivered by Graph from
+   `bar@meridew.com`. That is the whole sign-up path proven against the live service
+   rather than against the memory sender.
 6. ~~**Mac mini access**~~ — **done, 30 Jul 2026.** Recorded because it isn't
    discoverable from the repo:
    - `~/.ssh/mac_cocktails` (ed25519, no passphrase) → `dan@mac.home.meridew.com`
