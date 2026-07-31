@@ -175,8 +175,6 @@ export async function arriveAt(page: Page, id: string, who = 'Guest'): Promise<v
   // joins silently, so the prompt may simply not appear. Checked rather than assumed
   // — a fixture that insisted on it would fail for the returning guest, who is the
   // commoner case after the first spec in a file.
-  // Scoped to the arrival panel: the order rail also has a "Your name" field and is
-  // always in the DOM, so an unscoped label matches both.
   const arrive = page.locator('.arrive');
   if (await arrive.isVisible().catch(() => false)) {
     await arrive.getByLabel('Your name').fill(who);

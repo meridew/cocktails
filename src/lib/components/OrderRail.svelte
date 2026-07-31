@@ -22,6 +22,22 @@
   } = $props();
 
   let name = $state(getSavedName());
+
+  /**
+   * Pick the name up when the rail opens, not only when it is built.
+   *
+   * This component mounts with the page, which is *before* the guest has finished
+   * arriving — they give their name on the way in, and that write lands a moment
+   * later. Reading once at construction meant the field was empty by the time
+   * anybody looked at it, so a guest who had just said who they were was asked
+   * again. That is exactly the thing asking on arrival was meant to stop.
+   *
+   * Only fills a blank: whatever the guest has typed here wins, because they may be
+   * ordering for somebody else.
+   */
+  $effect(() => {
+    if (open && !name) name = getSavedName();
+  });
   let note = $state('');
   let sending = $state(false);
   let errMsg = $state('');
@@ -88,9 +104,16 @@
       {/if}
     </div>
 
-    <!-- maxlength comes from the shared LIMITS the server enforces, so an
-         over-long value is prevented here rather than silently truncated there. -->
-    <label for="name">Your name</label>
+    <!-- **"Ordering as", not "Your name"**, for two reasons that arrived together.
+         It is more accurate: the guest gave their name on the way in, so this field
+         is showing what the bar will see rather than asking a question they have
+         already answered. And it stops there being two fields labelled "Your name"
+         in one document — the arrival panel has the other, and this rail is always
+         in the DOM even when it is off-screen, so a screen reader met both.
+
+         maxlength comes from the shared LIMITS the server enforces, so an over-long
+         value is prevented here rather than silently truncated there. -->
+    <label for="name">Ordering as</label>
     <input
       id="name"
       bind:value={name}

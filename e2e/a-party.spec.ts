@@ -75,7 +75,7 @@ test('a host stocks up, Dan opens the bar, a guest orders and a helper pours it'
 
   // ---- the guest: a menu generated from that cupboard ---------------------
   const guest = await phone(browser);
-  await arriveAt(guest, id);
+  await arriveAt(guest, id, 'Priya');
 
   const margarita = guest.locator('.cocktail', { hasText: 'Margarita' }).first();
   await expect(margarita).toBeVisible();
@@ -90,8 +90,10 @@ test('a host stocks up, Dan opens the bar, a guest orders and a helper pours it'
   await expect(sheet).toBeVisible();
   await sheet.getByRole('button', { name: 'Add to order' }).click();
 
+  // No name to type: they gave it on the way in, so the rail already knows and
+  // sending a round is one tap. That is the point of asking on arrival.
   await guest.locator('.tab-order').click();
-  await guest.getByLabel('Your name').fill('Priya');
+  await expect(guest.getByLabel('Ordering as')).toHaveValue('Priya');
   await guest.getByRole('button', { name: 'Send order' }).click();
   await expect(guest.getByRole('heading', { name: /Cheers/ })).toBeVisible();
 
