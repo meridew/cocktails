@@ -625,18 +625,45 @@ party returns `200` for reading the queue and **403 for every one of** advance,
 delete, clear, bump, list staff, mint a join code, close the party, and take a bar
 session. A control appearing here by accident would still be refused.
 
-### Phase 4 — the bar, rebuilt
+### ~~Phase 4 — the bar, rebuilt~~ ✅ done, 31 Jul 2026
 
 Same job, new foundations. The queue, tabs, cards, per-drink progress, bump, handoff
 and join codes all survive; what changes is that the bar is now **only** the bar.
 
-1. Rebuilt on the phase 1 vocabulary and the phase 0 actor.
-2. Staff join with a code; Dan approves. No stock, no party management, no settings
-   beyond notifications.
+1. **It admits on the actor, not on a token.** This was the whole of the phase. The
+   gate was `session.signedIn`, which means "holds a bearer token" — right when a bar
+   session was the only way to be anybody, and wrong afterwards: Dan holds an account
+   cookie and passes every capability at every party, and would have been shown the
+   sign-in keypad at his own bar. A helper gets in with a code and holds a token; Dan
+   gets in because of who he is; both resolve to an actor and the screen asks the same
+   question of the same object the server does.
+2. Staff join with a code; Dan approves. Verified there is **no stock, no party
+   management and no staff admin** in a helper's bar — and that the server refuses
+   each of them anyway, so the menu is short because the powers are absent rather
+   than merely hidden.
 3. Dan opens any party's bar from `/admin` without an invitation.
 
-_Gate: a helper joins with a code on a second device, takes an order through to
-served, and the guest is notified — walked, not asserted._
+_Gate: **met, with one honest gap.** A helper joined with a code through the real
+keypad, with no account, and took all three orders New → Making → Serving → Done
+through the actual UI. The final state and the actor that produced it were read back
+from the server._
+
+**What the walk found, which no test had:** `/api/auth/me` asks a _platform_-scoped
+question, and `resolveActor` only fills the party half for a party scope — so it
+answered `party: null` to a helper holding a perfectly valid token, and the bar
+showed them the keypad they had just come through. A bar session names exactly one
+party by construction, so `whoami` now resolves it. Both that and the
+admin-on-a-cookie case are in `host-loop.test.ts`.
+
+**Two things the walk could not prove, stated rather than glossed:**
+
+- **It was one device used twice, not two.** The in-app browser gives tabs that share
+  cookies and `localStorage`, so clearing storage for the "second device" also signed
+  the first one out. The helper path itself is honest — no account, code through the
+  keypad — but "on a second device" is simulated.
+- **"And the guest is notified" is unverified.** The browser profile has notification
+  permission blocked, so the push never left. The code path runs; that it arrives is
+  untested here and wants a real device.
 
 ### Phase 5 — the generated menu
 

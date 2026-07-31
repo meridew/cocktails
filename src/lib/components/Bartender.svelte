@@ -56,13 +56,26 @@
   let busy = new SvelteSet<string>(); // order ids with an in-flight mutation
   let timer: ReturnType<typeof setInterval> | undefined;
 
-  let signedIn = $derived(session.signedIn);
+  /** Which party this bar is. A bar screen without one has nothing to show. */
+  let eventId = $derived(currentEventId() ?? '');
+
+  /**
+   * **Whether you may work this bar — asked of the actor, not of a token.**
+   *
+   * It used to be `session.signedIn`, which means "holds a bearer token". That was
+   * fine when a bar session was the only way to be anybody, and wrong afterwards:
+   * Dan holding an account cookie passes every capability at every party, and would
+   * still have been shown the sign-in keypad at his own bar.
+   *
+   * A helper gets in with a join code and holds a token; Dan gets in because of who
+   * he is. Both resolve to an actor, and this is the same question the server asks
+   * of the same object — so a screen that renders here is one the endpoints honour.
+   */
+  let working = $derived(can(session.actor, 'orders:advance', party(eventId)));
   let notify = $derived(pushState('bartender'));
 
-  // Who may decide who else gets behind this bar. Asked of the *actor* against
-  // *this party*, which is the same object and the same question the server asks —
-  // so a control that renders here is one the server will honour.
-  let canManageStaff = $derived(can(session.actor, 'staff:approve', party(currentEventId() ?? '')));
+  // Who may decide who else gets behind this bar.
+  let canManageStaff = $derived(can(session.actor, 'staff:approve', party(eventId)));
   let showStaff = $state(false);
 
   // The cupboard used to be reachable from here. It has moved to the host's own area
@@ -102,7 +115,7 @@
 
     const started = session.generation;
     try {
-      const r = await listOrders();
+      const r = await listOrders(eventId);
       if (started !== session.generation) return; // session dropped mid-flight
       orders = r.orders;
       loaded = true;
@@ -140,13 +153,20 @@
     timer = undefined;
   }
 
+  /**
+   * Ask the server who we are, once, before anything decides what to draw.
+   *
+   * This has to happen outside the effect below, and that is not a detail: the
+   * effect only runs `begin()` when `working` is already true, and `working` comes
+   * from the actor — so leaving the refresh inside it meant an admin arriving on a
+   * cookie could never get past the gate that was waiting for the refresh. A
+   * chicken-and-egg that would have looked like "the bar won't let Dan in".
+   */
+  onMount(() => void hydrateSession());
+
   /** Load the queue and begin polling; also reconciles the bar's push state. */
   async function begin() {
-    // Recover the role first: a reload keeps the token but not who we are, and
-    // the admin controls depend on knowing.
-    await hydrateSession();
     await fetchOrders();
-    if (!session.signedIn) return;
     startPolling();
     void fetchStaff();
     // One opt-in applies everywhere: someone who already allowed notifications as a
@@ -169,7 +189,7 @@
   $effect(() => {
     // The one tracked read. Everything below is guarded against re-entry, because
     // begin() writes session state that would otherwise re-trigger this effect.
-    if (!session.signedIn) {
+    if (!working) {
       running = false;
       stopPolling();
       return;
@@ -265,11 +285,11 @@
 <div class="bartender">
   <header class="bar-top">
     <h2>🍸 Bar</h2>
-    {#if signedIn}
+    {#if working}
       <span class="bar-count" class:zero={activeCount === 0}>{activeCount}</span>
     {/if}
     <span class="bar-spacer"></span>
-    {#if signedIn}
+    {#if working}
       <button
         type="button"
         class="bar-icon"
@@ -285,7 +305,7 @@
 
   {#if connErr}<p class="bt-conn" role="status">{connErr}</p>{/if}
 
-  {#if !signedIn}
+  {#if !working}
     <StaffGate onasked={onclose} />
   {:else if showStaff && canManageStaff}
     <StaffAdmin

@@ -22,7 +22,7 @@
  * *as himself*, with his admin capabilities, without a second session system.
  */
 import { json, type RequestEvent } from '@sveltejs/kit';
-import { ANONYMOUS, can, type Actor, type Capability, type Scope } from '$lib/shared';
+import { ANONYMOUS, can, party, type Actor, type Capability, type Scope } from '$lib/shared';
 import { sessionStaff } from './auth';
 import { accounts } from './accounts';
 import { config } from './config';
@@ -177,9 +177,27 @@ export async function requireCapability(
 export const denied = <T extends object>(r: T | { denied: Denied }): r is { denied: Denied } =>
   'denied' in r;
 
-/** Who is calling, with no permission question attached — for `/api/auth/me`. */
-export const whoami = (event: RequestEvent): Promise<Actor> =>
-  resolveActor(event, { kind: 'platform' });
+/**
+ * Who is calling, with no permission question attached — for `/api/auth/me`.
+ *
+ * **It resolves the party half too, when there is one to resolve.** `resolveActor`
+ * normally only fills that in for a party scope, because "what are you at this
+ * party" needs a party named. But a bar session names exactly one by construction,
+ * so for the caller who has one it is knowable without asking.
+ *
+ * That matters more than it sounds: the client decides what to draw from this actor,
+ * and without the party half a helper holding a perfectly good bar token was told
+ * they were nobody — the bar showed them the sign-in keypad they had just come
+ * through. Found by joining a party on a second device and watching it refuse.
+ *
+ * An account-holder still gets `party: null` here. Which party *they* mean is a
+ * question only the route can answer, and guessing would be the same "whichever is
+ * live" mistake in a new place.
+ */
+export function whoami(event: RequestEvent): Promise<Actor> {
+  const staff = sessionStaff(bearer(event));
+  return resolveActor(event, staff ? party(staff.eventId) : { kind: 'platform' });
+}
 
 /** The anonymous actor, exported so callers can compare against it meaningfully. */
 export { ANONYMOUS };

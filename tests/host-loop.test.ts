@@ -253,6 +253,38 @@ describe('what a host may do at their own party', () => {
   });
 });
 
+describe('who the bar lets in', () => {
+  test('a bar session tells the client which party it is at', async () => {
+    // `/api/auth/me` asks a *platform*-scoped question, and `resolveActor` only
+    // fills the party half for a party scope — so this came back `party: null` and
+    // the bar showed a helper the sign-in keypad they had just come through, while
+    // holding a perfectly valid token. A bar session names exactly one party by
+    // construction, so it is knowable without the client saying which.
+    const res = await request('/api/auth/me', { headers: asBar(ana) });
+    const { actor } = (await res.json()) as {
+      actor: { party: { id: string; role: string } | null };
+    };
+    assert.equal(actor.party?.id, ana.eventId);
+    assert.equal(actor.party?.role, 'staff');
+  });
+
+  test('an account holder is told no party, because only the route knows which', async () => {
+    // Guessing here would be "whichever is live" in a new place.
+    const res = await request('/api/auth/me', { headers: asAccount(dan) });
+    const { actor } = (await res.json()) as { actor: { account: unknown; party: unknown } };
+    assert.ok(actor.account, 'Dan is somebody');
+    assert.equal(actor.party, null, 'but not at any particular party until a route says so');
+  });
+
+  test('Admin works a bar on the account alone, with no bar token at all', async () => {
+    // The bar used to admit on "holds a bearer token". Dan holds an account cookie
+    // and passes every capability at every party; he would have been shown the
+    // keypad at his own bar.
+    const res = await request(`/api/orders?eventId=${ana.eventId}`, { headers: asAccount(dan) });
+    assert.equal(res.status, 200, 'no token, and still working the bar');
+  });
+});
+
 describe('what Admin may do', () => {
   test('open any bar without being invited to it', async () => {
     // "Admin can view and manage all hosts" — no join code, no membership.
