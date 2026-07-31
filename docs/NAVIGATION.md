@@ -406,6 +406,25 @@ Drop the automatic bounce off `/` (D12). Signed in, the front door shows the sam
 party list plus a line saying where you belong — "You're hosting Ana's birthday →"
 — rather than refusing to be looked at.
 
+## 6.6 What a person can do — the only progress that counts
+
+Tracked as **journeys**, not components. Reporting "the shell is done" told Dan
+nothing about whether he could get a drink at his own party; this is the table
+that would have.
+
+| Journey                                                  | State | Checked by                           |
+| -------------------------------------------------------- | ----- | ------------------------------------ |
+| Guest with a link orders a drink                         | ✅    | `a-party.spec.ts`                    |
+| Barman with no account gets behind the bar               | ✅    | `a-party.spec.ts`                    |
+| Bartender can see which party they are serving           | ✅    | browser                              |
+| Host signs in and orders at their own party              | ✅    | browser + `front-door.spec.ts`       |
+| Back goes up a level, everywhere                         | ✅    | browser (`/admin/p/<id>` → `/admin`) |
+| Leaving the bar returns you where you came from          | ✅    | browser                              |
+| Host reaches their own party from the front door         | ✅    | `front-door.spec.ts`                 |
+| A deep link survives signing in                          | ✅    | `front-door.spec.ts`                 |
+| Sign out cannot be hit by reaching for Back              | ✅    | browser                              |
+| The walk, the 3D menu and every admin level are linkable | ✅    | browser                              |
+
 ## 7. Sequence
 
 Seven steps, each shippable on its own, most valuable first. 1–4 were the first
@@ -427,11 +446,26 @@ pass; 5–7 come from the second.
    surfaced raw as "NOT FOUND". `openBar`'s refusal now falls through to the
    ask-to-help form, so a host helping at a friend's party has a second move.
 
-3. **The shell.** One component, the three-slot grammar, sign out into Settings.
-   Fixes D3 and D4 across all seven pages at once.
-4. **The front door's three doors.** D8, and drop the bounce (D12).
-5. **One `<Gate>`.** D13 — and it is only buildable once the party is in the path,
-   because a gate that cannot name its party can only say "sign in".
-6. **Admin routes.** `/admin/hosts`, `/admin/p/[id]`, `/admin/h/[id]`. Fixes D2.
-7. **The rest.** `/e/[id]/choose` (D7); link or delete the 3D menu (D5); scope the
-   basket to a party (D6).
+3. ✅ **The shell.** `AppBar` with the three-slot grammar — left is always up (a
+   real `<a href>`, so a cold deep link works), centre is always where you are,
+   right is always this screen's one action. **Sign out moved into Settings**,
+   which the ⚙️ reaches from every screen. Fixes D3 and D4.
+
+   The three body wrappers stayed: a scrolling column, a grid with a tab bar and a
+   fixed overlay are genuinely different, and merging them is layout risk with no
+   navigational payoff. What was wrong was the grammar of the controls.
+
+4. ✅ **The front door's three doors**, and the bounce is gone (D8, D12).
+5. ✅ **One `<Gate>`.** D13. Three outcomes, none a redirect.
+
+   It bit immediately, and the bite is worth recording: `whoami` deliberately
+   leaves the party half of an actor null for an account-holder, so
+   `can(actor, 'orders:read', party(id))` is false for **every** host at their own
+   party. Gating `/host/[id]` on it locked all of them out. The right question
+   there is "is anybody signed in" — whether the party is theirs is the server's
+   answer, and `listOrders` already 404s.
+
+6. ✅ **Admin routes.** `/admin/hosts`, `/admin/p/[id]`, `/admin/h/[id]`. Fixes D2.
+7. ✅ **The rest.** `/e/[id]/choose` (D7); the 3D menu is linked from the foot of
+   the menu at last (D5); the basket is scoped to a party and clears when you walk
+   to another (D6).

@@ -64,24 +64,35 @@ export async function verificationLink(email: string, timeoutMs = 10_000): Promi
 }
 
 /**
- * Open the sign-in drawer.
+ * Open the sign-in sheet from the front door.
  *
- * The front door belongs to guests now — a list of what's on tonight — and signing
- * in is a rare act by a handful of people, so it lives behind an icon. Every fixture
- * that used to type straight into the page has to knock first.
+ * **It is a named row on the page now, not a glyph in the corner.** That corner held
+ * a key whose only name was an `aria-label`, standing for both "it's my party" and
+ * "I'm pouring tonight" — two different people, one of whom the door behind it is
+ * wrong for. It is the "Hosting?" door, beneath the party list, alongside a
+ * "Pouring tonight?" row that points back at the party where helping actually
+ * happens.
  */
 export async function openSignIn(page: Page): Promise<Locator> {
-  // **"Host sign-in", not "Sign in".** The corner used to be a key glyph whose only
-  // name was an `aria-label`, and it stood for both "it's my party" and "I'm pouring
-  // tonight" — two different people, one of whom that door is wrong for. Naming it
-  // is half of what stops a barman registering a host account.
-  //
-  // Still scoped to the app bar: the drawer's own submit is "Sign in", and this
-  // returns the drawer so callers can scope their clicks the same way.
-  await page.locator('.appbar').getByRole('button', { name: 'Host sign-in' }).click();
+  await page
+    .locator('.doors')
+    .getByRole('button', { name: /Hosting/ })
+    .click();
   const drawer = page.getByRole('dialog', { name: 'Sign in' });
   await expect(drawer).toBeVisible();
   return drawer;
+}
+
+/**
+ * Open Settings, which is where signing out lives now.
+ *
+ * It was a button in the app bar's right-hand corner on `/host` and `/admin` — the
+ * same corner that means "up" on every other screen, one tap away on `/host/<id>`.
+ * The ⚙️ is in every app bar, so this works from anywhere.
+ */
+export async function openSettings(page: Page): Promise<void> {
+  await page.locator('.appbar').getByRole('button', { name: 'Settings' }).click();
+  await expect(page.getByRole('dialog', { name: 'Settings' })).toBeVisible();
 }
 
 /**
@@ -109,8 +120,11 @@ export async function register(
   await expect(page.getByRole('heading', { name: 'Check your email' })).toBeVisible();
 
   await page.goto(await verificationLink(email));
-  // The link lands back on the front door, which routes on what the server says.
-  await expect(page).toHaveURL(/\/(admin|host)$/);
+  // **The link lands on the front door and stays there.** It used to bounce straight
+  // to `/host` or `/admin`, which meant a signed-in person could never look at the
+  // party list — and a host who wanted a drink at their own party was locked out of
+  // the one screen that offers one. Where you belong is a row on the page now.
+  await expect(page.locator('.doors')).toContainText('You');
 }
 
 /**
@@ -127,6 +141,8 @@ export async function signIn(page: Page, email: string): Promise<void> {
   await drawer.getByLabel('Email').fill(email);
   await drawer.getByLabel('Password').fill(PASSWORD);
   await drawer.getByRole('button', { name: 'Sign in' }).click();
+  // Signing in from the sheet *is* a deliberate act with a destination, so it still
+  // moves you on — unlike merely arriving at the door already signed in.
   await page.waitForURL(/\/(admin|host)$/);
 }
 
@@ -160,9 +176,12 @@ export async function stock(page: Page, bottles: string[]): Promise<void> {
  * the reordering.
  */
 export async function openHostDesk(page: Page, hostName: string): Promise<void> {
-  await page.goto('/admin');
-  await page.getByRole('button', { name: /^Hosts/ }).click();
-  await page.getByRole('button', { name: new RegExp(hostName) }).click();
+  // Links, not buttons setting `tab` and `openHost`. Those were component state the
+  // URL knew nothing about, so two levels deep Back left the desk entirely — it
+  // landed on `/bar`. Both levels are real routes now.
+  await page.goto('/admin/hosts');
+  await page.getByRole('link', { name: new RegExp(hostName) }).click();
+  await expect(page).toHaveURL(/\/admin\/h\/.+$/);
 }
 
 /** Open one party's own page, from wherever its row is showing. */

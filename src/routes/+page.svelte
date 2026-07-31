@@ -7,9 +7,22 @@
    * `liveEvent()` made on the server, wearing a different hat. The menu lives at
    * `/e/<id>` now, because a guest always arrives from a link that names their party.
    *
-   * So this is the only page for people who work here: sign in, or register. It
-   * routes on what the server says you are rather than on anything this device
-   * remembers, because the two disagree the moment a session expires.
+   * ## Three doors, and it no longer throws anyone out
+   *
+   * Four different people arrive here and each is answering a different question
+   * about themselves — "I want a drink", "I'm pouring", "it's my party", "I run
+   * this". The page used to serve the first fully and put the other three behind one
+   * unlabelled key, which is how a barman ended up registering a host account.
+   *
+   * So the list stays exactly as it was — guests lose nothing — and it gains named
+   * rows for the other two answers, in the words those people use about themselves.
+   *
+   * **And signing in no longer bounces you off this page.** It used to `goto(home())`
+   * the moment the server said who you were, with `replaceState`, so a signed-in host
+   * could not look at what was on tonight *and* could not get back here with Back.
+   * A host who wants a drink at their own party was locked out of the one screen that
+   * offers one. Where you belong is now a line on this page rather than a redirect
+   * off it.
    */
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
@@ -22,6 +35,7 @@
     type AccountUser,
   } from '$lib/api';
   import { refreshActor, session } from '$lib/stores/session.svelte';
+  import AppBar from '$lib/components/AppBar.svelte';
   import SignInSheet from '$lib/components/SignInSheet.svelte';
 
   /** From +layout.server.ts: whether Google is configured on this deployment. */
@@ -75,7 +89,11 @@
   const verified = $derived(page.url.searchParams.get('verified') !== null);
 
   /** Where a signed-in person belongs. Dan runs the service; everyone else is a host. */
-  const home = () => (session.actor.account?.role === 'admin' ? '/admin' : '/host');
+  const home = $derived(session.actor.account?.role === 'admin' ? '/admin' : '/host');
+  const homeLabel = $derived(
+    session.actor.account?.role === 'admin' ? 'the admin desk' : 'your bar',
+  );
+  const signedIn = $derived(session.actor.account !== null);
 
   /**
    * Signed in, verified, and still nobody — which is what a suspension looks like
@@ -100,7 +118,17 @@
     // `user` only says whether anyone is signed in at all.
     await refreshActor();
     suspended = Boolean(user?.emailVerified) && session.actor.account === null;
-    if (user?.emailVerified && session.actor.account) await goto(home(), { replaceState: true });
+    // **No bounce.** See the note at the top: this used to `goto(home())` here, which
+    // made the party list unreachable for the very people who also want a drink.
+  }
+
+  /**
+   * Signing in from the sheet *does* move you on — because that was a deliberate act
+   * with a destination in mind, unlike merely arriving at the door already signed in.
+   */
+  async function afterSignIn(): Promise<void> {
+    await refresh();
+    if (session.actor.account) await goto(home);
   }
 
   onMount(async () => {
@@ -133,6 +161,11 @@
     }
   }
 
+  /**
+   * Sign out from *this page's own states* — "different account" while waiting on a
+   * verification email, and the suspended notice. Ordinary signing out lives in
+   * Settings now, reachable from every screen's ⚙️.
+   */
   const leave = () =>
     attempt(async () => {
       await signOutOfAccount();
@@ -151,23 +184,9 @@
 <svelte:head><title>COCKTAILS!!!</title></svelte:head>
 
 <div class="workshell">
-  <header class="appbar">
-    <span class="brand">COCKTAILS</span>
-    <!--
-      Sign-in is a rare act by a handful of people, so it gets the corner and the
-      page goes to the guests who are most of the traffic.
-
-      **It says which kind of person it is for**, which a key icon could not. This was
-      a 22px glyph with an `aria-label` nobody sees, and it was the only thing on an
-      otherwise entirely guest-facing page standing for both "it's my party" and "I'm
-      pouring tonight" — two different people, one of whom this door is wrong for.
-      Naming it costs one word and answers half the question on sight; the other half
-      is answered inside, where helping now points back at the party.
-    -->
-    <button class="appbar-bartender appbar-word" type="button" onclick={() => (signingIn = true)}>
-      Host sign-in
-    </button>
-  </header>
+  <!-- The root of the app: no up, so the wordmark takes the left slot. The named
+       doors are on the page itself rather than crammed into the corner. -->
+  <AppBar brand />
 
   <!-- `deck-hero` centres a short door vertically. With a list of parties on it that
        would fight the scroll, so it only applies when there is nothing to list. -->
@@ -239,6 +258,39 @@
           </p>
         </section>
       {/if}
+
+      <!--
+        **The other two doors.**
+
+        Everything above this line speaks to a guest, which was the whole problem: the
+        page read as "this app is for ordering drinks" and the other three arrivals had
+        to guess that a key icon in the corner was for them. Each row is named the way
+        the person would name themselves — pouring, hosting — rather than after the
+        credential they'd need.
+
+        Helping points *back at a party*, because it has to: "ask to be waved in" is
+        meaningless without one, which is exactly why the bar's gate could never say
+        which bar it was a door to.
+      -->
+      <section class="doors">
+        {#if signedIn}
+          <a class="door-row" href={home}>
+            <span class="door-row-q">You're signed in</span>
+            <span class="door-row-a">Go to {homeLabel} →</span>
+          </a>
+        {:else}
+          <button class="door-row" type="button" onclick={() => (signingIn = true)}>
+            <span class="door-row-q">Hosting?</span>
+            <span class="door-row-a">Sign in to your host account →</span>
+          </button>
+        {/if}
+        <div class="door-row door-row-static">
+          <span class="door-row-q">Pouring tonight?</span>
+          <span class="door-row-a">
+            Tap your party above, then <strong>I'm pouring here</strong> at the foot of the menu.
+          </span>
+        </div>
+      </section>
     {/if}
 
     {#if error}<p class="says says-bad" role="alert">{error}</p>{/if}
@@ -257,7 +309,7 @@
     onclose={() => (signingIn = false)}
     onsignedin={async () => {
       signingIn = false;
-      await refresh();
+      await afterSignIn();
     }}
     onregistered={(who) => {
       signingIn = false;

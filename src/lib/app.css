@@ -2273,3 +2273,208 @@ button.row:hover {
   line-height: 1.5;
   color: var(--text-soft);
 }
+
+/* ---- the app bar's three slots ------------------------------------------- */
+
+/*
+ * **Left is always up.** See AppBar.svelte for why this is a link rather than a
+ * `history.back()` button.
+ *
+ * It names its destination — "← Parties", "← Ana's birthday" — because "Back" alone
+ * is a promise the app kept breaking: from a party inside /admin it used to leave
+ * the desk entirely and land on the bar. A label you can read before you tap is the
+ * cheapest possible fix for that class of surprise.
+ */
+.appbar-up {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 1 auto;
+  min-width: 0;
+  height: 40px;
+  padding: 0 12px 0 8px;
+  border: var(--border) solid var(--panel-line);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--panel-text);
+  font-family: var(--font-accent);
+  font-size: 0.68rem;
+  font-weight: var(--fw-accent);
+  letter-spacing: var(--ls-accent);
+  text-transform: var(--ttu);
+  text-decoration: none;
+  touch-action: manipulation;
+}
+.appbar-up-chev {
+  font-size: 0.95rem;
+  line-height: 1;
+  flex: none;
+}
+/* The label is what gets sacrificed when the bar is tight — never the chevron, which
+   is the part that says "this goes back" at a glance. */
+.appbar-up-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/*
+ * **Centre is always where you are.** A heading rather than a styled span: it is the
+ * page's name, and a screen reader arriving at a deep link should find one.
+ */
+.appbar-title {
+  margin: 0;
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: clamp(0.95rem, 4vw, 1.2rem);
+  letter-spacing: var(--ls-head);
+  text-transform: var(--ttu);
+  color: var(--panel-text);
+  line-height: 1.1;
+}
+/* With an up-link beside it the title is second in the row, so it stops trying to
+   be the thing your eye lands on first. */
+.appbar-title.has-up {
+  font-size: clamp(0.8rem, 3.2vw, 1rem);
+  opacity: 0.9;
+}
+
+/*
+ * At a *genuinely* narrow width the label goes and the chevron stays — a 40px square
+ * that still reads as "up", rather than a row that wraps or pushes Settings off.
+ *
+ * 340px, not 400: a 390px iPhone is the commonest screen this app runs on, and
+ * hiding the destination there would throw away the whole point of naming it. The
+ * title truncates first, which is the right thing to lose — you generally know what
+ * you are looking at and are less sure what Back will do.
+ */
+@media (max-width: 340px) {
+  .appbar-up-label {
+    display: none;
+  }
+  .appbar-up {
+    padding: 0;
+    width: 40px;
+    justify-content: center;
+  }
+}
+
+/* Signing out sits below a rule, apart from the switches — it is the one thing in
+   here that ends something rather than adjusting it. */
+.settings-account {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 2px solid rgba(255, 255, 255, 0.14);
+}
+
+/* ---- the front door's other two doors ------------------------------------ */
+
+/*
+ * Named rows under the party list, for the arrivals the list does not speak to.
+ *
+ * Deliberately quieter than a party card: a guest scrolling to the bottom should
+ * register them and move on, while the handful of people they are for can read them
+ * without hunting a 22px icon in the corner.
+ */
+.doors {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 26px;
+  padding-top: 18px;
+  border-top: 3px solid rgba(10, 10, 18, 0.18);
+}
+.door-row {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 100%;
+  padding: 12px 16px;
+  min-height: 44px;
+  border: var(--border) solid var(--panel-bg);
+  border-radius: var(--radius);
+  background: var(--panel-bg);
+  color: var(--panel-text);
+  text-align: left;
+  text-decoration: none;
+  font: inherit;
+  cursor: pointer;
+}
+/* The "pouring" row is an instruction, not a control — there is nothing to tap here,
+   because the door is on the party. Saying so with the cursor as well as the words. */
+.door-row-static {
+  cursor: default;
+  background: transparent;
+  color: var(--text);
+  border-color: rgba(10, 10, 18, 0.18);
+}
+.door-row-q {
+  font-family: var(--font-display);
+  text-transform: var(--ttu);
+  letter-spacing: var(--ls-head);
+  font-size: 0.9rem;
+}
+.door-row-a {
+  font-size: 0.85rem;
+  line-height: 1.4;
+  opacity: 0.85;
+}
+
+/* A whole row that is a link — the hosts list, where the row body opens the host. */
+.row-link {
+  text-decoration: none;
+  color: inherit;
+}
+.row-link:hover .row-name {
+  text-decoration: underline;
+}
+
+/* The two named links at the foot of the guest menu, side by side. */
+.menu-foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+  align-items: center;
+  margin: 28px 0 8px;
+}
+.menu-foot .menu-staff {
+  margin: 0;
+}
+/* The 3D menu is a diversion, not a door — quieter than the staff entrance. */
+.menu-staff-quiet {
+  background: transparent;
+  border: 2px solid var(--panel-bg);
+  color: var(--text);
+}
+.menu-staff-quiet:hover,
+.menu-staff-quiet:focus-visible {
+  color: var(--text);
+  background: rgba(10, 10, 18, 0.08);
+}
+
+/*
+ * The bar's own header follows the same grammar: up on the left, where you are in
+ * the middle, actions on the right.
+ *
+ * **The up-label is hidden here and only here.** This row carries more than the
+ * others — up, the party, a live count, an overflow menu and settings — and with the
+ * label in "Sam's Saturday" truncated to "Sam's …". On every other screen the label
+ * wins because knowing where Back goes is the scarce information; on the bar it is
+ * the *party name* that is scarce, because it is the thing a bartender must not be
+ * wrong about. The chevron still says "up".
+ */
+.bar-top .appbar-up {
+  flex: none;
+  padding: 0;
+  width: 40px;
+  justify-content: center;
+}
+.bar-top .appbar-up-label {
+  display: none;
+}

@@ -11,6 +11,7 @@
    * Turning it back on doesn't re-prompt: browser permission survives, so this is
    * a one-tap toggle after the first grant.
    */
+  import { goto } from '$app/navigation';
   import { dialog } from '$lib/dialog';
   import {
     disablePush,
@@ -21,9 +22,36 @@
     pushSupported,
   } from '$lib/stores/push.svelte';
   import { resetChoice } from '$lib/stores/notifyConsent.svelte';
+  import { signOutOfAccount } from '$lib/api';
+  import { refreshActor, session } from '$lib/stores/session.svelte';
   import InstallButton from '$lib/components/InstallButton.svelte';
 
   let { onclose }: { onclose: () => void } = $props();
+
+  /**
+   * **Signing out lives here now.**
+   *
+   * It used to be a button in the app bar's right-hand corner on `/host` and
+   * `/admin` — the same corner that means "up" on every other screen, including
+   * `/host/[id]`, which is one tap away from `/host`. Reaching for Back and ending
+   * your session instead is not a mistake a person should be able to make.
+   *
+   * Settings is mounted in the root layout and its ⚙️ is in every app bar, so this is
+   * reachable from more screens than it was before, not fewer.
+   */
+  let me = $derived(session.actor.account);
+  let leaving = $state(false);
+
+  async function leave(): Promise<void> {
+    if (leaving) return;
+    leaving = true;
+    await signOutOfAccount().catch(() => {
+      /* already gone, or offline — the local session goes either way */
+    });
+    await refreshActor();
+    onclose();
+    await goto('/', { replaceState: true });
+  }
 
   let busy = $state(false);
   let guest = $derived(pushState('guest'));
@@ -109,6 +137,18 @@
           ? 'You’ll hear when your drink is being made and when it’s ready.'
           : 'Turn this on to hear when your drink is ready.'}
       </p>
+    {/if}
+
+    {#if me}
+      <div class="settings-account">
+        <p class="settings-note">
+          Signed in as <strong>{me.role === 'admin' ? 'admin' : 'host'}</strong>.
+        </p>
+        <button type="button" class="barmenu-item" disabled={leaving} onclick={leave}>
+          <span>Sign out</span>
+          <em>{leaving ? '…' : ''}</em>
+        </button>
+      </div>
     {/if}
 
     <button type="button" class="barmenu-close" onclick={onclose}>Close</button>

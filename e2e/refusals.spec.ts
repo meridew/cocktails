@@ -151,8 +151,13 @@ test('a suspended host is out, including from the tab they already had open', as
   // The ban is checked when the actor is resolved, not when the session is issued,
   // so it lands on a session that already exists rather than waiting for the next
   // sign-in.
+  // **Told where they are, not bounced somewhere else.** This used to assert a
+  // redirect to `/`, which threw away the URL and left them to work out what had
+  // happened from a page that says nothing about them. The gate answers in place.
   await host.reload();
-  await expect(host).toHaveURL(/\/$/);
+  await expect(host).toHaveURL(/\/host$/);
+  await expect(host.getByRole('heading', { name: 'Sign in to see this' })).toBeVisible();
+  await host.goto('/');
 
   // And signing in again does not get them back — but it *does* succeed, because
   // Better Auth does not know about the ban and their password is still correct.

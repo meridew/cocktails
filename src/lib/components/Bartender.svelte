@@ -37,7 +37,7 @@
   import { SvelteSet } from 'svelte/reactivity';
   import { can, party, ORDER_STATUSES, STATUS_META } from '$lib/shared';
   import type { Handoff, Order, OrderStatus, Staff } from '$lib/shared';
-  import { view } from '$lib/stores/view.svelte';
+  import { settings, view } from '$lib/stores/view.svelte';
 
   /**
    * **The party comes from the route now, not from device storage.**
@@ -49,7 +49,12 @@
    * and therefore stopped matching the credential. A helper's queue vanished mid-shift
    * and the gate offered to ask permission they already held.
    */
-  let { eventId, onclose }: { eventId: string; onclose: () => void } = $props();
+  let {
+    eventId,
+    /** Where "up" goes and what to call it — see the route, which decides. */
+    up,
+    onclose,
+  }: { eventId: string; up: { href: string; label: string }; onclose: () => void } = $props();
 
   const POLL_MS = 4000;
   /** Scopes the in-flight guard for actions that aren't tied to one order. */
@@ -322,9 +327,23 @@
      and wrong for a route that *is* the whole screen. -->
 <div class="bartender">
   <header class="bar-top">
+    <!--
+      **Up, and it says where.** This was a bare ✕ labelled "Back to the menu", which
+      always went to `/e/<id>` — right for a helper who is also a guest at the party,
+      and a dead end for whoever arrived from the admin desk. That was the path Dan
+      walked every party: /admin → Work it → ✕ → a guest menu with no way on.
+
+      The route decides where up goes, because only the route knows where you came
+      from. `onclose` still exists for the gate, which hands the screen back after
+      lodging a request.
+    -->
+    <a class="appbar-up" href={up.href}>
+      <span class="appbar-up-chev" aria-hidden="true">←</span>
+      <span class="appbar-up-label">{up.label}</span>
+    </a>
     <!-- Named, so a bartender can see at a glance whose queue this is. `bar-where`
-         truncates rather than pushing the count and the two icons off the row. -->
-    <h2 class="bar-where">🍸 {partyName || 'Bar'}</h2>
+         truncates rather than pushing the count and the icons off the row. -->
+    <h2 class="bar-where">{partyName || 'Bar'}</h2>
     {#if working}
       <span class="bar-count" class:zero={activeCount === 0}>{activeCount}</span>
     {/if}
@@ -339,8 +358,14 @@
         ⋯{#if canManageStaff && pendingCount}<b class="bar-dot"></b>{/if}
       </button>
     {/if}
-    <button type="button" class="bar-icon" onclick={onclose} aria-label="Back to the menu">✕</button
+    <button
+      type="button"
+      class="bar-icon"
+      onclick={() => (settings.open = true)}
+      aria-label="Settings"
     >
+      <span class="emoji">⚙️</span>
+    </button>
   </header>
 
   {#if connErr}<p class="bt-conn" role="status">{connErr}</p>{/if}

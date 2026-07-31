@@ -33,13 +33,13 @@
   import { emojiFor, groupByBase } from '$lib/menu';
   import { getDeviceId, getSavedName, saveName } from '$lib/device';
 
-  import { addLine, basketCount } from '$lib/stores/basket.svelte';
+  import { addLine, basketCount, rebaseTo } from '$lib/stores/basket.svelte';
   import { favourites } from '$lib/stores/favourites.svelte';
   import { applyDeepLink, settings, view } from '$lib/stores/view.svelte';
   import { staffRequest } from '$lib/stores/staffRequest.svelte';
   import { celebrate as fireConfetti, startBackgroundCannon } from '$lib/confetti';
   import { lockBackground } from '$lib/dialog';
-  import ChooseADrink from '$lib/components/ChooseADrink.svelte';
+  import AppBar from '$lib/components/AppBar.svelte';
   import Configurator from '$lib/components/Configurator.svelte';
   import InstallButton from '$lib/components/InstallButton.svelte';
   import OrderRail from '$lib/components/OrderRail.svelte';
@@ -163,8 +163,6 @@
     });
   });
 
-  /** Which door is open. The menu, or being walked through it. */
-  let door = $state<'menu' | 'walk'>('menu');
   let query = $state('');
 
   /**
@@ -182,6 +180,11 @@
       return;
     }
     applyDeepLink(location.search);
+
+    // A round belongs to the bar it was built for. Walking from one party's menu to
+    // another used to carry the basket across — a Gimlet from Ana's birthday turning
+    // up on Sam's Saturday, which may not be able to make it.
+    rebaseTo(data.eventId);
 
     // Known already → join quietly. Never met → ask, once, before the menu.
     const known = getSavedName();
@@ -288,37 +291,22 @@
     if (e.key !== 'Escape') return;
     if (celebrating) celebrating = false;
     else if (orderOpen) view.order = false;
-    else if (door !== 'menu') door = 'menu';
   }}
 />
 
 <canvas class="bg-cannon" bind:this={cannon} aria-hidden="true"></canvas>
 
 <div class="app">
-  <header class="appbar">
-    <span class="brand">COCKTAILS</span>
-    <nav class="topnav" aria-label="Sections">
-      <span class="nav-btn" aria-current="true">Menu</span>
-    </nav>
-    <!--
-      The cocktail glass that used to sit here has gone to the foot of the menu.
+  <!--
+    A guest arrived here from a QR code on a table, so there is nothing above this to
+    go up to — the brand takes the left slot, and the corner is Settings, as
+    everywhere else.
 
-      It was an unlabelled emoji, in the corner of every guest's screen, leading to a
-      staff sign-up flow — prominent for the ~95% who will never want it and invisible
-      as "the way in" to the few who do, because nothing said what it was. It is a
-      named row down there now, where a guest scrolls past it and a barman can read it.
-    -->
-    <div class="appbar-actions">
-      <button
-        type="button"
-        class="appbar-bartender"
-        onclick={() => (settings.open = true)}
-        aria-label="Settings"
-      >
-        <span class="emoji">⚙️</span>
-      </button>
-    </div>
-  </header>
+    The cocktail glass that used to live here is at the foot of the menu now. It was
+    an unlabelled emoji leading to a staff sign-up flow: permanent for the ~95% who
+    will never want it, and unrecognisable as "the way in" to the few who do.
+  -->
+  <AppBar brand />
 
   <main class="stage">
     <section class="view view-menu" aria-label="Menu">
@@ -380,18 +368,6 @@
 
       {#if askingName}
         <!-- nothing else while we ask; the menu is one tap away -->
-      {:else if door === 'walk'}
-        <ChooseADrink
-          {stock}
-          offered={onOffer}
-          canOrder={!closed}
-          onpick={(name, id) => {
-            addLine(name);
-            door = 'menu';
-            flash(id);
-          }}
-          onclose={() => (door = 'menu')}
-        />
       {:else}
         <div class="menubar">
           {#if favourites.size}
@@ -402,9 +378,9 @@
               onclick={() => (view.favesOnly = !favesOnly)}>⭐ Faves</button
             >
           {/if}
-          <button type="button" class="chip" onclick={() => (door = 'walk')}
-            >🤔 Help me choose</button
-          >
+          <!-- A route now, not a `door` flag — so Back leaves it, it can be linked
+               to, and it survives a reload. -->
+          <a class="chip" href="/e/{data.eventId}/choose">🤔 Help me choose</a>
           <button type="button" class="chip chip-surprise" disabled={!!closed} onclick={surprise}>
             🎲 Surprise
           </button>
@@ -457,10 +433,22 @@
           party in its href, which is what lets the gate on the other side say *which*
           bar it is about.
         -->
-        <a class="menu-staff" href="/bar/{data.eventId}">
-          <span class="emoji" aria-hidden="true">🍸</span>
-          I'm pouring here
-        </a>
+        <div class="menu-foot">
+          <!--
+            **The 3D menu had nothing linking to it.** A grep for it across `src/`
+            returned only its own two files: a whole feature reachable solely by
+            typing the URL. It links *out* to this page and always did, which is the
+            shape of a door that was fitted the wrong way round.
+          -->
+          <a class="menu-staff menu-staff-quiet" href="/e/{data.eventId}/3d">
+            <span class="emoji" aria-hidden="true">🧊</span>
+            See it in 3D
+          </a>
+          <a class="menu-staff" href="/bar/{data.eventId}">
+            <span class="emoji" aria-hidden="true">🍸</span>
+            I'm pouring here
+          </a>
+        </div>
       {/if}
     </section>
   </main>

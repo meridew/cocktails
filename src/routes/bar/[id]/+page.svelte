@@ -19,6 +19,8 @@
    */
   import { goto } from '$app/navigation';
   import { page } from '$app/state';
+  import { can, party as partyScope } from '$lib/shared';
+  import { session } from '$lib/stores/session.svelte';
   import { rememberEvent } from '$lib/party';
   import Bartender from '$lib/components/Bartender.svelte';
 
@@ -27,10 +29,22 @@
   // Still worth remembering — not for permission, which is what went wrong, but so a
   // guest who wandered in here and asked to help lands back on the right menu.
   $effect(() => rememberEvent(eventId));
+
+  /**
+   * Where "up" goes, and it depends on who is standing here.
+   *
+   * The ✕ used to always go to `/e/<id>`, which is right for a helper — they are a
+   * guest at this party too — and a dead end for Dan, who arrived from the desk and
+   * had nothing to get back to it with. An admin's up is the party's page; everyone
+   * else's is the menu.
+   */
+  const up = $derived(
+    can(session.actor, 'party:edit', partyScope(eventId))
+      ? { href: `/admin/p/${eventId}`, label: 'The party' }
+      : { href: `/e/${eventId}`, label: 'Menu' },
+  );
 </script>
 
 <svelte:head><title>Bar · COCKTAILS!!!</title></svelte:head>
 
-<!-- Back to the party this bar is serving. It knows exactly which one now, rather
-     than asking storage and hoping. -->
-<Bartender {eventId} onclose={() => goto(`/e/${eventId}`)} />
+<Bartender {eventId} {up} onclose={() => goto(`/e/${eventId}`)} />

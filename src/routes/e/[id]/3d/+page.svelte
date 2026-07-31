@@ -138,9 +138,16 @@
 <div class="stage3d">
   <canvas bind:this={canvas} class="stage3d-canvas" class:is-ready={status === 'ready'}></canvas>
 
+  <!-- Up, in the same slot and the same shape as every other screen. It said "Flat
+       menu" on the right — a sideways move in the corner that means "back" here and
+       "sign out" on two other screens. This page is *below* the menu now, and says
+       so, which is also how it finally became reachable: the menu links down to it. -->
   <header class="stage3d-bar">
-    <span class="brand">COCKTAILS</span>
-    <a class="appbar-bartender appbar-word" href="/e/{data.eventId}">Flat menu</a>
+    <a class="appbar-up" href="/e/{data.eventId}">
+      <span class="appbar-up-chev" aria-hidden="true">←</span>
+      <span class="appbar-up-label">Menu</span>
+    </a>
+    <span class="brand">3D</span>
   </header>
 
   {#if askingName}

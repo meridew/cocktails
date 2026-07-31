@@ -80,8 +80,12 @@
       <span>Clear finished orders</span>
     </button>
 
+    <!-- **"End my shift", not "Log out".** Two different sign-outs exist now — this
+         one drops the bar session, and Settings drops the account. Calling both
+         "log out" made the smaller one look like the bigger one, which is a bad
+         surprise for a helper who only wanted to hand the phone back. -->
     <button type="button" class="barmenu-item is-danger" onclick={pick(onsignout)}>
-      <span>Log out</span>
+      <span>End my shift</span>
     </button>
 
     <button type="button" class="barmenu-close" onclick={onclose}>Close</button>

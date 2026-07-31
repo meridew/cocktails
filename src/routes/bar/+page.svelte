@@ -25,6 +25,7 @@
   import { can, party as partyScope } from '$lib/shared';
   import { hydrateSession, session } from '$lib/stores/session.svelte';
   import { currentEventId } from '$lib/party';
+  import AppBar from '$lib/components/AppBar.svelte';
 
   let parties = $state<Party[]>([]);
   let loading = $state(true);
@@ -67,10 +68,7 @@
 <svelte:head><title>Which bar? · COCKTAILS!!!</title></svelte:head>
 
 <div class="workshell">
-  <header class="appbar">
-    <div class="brand">🍸 Which bar?</div>
-    <a class="appbar-bartender appbar-word" href="/">What's on</a>
-  </header>
+  <AppBar up={{ href: '/', label: "What's on" }} title="🍸 Which bar?" />
 
   <main class="deck">
     {#if loading}
