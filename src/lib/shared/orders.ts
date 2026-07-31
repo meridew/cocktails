@@ -126,6 +126,19 @@ export interface Order {
    * and on every order placed before handoffs existed.
    */
   handoff?: Handoff | null;
+  /**
+   * True while the bar has not yet let this guest in.
+   *
+   * The card offers **Admit** instead of **Start**, and nothing else about the order
+   * changes — it sits in the same queue, in the same place, saying the same thing.
+   * Hiding it was the first design and the wrong one: an order nobody can see is an
+   * order nobody notices going missing.
+   *
+   * A boolean rather than the device id, because the bar acts on the *order* in
+   * front of it (`POST /api/orders/[id]/admit`) and never needs to learn which
+   * device placed it.
+   */
+  newGuest?: boolean;
 }
 
 /** Drinks poured vs ordered, for a progress readout on a multi-drink order. */

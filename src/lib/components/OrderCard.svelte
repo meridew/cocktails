@@ -22,6 +22,7 @@
     onbump,
     onprogress,
     ondelete,
+    onadmit,
   }: {
     order: Order;
     busy: boolean;
@@ -32,9 +33,21 @@
     onbump: (bumped: boolean) => void;
     onprogress: (index: number, made: number) => void;
     ondelete: () => void;
+    /** Let this guest in, or turn them away. Only offered while `order.newGuest`. */
+    onadmit: (block: boolean) => void;
   } = $props();
 
   let meta = $derived(STATUS_META[order.status]);
+  /**
+   * A face the bar has not let in yet.
+   *
+   * The card is otherwise completely ordinary — same place in the queue, same
+   * everything — and only its forward action changes, from `Start` to `Admit`. That
+   * is the entire admission gate as far as this screen is concerned, and it is why
+   * there is no second screen: an order nobody can see is an order nobody notices
+   * going missing.
+   */
+  let awaiting = $derived(order.newGuest === true);
   let progress = $derived(orderProgress(order));
   let bumped = $derived(order.bumpedAt != null);
   /** Only worth showing per-drink ticking when there's more than one drink. */
@@ -54,7 +67,12 @@
   }
 </script>
 
-<article class="ord s-{order.status}" class:is-open={expanded} class:is-bumped={bumped}>
+<article
+  class="ord s-{order.status}"
+  class:is-open={expanded}
+  class:is-bumped={bumped}
+  class:is-new={awaiting}
+>
   <!-- The row body is the expand affordance; the action button sits outside it so
        advancing an order never costs an extra tap. -->
   <div class="ord-main">
@@ -68,6 +86,7 @@
       <span class="ord-head">
         {#if bumped}<span class="ord-flag" title="Bumped to the front">⤒</span>{/if}
         <span class="ord-who">{order.name}</span>
+        {#if awaiting}<span class="ord-newflag">new</span>{/if}
         <span class="ord-meta">
           {meta.badge} · {ago(order.createdAt)}{#if order.handoff}
             <span class="ord-hand-flag" title="Guest was {HANDOFF_META[order.handoff].note}">
@@ -91,7 +110,26 @@
       {#if order.note && !expanded}<span class="ord-note-peek">“{order.note}”</span>{/if}
     </button>
 
-    {#if meta.next}
+    {#if awaiting}
+      <!-- Two answers, because "no" needs to be as cheap as "yes": a stranger who
+           found the domain should cost one tap, not a delete plus watching them
+           order again. Admitting is per *guest*, so it releases everything they
+           have ordered and everything they order later tonight. -->
+      <span class="ord-admit">
+        <button type="button" class="ord-go start" disabled={busy} onclick={() => onadmit(false)}>
+          ✓ Admit
+        </button>
+        <button
+          type="button"
+          class="ord-go ord-reject"
+          disabled={busy}
+          onclick={() => onadmit(true)}
+          aria-label="Turn away {order.name}"
+        >
+          ✕
+        </button>
+      </span>
+    {:else if meta.next}
       <button
         type="button"
         class="ord-go {meta.actionClass}"

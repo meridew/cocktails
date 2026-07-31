@@ -75,7 +75,7 @@ type OrderRow = typeof orders.$inferSelect;
 export type EventGuestRow = typeof eventGuest.$inferSelect;
 type SubRow = typeof subscriptions.$inferSelect;
 
-function rowToOrder(r: OrderRow): Order {
+function rowToOrder(r: OrderRow, newGuest = false): Order {
   let items: OrderItem[] = [];
   try {
     const parsed = JSON.parse(r.items) as unknown;
@@ -93,6 +93,7 @@ function rowToOrder(r: OrderRow): Order {
     updatedAt: r.updatedAt,
     bumpedAt: r.bumpedAt,
     handoff: isHandoff(r.handoff) ? r.handoff : null,
+    newGuest,
   };
 }
 
@@ -140,32 +141,37 @@ export function createDb(dbPath: string) {
       .get();
 
   /**
-   * "This order's device has been admitted at this party."
+   * Device ids at this party that nobody has let in — **anything but `admitted`**.
    *
-   * A correlated subquery rather than a join, so it drops into an existing `where`
-   * without changing the shape of the row that comes back — every caller of
-   * `listOrders` reads an `Order`, and a join would hand them an object with the
-   * order nested inside it.
+   * Not `= 'pending'`, which is the obvious version and is wrong: a guest the bar
+   * turned away is `blocked`, so a pending-only test would let their *next* order
+   * through as ordinary. Blocking somebody would have made them harder to stop than
+   * ignoring them, which is the opposite of what the button is for. Found by the
+   * test that orders again after being blocked.
    *
-   * **A row with no device at all counts as admitted**, and that is the safe way
-   * round rather than a hole. `POST /api/orders` refuses an order without a device
-   * id precisely so the gate has something to hang on, which makes this branch
-   * unreachable from outside; it exists so that a row which somehow has none is
-   * *visible to the bar* rather than silently invisible everywhere — the waiting room
-   * groups by pending guests, so a device-less order would appear in neither list.
-   * Given the choice between a stranger's drink being seen and a real guest's being
-   * lost, this errs towards seen.
+   * A blocked guest therefore keeps arriving as a new face rather than being refused
+   * outright. That is deliberate: refusing at the door is something they would
+   * *notice*, and the whole design rests on the gate being imperceptible. The bar
+   * sees the same name reappear and bins it again in one tap.
+   *
+   * One query per queue read rather than a correlated subquery per row: the list is
+   * a handful of people even at a busy party, and a `Set` beats SQL for something
+   * asked once and answered many times.
+   *
+   * **This decides a label, not visibility.** An un-admitted guest's drink sits in
+   * the same queue in the same place; its card offers `Admit` where another offers
+   * `Start`. The first design hid these orders instead, which made a bug in the
+   * hiding indistinguishable from a guest who never ordered.
    */
-  const admitted = (eventId: string) =>
-    sql`(
-      ${orders.deviceId} IS NULL
-      OR EXISTS (
-        SELECT 1 FROM ${eventGuest}
-        WHERE ${eventGuest.eventId} = ${eventId}
-          AND ${eventGuest.deviceId} = ${orders.deviceId}
-          AND ${eventGuest.status} = 'admitted'
-      )
-    )`;
+  const unadmittedDevices = (eventId: string): Set<string> =>
+    new Set(
+      db
+        .select({ deviceId: eventGuest.deviceId })
+        .from(eventGuest)
+        .where(and(eq(eventGuest.eventId, eventId), ne(eventGuest.status, 'admitted')))
+        .all()
+        .map((r) => r.deviceId),
+    );
 
   return {
     /** Escape hatch for tests (PRAGMA inspection). Not for application use. */
@@ -312,61 +318,22 @@ export function createDb(dbPath: string) {
     },
 
     /**
-     * The drinks a not-yet-admitted guest has ordered.
-     *
-     * Kept out of `listOrders` on purpose: the bar's queue is work, and this is a
-     * decision. Showing what somebody ordered is what makes the decision possible —
-     * a name alone tells you nothing, "Marco, 2× Negroni" tells you whether he is at
-     * the party.
-     */
-    waitingRoom(eventId: string): { guest: EventGuestRow; orders: Order[] }[] {
-      const pending = db
-        .select()
-        .from(eventGuest)
-        .where(and(eq(eventGuest.eventId, eventId), eq(eventGuest.status, 'pending')))
-        .orderBy(asc(eventGuest.createdAt))
-        .all();
-      if (pending.length === 0) return [];
-
-      // Grouped from the **rows**, not from `Order`: `deviceId` is a server concept
-      // and deliberately never reaches the client shape, so the mapping has to happen
-      // after the grouping rather than before it.
-      const rows = db
-        .select()
-        .from(orders)
-        .where(
-          and(
-            eq(orders.eventId, eventId),
-            inArray(
-              orders.deviceId,
-              pending.map((g) => g.deviceId),
-            ),
-          ),
-        )
-        .orderBy(asc(orders.createdAt))
-        .all();
-
-      return pending.map((guest) => ({
-        guest,
-        orders: rows.filter((r) => r.deviceId === guest.deviceId).map(rowToOrder),
-      }));
-    },
-
-    /**
      * Bumped orders first (most recently bumped wins), then oldest. The client can
      * re-sort for display, but this keeps the wire order meaningful on its own.
      *
-     * **Only admitted guests' drinks.** A guest the bar has not let in yet has
-     * ordered, been thanked, and is waiting — their round is in `waitingRoom()`
-     * instead, and reaches this list the moment somebody admits them. That split is
-     * the whole of the admission gate; if this method ever stopped filtering, the
-     * gate would be gone and nothing else would notice.
+     * **Everything, with the un-admitted marked rather than hidden.** A guest the
+     * bar has not let in yet appears here like anyone else; their card offers
+     * `Admit` where another offers `Start`, and the gate is that the drink cannot be
+     * *made* until somebody does. Hiding them was the first design: it put the whole
+     * feature somewhere nobody was looking, so a bug in it and a guest who never
+     * ordered were the same observation.
      */
     listOrders(eventId: string): Order[] {
+      const unadmitted = unadmittedDevices(eventId);
       return db
         .select()
         .from(orders)
-        .where(and(eq(orders.eventId, eventId), admitted(eventId)))
+        .where(eq(orders.eventId, eventId))
         .orderBy(
           sql`(${orders.bumpedAt} IS NOT NULL) DESC`,
           desc(orders.bumpedAt),
@@ -374,7 +341,7 @@ export function createDb(dbPath: string) {
           sql`rowid ASC`,
         )
         .all()
-        .map(rowToOrder);
+        .map((r) => rowToOrder(r, r.deviceId !== null && unadmitted.has(r.deviceId)));
     },
 
     /**
@@ -974,7 +941,6 @@ export const listGuests: Db['listGuests'] = (eventId) => d().listGuests(eventId)
 export const setGuestStatus: Db['setGuestStatus'] = (eventId, deviceId, status) =>
   d().setGuestStatus(eventId, deviceId, status);
 export const admitAllPending: Db['admitAllPending'] = (eventId) => d().admitAllPending(eventId);
-export const waitingRoom: Db['waitingRoom'] = (eventId) => d().waitingRoom(eventId);
 export const eventsForHost: Db['eventsForHost'] = (hostUserId) => d().eventsForHost(hostUserId);
 
 // The cupboard is keyed on the *host*, not the party — see `stock` in schema.ts.

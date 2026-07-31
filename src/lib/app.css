@@ -1511,3 +1511,35 @@ button.row:hover {
   text-transform: var(--ttu);
   white-space: nowrap;
 }
+
+/* ---- a guest the bar has not let in yet ------------------------------------ */
+
+/* The card is deliberately ordinary — same list, same place, same information. Only
+   the stripe and the forward action say anything is different, because the gate is
+   about whether the drink gets *made*, not about whether it can be seen. */
+.ord.is-new {
+  border-left-color: #ffe600;
+}
+.ord-newflag {
+  flex: none;
+  padding: 1px 7px;
+  background: #ffe600;
+  color: #0a0a12;
+  border-radius: 999px;
+  font-family: 'Bungee', system-ui, sans-serif;
+  font-size: 0.52rem;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+/* Admit and turn-away sit side by side in the slot one button usually occupies, so
+   the row keeps its height and "no" costs exactly as much as "yes". */
+.ord-admit {
+  flex: none;
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+}
+.ord-reject {
+  min-width: 48px;
+  background: rgba(255, 255, 255, 0.12);
+}

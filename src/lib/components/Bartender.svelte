@@ -17,6 +17,7 @@
     listStaff,
     bumpOrder,
     setItemProgress,
+    admitOrderGuest,
     Unauthorized,
     NotFound,
   } from '$lib/api';
@@ -231,6 +232,21 @@
   const progress = (o: Order, index: number, made: number) =>
     mutate(o.id, async () => merge((await setItemProgress(o.id, index, made)).order));
 
+  /**
+   * Let this guest in, or turn them away.
+   *
+   * Refetches rather than merging one order, because admission is per **guest**: a
+   * person with three rounds waiting has three cards, and admitting from one has to
+   * clear all of them. Merging the single response would leave the other two still
+   * saying `Admit`, which reads as the button not having worked.
+   */
+  const admit = (o: Order, block: boolean) =>
+    mutate(o.id, async () => {
+      await admitOrderGuest(o.id, block);
+      if (block && openId === o.id) openId = null;
+      await fetchOrders();
+    });
+
   const del = (o: Order) =>
     mutate(o.id, async () => {
       try {
@@ -349,6 +365,7 @@
           onbump={(bumped) => bump(order, bumped)}
           onprogress={(index, made) => progress(order, index, made)}
           ondelete={() => del(order)}
+          onadmit={(block) => admit(order, block)}
         />
       {/each}
       {#if loaded && visible.length === 0}

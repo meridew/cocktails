@@ -25,6 +25,7 @@ import * as ordersClear from '../src/routes/api/orders/clear/+server';
 import * as orderById from '../src/routes/api/orders/[id]/+server';
 import * as orderBump from '../src/routes/api/orders/[id]/bump/+server';
 import * as orderProgress from '../src/routes/api/orders/[id]/progress/+server';
+import * as orderAdmit from '../src/routes/api/orders/[id]/admit/+server';
 import * as staff from '../src/routes/api/staff/+server';
 import * as staffRequests from '../src/routes/api/staff/requests/+server';
 import * as staffClaim from '../src/routes/api/staff/claim/+server';
@@ -60,6 +61,7 @@ export const ROUTES: Record<string, Handlers> = {
   '/api/orders/[id]': orderById,
   '/api/orders/[id]/bump': orderBump,
   '/api/orders/[id]/progress': orderProgress,
+  '/api/orders/[id]/admit': orderAdmit,
   '/api/staff': staff,
   '/api/staff/requests': staffRequests,
   '/api/staff/claim': staffClaim,

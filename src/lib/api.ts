@@ -129,6 +129,39 @@ export const bumpOrder = (id: string, bumped: boolean) =>
     body: JSON.stringify({ bumped }),
   });
 
+/**
+ * Let in — or turn away — whoever placed this drink.
+ *
+ * Keyed on the order because that is what the bar is looking at; the device id
+ * behind it stays a server concept. Admission is per guest, so this releases
+ * everything they have ordered and everything they order later tonight.
+ */
+export const admitOrderGuest = (id: string, block = false) =>
+  req<{ ok: true; blocked: boolean }>(`/orders/${id}/admit`, {
+    method: 'POST',
+    body: JSON.stringify({ block }),
+  });
+
+/** Let everyone still waiting in, for a room that arrived together. */
+export const admitEveryone = (eventId: string) =>
+  req<{ ok: true; admitted: number }>(`/events/${eventId}/guests`, { method: 'PATCH' });
+
+/**
+ * A guest gives their name once, on arrival.
+ *
+ * Answers the same thing whether they are new, waiting or long since admitted — the
+ * gate is one the guest cannot perceive, so there is nothing here to read.
+ */
+export const joinParty = (eventId: string, name: string, deviceId: string) =>
+  req<{ ok: true }>(`/events/${eventId}/guests`, {
+    method: 'POST',
+    body: JSON.stringify({ name, deviceId }),
+  });
+
+/** What's on tonight. Public: id and name of every live party, and nothing else. */
+export const liveParties = () =>
+  req<{ ok: true; parties: { id: string; name: string }[] }>('/parties');
+
 /** Record how many of one line have been poured (the server clamps to the qty). */
 export const setItemProgress = (id: string, index: number, made: number) =>
   req<{ ok: true; order: Order }>(`/orders/${id}/progress`, {

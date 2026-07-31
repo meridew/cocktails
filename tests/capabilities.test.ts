@@ -66,6 +66,9 @@ const GOVERNED: Record<string, Requirement> = {
   'DELETE /api/orders/[id]': 'orders:delete',
   'POST /api/orders/[id]/bump': 'orders:advance',
   'PATCH /api/orders/[id]/progress': 'orders:advance',
+  // Letting in whoever placed this drink. Keyed on the order because that is what
+  // the bar is looking at; the device id never reaches the client.
+  'POST /api/orders/[id]/admit': 'guests:admit',
 
   'GET /api/staff': 'staff:read',
   'POST /api/staff/requests': 'public', // asking to help precedes having any access
@@ -104,7 +107,6 @@ const GOVERNED: Record<string, Requirement> = {
   // and never will, so joining cannot be gated on one — the gate is that joining
   // gets you nothing until somebody admits you.
   'POST /api/events/[id]/guests': 'public',
-  'GET /api/events/[id]/guests': 'guests:read',
   'PATCH /api/events/[id]/guests': 'guests:admit',
   // What's on tonight. Names and ids of live parties, and nothing else — see the
   // endpoint for what that publishes and what it deliberately doesn't.
@@ -257,7 +259,6 @@ describe('the declared requirement is actually enforced', () => {
   test('a helper is allowed the queue they are there to run', async () => {
     for (const key of [
       'GET /api/orders',
-      'GET /api/events/[id]/guests',
       'POST /api/orders/clear',
       'POST /api/orders/[id]/bump',
     ] as const) {
