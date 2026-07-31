@@ -6,6 +6,7 @@ import {
   barAuth,
   createParty,
   freshEmail,
+  openSignIn,
   partyId,
   register,
   signIn,
@@ -150,9 +151,10 @@ test('a suspended host is out, including from the tab they already had open', as
   // Better Auth does not know about the ban and their password is still correct.
   // The screen has to say what happened; landing back on the form having signed in
   // successfully, with nothing said, is the dead end this assertion exists to stop.
-  await host.getByLabel('Email').fill(email);
-  await host.getByLabel('Password').fill(PASSWORD);
-  await host.getByRole('button', { name: 'Sign in' }).click();
+  const drawer = await openSignIn(host);
+  await drawer.getByLabel('Email').fill(email);
+  await drawer.getByLabel('Password').fill(PASSWORD);
+  await drawer.getByRole('button', { name: 'Sign in' }).click();
   await expect(host.getByRole('heading', { name: 'This account is closed' })).toBeVisible();
   await expect(host).toHaveURL(/\/$/);
 });
@@ -225,8 +227,15 @@ test('a closed bar says so before anyone builds a round', async ({ browser }) =>
   await expect(gt.getByRole('button', { name: 'Bar closed' })).toBeDisabled();
 
   // And the server agrees, which is what makes it real rather than a greyed button.
+  // A device id, because the body is validated before the party's state is: without
+  // one this answers 422 and proves nothing about closing time.
   const res = await guest.request.post('/api/orders', {
-    data: { name: 'Late', items: [{ name: 'Gin & Tonic', qty: 1 }], eventId: id },
+    data: {
+      name: 'Late',
+      items: [{ name: 'Gin & Tonic', qty: 1 }],
+      eventId: id,
+      deviceId: 'e2e-late',
+    },
   });
   expect(res.status()).toBe(409);
 });

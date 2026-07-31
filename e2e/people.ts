@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
-import { expect, type Page } from '@playwright/test';
+import { expect, type Locator, type Page } from '@playwright/test';
 
 /**
  * The people an end-to-end spec needs, made the way the app makes them.
@@ -64,6 +64,23 @@ export async function verificationLink(email: string, timeoutMs = 10_000): Promi
 }
 
 /**
+ * Open the sign-in drawer.
+ *
+ * The front door belongs to guests now — a list of what's on tonight — and signing
+ * in is a rare act by a handful of people, so it lives behind an icon. Every fixture
+ * that used to type straight into the page has to knock first.
+ */
+export async function openSignIn(page: Page): Promise<Locator> {
+  // Scoped to the app bar: once the drawer is open there are two "Sign in" buttons
+  // on the page — this icon and the form's submit — and an unscoped locator matches
+  // both. Returns the drawer so callers can scope their own clicks the same way.
+  await page.locator('.appbar').getByRole('button', { name: 'Sign in' }).click();
+  const drawer = page.getByRole('dialog', { name: 'Sign in' });
+  await expect(drawer).toBeVisible();
+  return drawer;
+}
+
+/**
  * Register, follow the emailed link, and land wherever that person belongs.
  *
  * Verification is not skippable — an unverified account is refused everywhere — so
@@ -76,11 +93,12 @@ export async function register(
   name = email.split('@')[0]!,
 ): Promise<void> {
   await page.goto('/');
-  await page.getByRole('button', { name: 'I need an account' }).click();
-  await page.getByLabel('Your name').fill(name);
-  await page.getByLabel('Email').fill(email);
-  await page.getByLabel('Password').fill(PASSWORD);
-  await page.getByRole('button', { name: 'Create my account' }).click();
+  const drawer = await openSignIn(page);
+  await drawer.getByRole('button', { name: 'I need an account' }).click();
+  await drawer.getByLabel('Your name').fill(name);
+  await drawer.getByLabel('Email').fill(email);
+  await drawer.getByLabel('Password').fill(PASSWORD);
+  await drawer.getByRole('button', { name: 'Create my account' }).click();
 
   // The screen has to say that signing up *happened*, because sign-up issues no
   // session and would otherwise dump you back at the form you just submitted.
@@ -101,9 +119,10 @@ export async function register(
  */
 export async function signIn(page: Page, email: string): Promise<void> {
   await page.goto('/');
-  await page.getByLabel('Email').fill(email);
-  await page.getByLabel('Password').fill(PASSWORD);
-  await page.getByRole('button', { name: 'Sign in' }).click();
+  const drawer = await openSignIn(page);
+  await drawer.getByLabel('Email').fill(email);
+  await drawer.getByLabel('Password').fill(PASSWORD);
+  await drawer.getByRole('button', { name: 'Sign in' }).click();
   await page.waitForURL(/\/(admin|host)$/);
 }
 
@@ -148,9 +167,22 @@ export async function createParty(page: Page, hostName: string, partyName: strin
  * A person cannot lose this race; they take a second to find the button. A test can,
  * so it waits for the thing it actually depends on rather than for a duration.
  */
-export async function arriveAt(page: Page, id: string): Promise<void> {
+export async function arriveAt(page: Page, id: string, who = 'Guest'): Promise<void> {
   await page.goto(`/e/${id}`);
   await expect.poll(() => page.evaluate(() => localStorage.getItem('cocktail_event_id'))).toBe(id);
+
+  // A device this app has never met is asked its name on the way in; one it knows
+  // joins silently, so the prompt may simply not appear. Checked rather than assumed
+  // — a fixture that insisted on it would fail for the returning guest, who is the
+  // commoner case after the first spec in a file.
+  // Scoped to the arrival panel: the order rail also has a "Your name" field and is
+  // always in the DOM, so an unscoped label matches both.
+  const arrive = page.locator('.arrive');
+  if (await arrive.isVisible().catch(() => false)) {
+    await arrive.getByLabel('Your name').fill(who);
+    await arrive.getByRole('button', { name: "I'm in" }).click();
+    await expect(arrive).toBeHidden();
+  }
 }
 
 /**

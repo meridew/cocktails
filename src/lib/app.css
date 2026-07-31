@@ -1543,3 +1543,11 @@ button.row:hover {
   min-width: 48px;
   background: rgba(255, 255, 255, 0.12);
 }
+
+/* A row that is a link — the party list on the front door. It should read as a row
+   you tap, like the host rows on /admin, not as prose with a hyperlink in it. */
+.deck a.row,
+.deck a.row:hover {
+  text-decoration: none;
+  color: inherit;
+}

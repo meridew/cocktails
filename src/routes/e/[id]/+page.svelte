@@ -29,7 +29,8 @@
   import { goto } from '$app/navigation';
   import { onMount } from 'svelte';
   import { DRINKS, type Drink } from '$lib/data';
-  import { eventMenu, type EventMenu, type MenuItem } from '$lib/api';
+  import { eventMenu, joinParty, type EventMenu, type MenuItem } from '$lib/api';
+  import { getDeviceId, getSavedName, saveName } from '$lib/device';
 
   import { addLine, basketCount } from '$lib/stores/basket.svelte';
   import { favourites } from '$lib/stores/favourites.svelte';
@@ -72,6 +73,41 @@
    * the other way costs a drink nobody knew they could have had.
    */
   let menu = $state<EventMenu | null>(null);
+
+  /**
+   * Arriving at a party: say who you are, once.
+   *
+   * The name was already asked for on every round, at the bottom of the order rail.
+   * Asking on the way in instead means sending a round is one tap afterwards, and it
+   * gives the bar a name to put against the face it is being asked to admit — "2×
+   * Negroni" is not something you can make a decision about.
+   *
+   * **Somebody we already know is joined silently.** A returning guest, or one
+   * arriving at their second party of the year, has a name saved on this device;
+   * stopping them to retype it would be a toll for having been here before.
+   *
+   * The join itself never reports anything back (see `joinParty`), so there is
+   * nothing here that could tell a guest they are waiting to be let in.
+   */
+  let askingName = $state(false);
+  let nameInput = $state('');
+  let joining = $state(false);
+
+  async function join(name: string): Promise<void> {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    joining = true;
+    try {
+      saveName(trimmed);
+      await joinParty(data.eventId, trimmed, getDeviceId());
+    } catch {
+      // Offline, or a party that has gone. Never a dead end: the order they
+      // eventually send creates the guest row anyway, from the same name.
+    } finally {
+      joining = false;
+      askingName = false;
+    }
+  }
 
   const HOUSE: MenuItem[] = DRINKS.map((d) => ({
     id: d.name,
@@ -178,6 +214,11 @@
       return;
     }
     applyDeepLink(location.search);
+
+    // Known already → join quietly. Never met → ask, once, before the menu.
+    const known = getSavedName();
+    if (known) void join(known);
+    else askingName = true;
 
     // Deliberately not awaited: the house list renders immediately and is replaced
     // when the real one lands, rather than the whole page waiting on a request to
@@ -295,6 +336,36 @@
         </a>
       {/if}
 
+      {#if askingName}
+        <!-- Before the menu rather than over it: this is arriving at a party, not a
+             dialog interrupting one. Nothing here mentions being approved — the bar
+             may not have let them in yet, and they must not be able to tell. -->
+        <section class="panel arrive">
+          <h2>Who's this?</h2>
+          <p>So the bar knows whose drink is whose.</p>
+          <form
+            onsubmit={(e) => {
+              e.preventDefault();
+              void join(nameInput);
+            }}
+          >
+            <label class="field">
+              Your name
+              <input
+                bind:value={nameInput}
+                placeholder="DANIEL"
+                autocomplete="name"
+                autocapitalize="words"
+                maxlength="40"
+              />
+            </label>
+            <button class="btn btn-go" type="submit" disabled={joining || !nameInput.trim()}>
+              {joining ? 'One moment…' : "I'm in"}
+            </button>
+          </form>
+        </section>
+      {/if}
+
       {#if closed}
         <!-- Said once, at the top, and the menu stays readable underneath: knowing
              what they *would* have been able to order is the friendly half of being
@@ -306,7 +377,9 @@
         </p>
       {/if}
 
-      {#if door === 'walk'}
+      {#if askingName}
+        <!-- nothing else while we ask; the menu is one tap away -->
+      {:else if door === 'walk'}
         <ChooseADrink
           {stock}
           canOrder={!closed}

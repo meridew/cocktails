@@ -21,12 +21,31 @@
     signInToAccount,
     signOutOfAccount,
     signUp,
+    liveParties,
     type AccountUser,
   } from '$lib/api';
   import { refreshActor, session } from '$lib/stores/session.svelte';
+  import { dialog } from '$lib/dialog';
 
   /** From +page.server.ts: whether Google is configured on this deployment. */
   let { data }: { data: { googleEnabled: boolean } } = $props();
+
+  /**
+   * What's on tonight.
+   *
+   * The front door used to be a sign-in form, which had the audience backwards:
+   * hosts and staff are a handful of people and guests are everyone else. A guest
+   * who has lost the QR code now has somewhere to go.
+   *
+   * Only live parties are listed — opening one already means it takes orders, so it
+   * means "and it is on the door" too, with no second thing to remember. Failing to
+   * load leaves the list empty and the page still works; a guest with a link never
+   * needed it.
+   */
+  let parties = $state<{ id: string; name: string }[]>([]);
+
+  /** Sign-in is a rare act by a few people, so it lives behind an icon. */
+  let signingIn = $state(false);
 
   let user = $state<AccountUser | null>(null);
   let loading = $state(true);
@@ -82,6 +101,11 @@
   }
 
   onMount(async () => {
+    void liveParties()
+      .then((r) => (parties = r.parties))
+      .catch(() => {
+        /* offline, or nothing on — the rest of the door still works */
+      });
     await refresh();
     loading = false;
   });
@@ -144,11 +168,21 @@
 <div class="workshell">
   <header class="appbar">
     <span class="brand">COCKTAILS</span>
+    <!-- Sign-in is a rare act by a handful of people. It gets an icon, and the page
+         goes to the guests who are most of the traffic. -->
+    <button
+      class="appbar-bartender"
+      type="button"
+      onclick={() => (signingIn = true)}
+      aria-label="Sign in"
+    >
+      <span class="emoji">🔑</span>
+    </button>
   </header>
 
-  <!-- `deck-hero` centres this vertically as well as horizontally: the front door is
-       one short card, unlike the lists every other deck holds. -->
-  <main class="deck deck-hero">
+  <!-- `deck-hero` centres a short door vertically. With a list of parties on it that
+       would fight the scroll, so it only applies when there is nothing to list. -->
+  <main class="deck" class:deck-hero={parties.length === 0}>
     {#if loading}
       <p class="empty">One moment…</p>
     {:else if awaitingConfirmation || (user && !user.emailVerified)}
@@ -193,71 +227,21 @@
         </section>
       {/if}
 
+      <!-- The list is the door. A guest who lost the QR code, or who was told
+           "it's on the website", lands here and taps their party. -->
       <section class="panel">
-        <h2>{registering ? 'Set up your account' : 'Welcome back'}</h2>
-        <p>
-          {registering
-            ? "Tell us what you've got in, and we'll work out what the bar can pour."
-            : 'Sign in to your parties.'}
-        </p>
-
-        {#if data.googleEnabled}
-          <button class="btn btn-go" type="button" onclick={withGoogle} disabled={busy}>
-            Continue with Google
-          </button>
-        {/if}
-
-        <form
-          onsubmit={(e) => {
-            e.preventDefault();
-            void submit();
-          }}
-        >
-          {#if registering}
-            <label class="field">
-              Your name
-              <input bind:value={name} autocomplete="name" required />
-            </label>
-          {/if}
-          <label class="field">
-            Email
-            <input type="email" bind:value={email} autocomplete="email" required />
-          </label>
-          <label class="field">
-            Password
-            <input
-              type="password"
-              bind:value={password}
-              autocomplete={registering ? 'new-password' : 'current-password'}
-              required
-            />
-          </label>
-          <div class="row-acts">
-            <button class="btn btn-go" type="submit" disabled={busy}>
-              {busy ? 'One moment…' : registering ? 'Create my account' : 'Sign in'}
-            </button>
-            <button
-              class="btn"
-              type="button"
-              onclick={() => {
-                registering = !registering;
-                error = '';
-                notice = '';
-              }}
-            >
-              {registering ? 'I have an account' : 'I need an account'}
-            </button>
-          </div>
-        </form>
-      </section>
-
-      <!-- The one thing a guest might need from this page. They should never be here —
-         their link goes straight to a party — but somebody will type the bare domain
-         after being sent the app, and "you're in the wrong place" is a dead end. -->
-      <section class="panel">
-        <p>
-          At a party? Open the link or QR code your host gave you — it goes straight to their menu.
-        </p>
+        <h2>What's on tonight</h2>
+        {#each parties as p (p.id)}
+          <a class="row" href="/e/{p.id}">
+            <span class="row-main"><span class="row-name">{p.name}</span></span>
+            <span class="row-note">Join →</span>
+          </a>
+        {:else}
+          <p class="empty">
+            Nothing running right now. If you're at a party, open the link or QR code your host gave
+            you — it goes straight to their menu.
+          </p>
+        {/each}
       </section>
     {/if}
 
@@ -265,3 +249,88 @@
     {#if notice}<p class="says says-good" role="status">{notice}</p>{/if}
   </main>
 </div>
+
+{#if signingIn}
+  <!-- `use:dialog` gives it the focus trap, the Escape handler and the inert
+       background that neo.css's other sheets get. It is the same form as before —
+       only its place in the page changed, from the whole door to a drawer behind an
+       icon. -->
+  <!-- svelte-ignore a11y_click_events_have_key_events -->
+  <div
+    class="sheet"
+    role="dialog"
+    aria-modal="true"
+    aria-label="Sign in"
+    tabindex="-1"
+    use:dialog={{ onclose: () => (signingIn = false) }}
+    onclick={(e) => {
+      if (e.target === e.currentTarget) signingIn = false;
+    }}
+  >
+    <div class="sheet-card">
+      <button
+        type="button"
+        class="sheet-close"
+        onclick={() => (signingIn = false)}
+        aria-label="Close">✕</button
+      >
+      <h2>{registering ? 'Set up your account' : 'Welcome back'}</h2>
+      <p class="hint">
+        {registering
+          ? "Tell us what you've got in, and we'll work out what the bar can pour."
+          : 'For hosts and whoever is running the bar.'}
+      </p>
+
+      {#if data.googleEnabled}
+        <button class="btn btn-go" type="button" onclick={withGoogle} disabled={busy}>
+          Continue with Google
+        </button>
+      {/if}
+
+      <form
+        onsubmit={(e) => {
+          e.preventDefault();
+          void submit();
+        }}
+      >
+        {#if registering}
+          <label class="field">
+            Your name
+            <input bind:value={name} autocomplete="name" required />
+          </label>
+        {/if}
+        <label class="field">
+          Email
+          <input type="email" bind:value={email} autocomplete="email" required />
+        </label>
+        <label class="field">
+          Password
+          <input
+            type="password"
+            bind:value={password}
+            autocomplete={registering ? 'new-password' : 'current-password'}
+            required
+          />
+        </label>
+        <div class="row-acts">
+          <button class="btn btn-go" type="submit" disabled={busy}>
+            {busy ? 'One moment…' : registering ? 'Create my account' : 'Sign in'}
+          </button>
+          <button
+            class="btn"
+            type="button"
+            onclick={() => {
+              registering = !registering;
+              error = '';
+              notice = '';
+            }}
+          >
+            {registering ? 'I have an account' : 'I need an account'}
+          </button>
+        </div>
+      </form>
+
+      {#if error}<p class="says says-bad" role="alert">{error}</p>{/if}
+    </div>
+  </div>
+{/if}

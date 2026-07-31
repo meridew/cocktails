@@ -126,6 +126,17 @@ test('a host stocks up, Dan opens the bar, a guest orders and a helper pours it'
   await expect(order).toBeVisible();
   await expect(order.getByText(/Margarita/)).toBeVisible();
 
+  // Priya is a face this bar has not seen, so her card offers **Admit** where an
+  // ordinary one offers Start — the drink is visible but cannot be made yet. That is
+  // the admission gate, and it is the whole reason the first tap here is different
+  // from the three that follow.
+  // The chip by class, not by text: a pending order's status badge also reads NEW,
+  // and matching on the word finds both.
+  const newFace = order.locator('.ord-newflag');
+  await expect(newFace).toBeVisible();
+  await order.getByRole('button', { name: '✓ Admit' }).click();
+  await expect(newFace).toHaveCount(0);
+
   // Round it to done. Each button carries the bar's own word for the step it is
   // offering, so this walks the flow that exists rather than tapping a fixed number
   // of times and hoping.
