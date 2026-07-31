@@ -115,6 +115,45 @@ export const userPin = sqliteTable('user_pin', {
   createdAt: integer('created_at').notNull(),
 });
 
+/**
+ * Who is at a party, and whether the bar has let them in.
+ *
+ * **The approval is on the person, not the drink.** A guest is admitted once and
+ * everything they order that night flows normally; without this, the bar would be
+ * approving the same stranger's third round as if it had never seen them.
+ *
+ * **The guest never sees it.** They join, they order, they get the celebration —
+ * exactly as before. Their drinks simply do not reach the bar's working queue until
+ * somebody admits them, which from their side is indistinguishable from a bartender
+ * who hasn't got to them yet. That was the explicit requirement: a gate the person
+ * being gated cannot perceive.
+ *
+ * Keyed on `device_id` because a guest has no account and never will — the whole
+ * point of the guest role. That makes this **a soft handle, not an identity**:
+ * clearing site data mints a new device and re-queues you as a new face. It is a
+ * speed bump against a stranger who found the domain, not an access control, and
+ * pretending otherwise would be the dangerous mistake here. The real control is that
+ * a human reads every name before pouring anything.
+ */
+export const eventGuest = sqliteTable(
+  'event_guest',
+  {
+    eventId: text('event_id')
+      .notNull()
+      .references(() => event.id, { onDelete: 'cascade' }),
+    /** From `getDeviceId()`. Not an identity; see above. */
+    deviceId: text('device_id').notNull(),
+    /** Given once when they join, and reused on every round afterwards. */
+    name: text('name').notNull(),
+    /** `pending` until the bar admits them. `blocked` is a deliberate no. */
+    status: text('status').notNull().default('pending'),
+    createdAt: integer('created_at').notNull(),
+    /** When somebody let them in — null while pending. */
+    admittedAt: integer('admitted_at'),
+  },
+  (t) => [primaryKey({ columns: [t.eventId, t.deviceId] })],
+);
+
 export const orders = sqliteTable('orders', {
   id: text('id').primaryKey(),
   /**

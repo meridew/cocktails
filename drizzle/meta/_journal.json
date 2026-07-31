@@ -8,6 +8,13 @@
       "when": 1785490060847,
       "tag": "0000_actor_model",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1785502635293,
+      "tag": "0001_guest_admission",
+      "breakpoints": true
     }
   ]
 }

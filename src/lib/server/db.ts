@@ -44,6 +44,7 @@ import { config } from './config';
 import * as schema from './schema';
 import {
   event,
+  eventGuest,
   eventMenu,
   joinCodes,
   orders,
@@ -71,6 +72,7 @@ export type EventRow = typeof event.$inferSelect;
 export type StockRow = typeof stock.$inferSelect;
 export type UserRow = typeof user.$inferSelect;
 type OrderRow = typeof orders.$inferSelect;
+export type EventGuestRow = typeof eventGuest.$inferSelect;
 type SubRow = typeof subscriptions.$inferSelect;
 
 function rowToOrder(r: OrderRow): Order {
@@ -137,6 +139,34 @@ export function createDb(dbPath: string) {
       .where(and(eq(orders.eventId, eventId), eq(orders.id, id)))
       .get();
 
+  /**
+   * "This order's device has been admitted at this party."
+   *
+   * A correlated subquery rather than a join, so it drops into an existing `where`
+   * without changing the shape of the row that comes back — every caller of
+   * `listOrders` reads an `Order`, and a join would hand them an object with the
+   * order nested inside it.
+   *
+   * **A row with no device at all counts as admitted**, and that is the safe way
+   * round rather than a hole. `POST /api/orders` refuses an order without a device
+   * id precisely so the gate has something to hang on, which makes this branch
+   * unreachable from outside; it exists so that a row which somehow has none is
+   * *visible to the bar* rather than silently invisible everywhere — the waiting room
+   * groups by pending guests, so a device-less order would appear in neither list.
+   * Given the choice between a stranger's drink being seen and a real guest's being
+   * lost, this errs towards seen.
+   */
+  const admitted = (eventId: string) =>
+    sql`(
+      ${orders.deviceId} IS NULL
+      OR EXISTS (
+        SELECT 1 FROM ${eventGuest}
+        WHERE ${eventGuest.eventId} = ${eventId}
+          AND ${eventGuest.deviceId} = ${orders.deviceId}
+          AND ${eventGuest.status} = 'admitted'
+      )
+    )`;
+
   return {
     /** Escape hatch for tests (PRAGMA inspection). Not for application use. */
     raw: sqlite,
@@ -172,6 +202,32 @@ export function createDb(dbPath: string) {
       }
       const ts = now();
       const id = genId();
+
+      /**
+       * A device that has never joined gets a `pending` guest row here, rather than
+       * an order the gate cannot see.
+       *
+       * The guest screen joins first, so this is the path for anyone who didn't come
+       * through it — a stale client, or somebody posting to the endpoint directly.
+       * Without it, skipping the join would be a way *past* the admission gate rather
+       * than into the waiting room, which is exactly backwards. `onConflictDoNothing`
+       * because a returning guest already has a row and must not be reset to pending
+       * on their second round.
+       */
+      if (input.deviceId) {
+        db.insert(eventGuest)
+          .values({
+            eventId,
+            deviceId: input.deviceId,
+            name: input.name,
+            status: 'pending',
+            createdAt: ts,
+            admittedAt: null,
+          })
+          .onConflictDoNothing()
+          .run();
+      }
+
       db.insert(orders)
         .values({
           id,
@@ -188,15 +244,129 @@ export function createDb(dbPath: string) {
       return rowToOrder(getRow(eventId, id)!);
     },
 
+    // ---- who is at the party, and whether the bar has let them in ------------
+
+    /**
+     * Join, or come back. **Never demotes an admitted guest**: reopening the app
+     * calls this again, and a returning regular must not land back in the waiting
+     * room. The name is refreshed, because that is the one thing they might fix.
+     */
+    joinParty(eventId: string, deviceId: string, name: string): EventGuestRow {
+      const ts = now();
+      db.insert(eventGuest)
+        .values({ eventId, deviceId, name, status: 'pending', createdAt: ts, admittedAt: null })
+        .onConflictDoUpdate({
+          target: [eventGuest.eventId, eventGuest.deviceId],
+          set: { name },
+        })
+        .run();
+      return this.guestAt(eventId, deviceId)!;
+    },
+
+    guestAt(eventId: string, deviceId: string): EventGuestRow | null {
+      return (
+        db
+          .select()
+          .from(eventGuest)
+          .where(and(eq(eventGuest.eventId, eventId), eq(eventGuest.deviceId, deviceId)))
+          .get() ?? null
+      );
+    },
+
+    /** Everyone at this party, newest first — the bar reads the waiting ones off this. */
+    listGuests(eventId: string): EventGuestRow[] {
+      return db
+        .select()
+        .from(eventGuest)
+        .where(eq(eventGuest.eventId, eventId))
+        .orderBy(desc(eventGuest.createdAt))
+        .all();
+    },
+
+    setGuestStatus(eventId: string, deviceId: string, status: 'admitted' | 'blocked'): void {
+      db.update(eventGuest)
+        .set({ status, admittedAt: status === 'admitted' ? now() : null })
+        .where(and(eq(eventGuest.eventId, eventId), eq(eventGuest.deviceId, deviceId)))
+        .run();
+    },
+
+    /**
+     * Let everyone waiting in at once, and say how many.
+     *
+     * A room that arrived together should not cost one tap per person while somebody
+     * is trying to pour. Deliberately does **not** touch `blocked` rows — a no that
+     * was said on purpose is not undone by a convenience button.
+     */
+    admitAllPending(eventId: string): number {
+      const waiting = db
+        .select({ deviceId: eventGuest.deviceId })
+        .from(eventGuest)
+        .where(and(eq(eventGuest.eventId, eventId), eq(eventGuest.status, 'pending')))
+        .all();
+      if (waiting.length === 0) return 0;
+      db.update(eventGuest)
+        .set({ status: 'admitted', admittedAt: now() })
+        .where(and(eq(eventGuest.eventId, eventId), eq(eventGuest.status, 'pending')))
+        .run();
+      return waiting.length;
+    },
+
+    /**
+     * The drinks a not-yet-admitted guest has ordered.
+     *
+     * Kept out of `listOrders` on purpose: the bar's queue is work, and this is a
+     * decision. Showing what somebody ordered is what makes the decision possible —
+     * a name alone tells you nothing, "Marco, 2× Negroni" tells you whether he is at
+     * the party.
+     */
+    waitingRoom(eventId: string): { guest: EventGuestRow; orders: Order[] }[] {
+      const pending = db
+        .select()
+        .from(eventGuest)
+        .where(and(eq(eventGuest.eventId, eventId), eq(eventGuest.status, 'pending')))
+        .orderBy(asc(eventGuest.createdAt))
+        .all();
+      if (pending.length === 0) return [];
+
+      // Grouped from the **rows**, not from `Order`: `deviceId` is a server concept
+      // and deliberately never reaches the client shape, so the mapping has to happen
+      // after the grouping rather than before it.
+      const rows = db
+        .select()
+        .from(orders)
+        .where(
+          and(
+            eq(orders.eventId, eventId),
+            inArray(
+              orders.deviceId,
+              pending.map((g) => g.deviceId),
+            ),
+          ),
+        )
+        .orderBy(asc(orders.createdAt))
+        .all();
+
+      return pending.map((guest) => ({
+        guest,
+        orders: rows.filter((r) => r.deviceId === guest.deviceId).map(rowToOrder),
+      }));
+    },
+
     /**
      * Bumped orders first (most recently bumped wins), then oldest. The client can
      * re-sort for display, but this keeps the wire order meaningful on its own.
+     *
+     * **Only admitted guests' drinks.** A guest the bar has not let in yet has
+     * ordered, been thanked, and is waiting — their round is in `waitingRoom()`
+     * instead, and reaches this list the moment somebody admits them. That split is
+     * the whole of the admission gate; if this method ever stopped filtering, the
+     * gate would be gone and nothing else would notice.
      */
     listOrders(eventId: string): Order[] {
       return db
         .select()
         .from(orders)
-        .where(eq(orders.eventId, eventId))
+        .where(and(eq(orders.eventId, eventId), admitted(eventId)))
         .orderBy(
           sql`(${orders.bumpedAt} IS NOT NULL) DESC`,
           desc(orders.bumpedAt),
@@ -418,6 +588,22 @@ export function createDb(dbPath: string) {
     /** Every party, newest first. Admin-only by capability, not by this function. */
     allEvents(): EventRow[] {
       return db.select().from(event).orderBy(desc(event.createdAt)).all();
+    },
+
+    /**
+     * What's on tonight — the only party data anyone anonymous may read.
+     *
+     * `live` is the whole filter, and that is deliberate rather than lazy: opening a
+     * party already means it takes orders, so making it mean "and it is on the front
+     * door" adds no concept and no second thing to remember. Close it and it goes.
+     */
+    liveEvents(): EventRow[] {
+      return db
+        .select()
+        .from(event)
+        .where(eq(event.status, 'live'))
+        .orderBy(desc(event.createdAt))
+        .all();
     },
 
     eventsForHost(hostUserId: string): EventRow[] {
@@ -778,6 +964,17 @@ export const eventById: Db['eventById'] = (id) => d().eventById(id);
 export const updateEvent: Db['updateEvent'] = (id, changes) => d().updateEvent(id, changes);
 export const deleteEvent: Db['deleteEvent'] = (id) => d().deleteEvent(id);
 export const allEvents: Db['allEvents'] = () => d().allEvents();
+export const liveEvents: Db['liveEvents'] = () => d().liveEvents();
+
+// Who is at a party, and whether the bar has let them in. See `event_guest`.
+export const joinParty: Db['joinParty'] = (eventId, deviceId, name) =>
+  d().joinParty(eventId, deviceId, name);
+export const guestAt: Db['guestAt'] = (eventId, deviceId) => d().guestAt(eventId, deviceId);
+export const listGuests: Db['listGuests'] = (eventId) => d().listGuests(eventId);
+export const setGuestStatus: Db['setGuestStatus'] = (eventId, deviceId, status) =>
+  d().setGuestStatus(eventId, deviceId, status);
+export const admitAllPending: Db['admitAllPending'] = (eventId) => d().admitAllPending(eventId);
+export const waitingRoom: Db['waitingRoom'] = (eventId) => d().waitingRoom(eventId);
 export const eventsForHost: Db['eventsForHost'] = (hostUserId) => d().eventsForHost(hostUserId);
 
 // The cupboard is keyed on the *host*, not the party — see `stock` in schema.ts.

@@ -44,6 +44,18 @@ export async function POST(event: RequestEvent) {
   if (!name || items.length === 0) {
     return fail(422, 'name and at least one item required');
   }
+  /**
+   * **Required, because it is what the admission gate hangs on.**
+   *
+   * A guest is admitted per device (`event_guest`), and `listOrders` shows only
+   * admitted ones. An order arriving with no device has nothing to gate on — so
+   * without this, omitting one field would be a way straight past the gate and into
+   * the working queue, which is the opposite of what it is for.
+   *
+   * Every real client already sends it: `getDeviceId()` mints one on first use and
+   * it is how a guest gets told their drink is ready.
+   */
+  if (!deviceId) return fail(422, 'deviceId required');
 
   /**
    * Which party this drink is for.

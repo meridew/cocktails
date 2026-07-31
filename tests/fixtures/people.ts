@@ -16,7 +16,7 @@ import assert from 'node:assert/strict';
 import { request, send } from '../app';
 import { memorySender, setEmailSender } from '$lib/server/email';
 import { resetAccounts } from '$lib/server/accounts';
-import { createEvent, setUserRole, userByEmail } from '$lib/server/db';
+import { createEvent, setGuestStatus, setUserRole, userByEmail } from '$lib/server/db';
 
 /** Captured outbound mail, so verification links can be followed like a person would. */
 export const mail = memorySender();
@@ -123,4 +123,43 @@ export async function helper(
   const joined = await request('/api/staff/join', send('POST', { eventId, code, name, deviceId }));
   assert.equal(joined.status, 200, 'the code should let a helper in');
   return ((await joined.json()) as { token: string }).token;
+}
+
+/**
+ * A guest orders, and the bar lets them in.
+ *
+ * **Admission is a real gate now**, so "place an order" and "an order the bar can
+ * see" stopped being the same thing. A guest is admitted per device; until somebody
+ * admits them their round sits in the waiting room and `GET /api/orders` does not
+ * show it.
+ *
+ * Nearly every suite that posts an order is testing something *downstream* of it —
+ * the status chain, the queue, throttling — and wants an ordinary admitted guest.
+ * This is that guest. A suite testing the gate itself should place the order by hand
+ * and not call this.
+ *
+ * The device id is unique per call, so two orders from "the same" test are two
+ * guests, which is what two people at a party are.
+ */
+let guestSeq = 0;
+export async function guestOrder(
+  eventId: string,
+  input: { name: string; items: { name: string; qty: number }[]; note?: string },
+): Promise<{ id: string; deviceId: string }> {
+  const deviceId = `dev-guest-${(guestSeq++).toString(36)}`;
+  const res = await request('/api/orders', send('POST', { ...input, eventId, deviceId }));
+  assert.equal(res.status, 200, `order for ${input.name} → ${res.status}`);
+  admitGuest(eventId, deviceId);
+  return { id: ((await res.json()) as { id: string }).id, deviceId };
+}
+
+/**
+ * Let a device in, straight through the data layer.
+ *
+ * Deliberately *not* over HTTP: this is setup for suites about something else, and
+ * routing it through the endpoint would make every one of them depend on the
+ * admission API's shape. `guests.test.ts` drives the real endpoint.
+ */
+export function admitGuest(eventId: string, deviceId: string): void {
+  setGuestStatus(eventId, deviceId, 'admitted');
 }
