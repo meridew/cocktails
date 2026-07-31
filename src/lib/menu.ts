@@ -1,4 +1,46 @@
+import { DRINKS } from './data';
 import type { MenuItem } from './api';
+
+/**
+ * A card's emoji: the drink's own if it has one, otherwise its base spirit's.
+ *
+ * The six house drinks carry hand-picked emoji. The generated 270 don't, and a wall
+ * of identical glasses is worse than a wall of none — so the base spirit picks one,
+ * which at least groups the cards by eye the way the list groups them by heading.
+ *
+ * Lives here rather than on the guest page because there are two menus now, flat and
+ * 3D, and a drink showing a different face depending on which one you opened would
+ * be a small, constant wrongness.
+ */
+const BASE_EMOJI: Record<string, string> = {
+  Gin: '🌿',
+  Vodka: '❄️',
+  Rum: '🏝️',
+  'White Rum': '🏝️',
+  'Dark Rum': '🥥',
+  Tequila: '🌵',
+  Mezcal: '🔥',
+  Whiskey: '🥃',
+  Whisky: '🥃',
+  Bourbon: '🥃',
+  Rye: '🥃',
+  Scotch: '🥃',
+  Brandy: '🍇',
+  Cognac: '🍇',
+  Champagne: '🍾',
+  Prosecco: '🍾',
+  Wine: '🍷',
+  Beer: '🍺',
+  Cachaça: '🇧🇷',
+  Pisco: '🍋',
+  Absinthe: '🧚',
+  Aperol: '🧡',
+  Campari: '❤️',
+  Vermouth: '🍸',
+};
+
+export const emojiFor = (item: MenuItem): string =>
+  DRINKS.find((d) => d.name === item.name)?.emoji ?? BASE_EMOJI[item.base] ?? '🍸';
 
 /**
  * Searching and grouping a menu, in one place.

@@ -30,7 +30,7 @@
   import { onDestroy, onMount } from 'svelte';
   import { DRINKS, type Drink } from '$lib/data';
   import { eventMenu, joinParty, type EventMenu, type MenuItem } from '$lib/api';
-  import { groupByBase } from '$lib/menu';
+  import { emojiFor, groupByBase } from '$lib/menu';
   import { getDeviceId, getSavedName, saveName } from '$lib/device';
 
   import { addLine, basketCount } from '$lib/stores/basket.svelte';
@@ -174,39 +174,6 @@
   const grouped = $derived(groupByBase(onOffer, query));
   /** Only worth the search box and the headings when there is something to sort. */
   const manyDrinks = $derived(onOffer.length > 12);
-
-  /**
-   * A card's emoji. The six house drinks carry their own; the generated 270 don't,
-   * and a wall of identical glasses is worse than a wall of none — so the base spirit
-   * picks one, which at least groups the cards by eye the way the list groups them by
-   * heading.
-   */
-  const BASE_EMOJI: Record<string, string> = {
-    Gin: '🌿',
-    Vodka: '❄️',
-    Rum: '🏝️',
-    Tequila: '🌵',
-    Mezcal: '🔥',
-    Whiskey: '🥃',
-    Whisky: '🥃',
-    Bourbon: '🥃',
-    Rye: '🥃',
-    Scotch: '🥃',
-    Brandy: '🍇',
-    Cognac: '🍇',
-    Champagne: '🍾',
-    Prosecco: '🍾',
-    Wine: '🍷',
-    Beer: '🍺',
-    Cachaça: '🇧🇷',
-    Pisco: '🍋',
-    Absinthe: '🧚',
-    Aperol: '🧡',
-    Campari: '❤️',
-    Vermouth: '🍸',
-  };
-  const emojiFor = (item: MenuItem): string =>
-    DRINKS.find((d) => d.name === item.name)?.emoji ?? BASE_EMOJI[item.base] ?? '🍸';
 
   onMount(() => {
     // Notifications sent before the bar became a route still carry `/?bartender`.
