@@ -311,11 +311,21 @@
 /* `.ord-progress` and `.ord-note-peek` used to live here as rows of their own. Both
    moved onto the meta line — see `.ord-count` and `.ord-note-mark` above. */
 
-/* The single forward action — full-height so it's easy to hit. */
+/*
+ * The single forward action — full-height so it's easy to hit.
+ *
+ * The width is a variable because two different things have to agree on it: this
+ * button, and the Admit/reject pair that stands in its place on an un-admitted
+ * card. As two literals they had drifted to 92px and 146px, so the action column
+ * stepped in and out as you read down the queue.
+ */
+.ord {
+  --ord-go-w: 92px;
+}
 .ord-go {
   flex: none;
   align-self: stretch;
-  min-width: 92px;
+  min-width: var(--ord-go-w);
   padding: 8px 12px;
   background: rgba(255, 255, 255, 0.12);
   color: inherit;
@@ -1607,14 +1617,32 @@ button.row:hover {
 }
 /* Admit and turn-away sit side by side in the slot one button usually occupies, so
    the row keeps its height and "no" costs exactly as much as "yes". */
+/*
+ * Yes and no, sharing one button's footprint.
+ *
+ * The pair used to be a full-width Admit plus a 48px reject — 146px against the
+ * 92px every other row spends — so the action column jogged sideways wherever an
+ * un-admitted guest appeared, and on a 390px phone it ate the meta line.
+ *
+ * Halves rather than a primary and a stub, because "no" has to stay as cheap as
+ * "yes": a stranger who found the domain should cost one tap. They keep the card's
+ * full height, so each is a comfortable target despite being narrow.
+ */
 .ord-admit {
   flex: none;
   display: flex;
   align-items: stretch;
   gap: 6px;
+  width: var(--ord-go-w);
+}
+.ord-admit .ord-go {
+  /* Beat `.ord-go`'s own min-width, or each half would claim a whole button. */
+  flex: 1 1 0;
+  min-width: 0;
+  padding-left: 4px;
+  padding-right: 4px;
 }
 .ord-reject {
-  min-width: 48px;
   background: rgba(255, 255, 255, 0.12);
 }
 

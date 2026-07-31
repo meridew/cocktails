@@ -126,7 +126,10 @@ test('a host stocks up, Dan opens the bar, a guest orders and a helper pours it'
   // had to reach for the class instead. The workaround outlived the excuse for it.
   const newFace = order.getByText('not in', { exact: true });
   await expect(newFace).toBeVisible();
-  await order.getByRole('button', { name: '✓ Admit' }).click();
+  // Located by its accessible name, not its glyph: the pair was shrunk to share one
+  // ordinary button's width, so the visible label is now a ✓ and the words moved to
+  // `aria-label`. Matching on the label is the assertion that survives that.
+  await order.getByRole('button', { name: /Let .* in/ }).click();
   await expect(newFace).toHaveCount(0);
 
   // Round it to done. Each button carries the bar's own word for the step it is

@@ -129,13 +129,15 @@
         <!--
           An un-admitted card shows the time and nothing else on this line.
 
-          The status word is redundant — the pill and the Admit button have both
-          already said it — and the poured count is not actionable, because you
-          cannot pour anything until you have let the person in. Dropping both is
-          also what makes the row fit: measured on a 390px phone, the two Admit
-          buttons take 146px of a 362px card, leaving 29px for a meta line that
-          wanted 58, so it truncated to "NE…". Losing two things you cannot act on
-          beats truncating the one you can.
+          Mostly on merit: the status word is redundant beside a pill reading "not
+          in" and a button that says admit, and the poured count is not actionable,
+          because nothing can be poured until the person is let in.
+
+          It also still has to fit. On a 390px phone the head has 233px, of which the
+          name's floor takes 85 and the pill 48, leaving about 84 — and a meta line
+          carrying status, time and count wants roughly 95. It was far worse before
+          the Admit pair was shrunk to one button's width, when the head had only
+          179px and this truncated to "NE…", but the margin is still against it.
         -->
         <span class="ord-meta">
           {#if !awaiting}<span class="ord-badge">{meta.badge}</span>{/if}{ago(
@@ -175,15 +177,30 @@
            found the domain should cost one tap, not a delete plus watching them
            order again. Admitting is per *guest*, so it releases everything they
            have ordered and everything they order later tonight. -->
+      <!--
+        Marks rather than words, because the pair now shares one button's width and
+        "✓ Admit" does not fit in half of it. The card is not relying on the ticks
+        alone to explain itself: the pill beside the name reads "not in", the two are
+        colour-coded the way every accept/reject is, and both carry a label naming
+        the guest for anyone reading by ear or hovering.
+      -->
       <span class="ord-admit">
-        <button type="button" class="ord-go start" disabled={busy} onclick={() => onadmit(false)}>
-          ✓ Admit
+        <button
+          type="button"
+          class="ord-go start"
+          disabled={busy}
+          onclick={() => onadmit(false)}
+          title="Let {order.name} in"
+          aria-label="Let {order.name} in"
+        >
+          ✓
         </button>
         <button
           type="button"
           class="ord-go ord-reject"
           disabled={busy}
           onclick={() => onadmit(true)}
+          title="Turn {order.name} away"
           aria-label="Turn away {order.name}"
         >
           ✕
