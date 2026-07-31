@@ -82,11 +82,21 @@ const GOVERNED: Record<string, Requirement> = {
   'DELETE /api/subscriptions': 'public',
 
   // Scoped to a *person*, not a party — which is the whole of the phase 0 fix.
+  'GET /api/hosts': 'host:list',
+  'GET /api/hosts/[id]': 'host:list',
+  // Three capabilities behind one verb; the handler checks per field. Declared as
+  // the weakest of them, which is what this suite can actually exercise.
+  'PATCH /api/hosts/[id]': 'host:suspend',
+  'DELETE /api/hosts/[id]': 'host:delete',
   'GET /api/hosts/[id]/stock': 'stock:read',
   'PUT /api/hosts/[id]/stock': 'stock:edit',
 
   'GET /api/events': 'session',
   'POST /api/events': 'party:create',
+  'GET /api/events/[id]': 'orders:read',
+  // As above: open and close are separate capabilities, chosen by the body.
+  'PATCH /api/events/[id]': 'party:edit',
+  'DELETE /api/events/[id]': 'party:delete',
   'POST /api/events/[id]/bar': 'orders:advance',
   // A menu is what's on the kitchen table under the QR code — not a secret.
   'GET /api/events/[id]/menu': 'public',

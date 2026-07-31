@@ -206,16 +206,30 @@ Open questions to settle before building:
 
 → Discuss, then implement as its own slice (likely after Phase 3).
 
-## Visual restoration / polish pass — 🎨 SCHEDULED (after Phase 2 + cutover)
+## ~~Visual restoration / polish pass~~ — ✅ mostly already true, verified 31 Jul 2026
 
-The Svelte rebuild currently uses a **clean placeholder neon style**, not the full
-loud original aesthetic. This is deliberate prototype sequencing, not a redesign.
-To bring back / level up after the foundation is locked:
+**This entry was stale, and it did damage before anyone checked it.** It claimed the
+display fonts were "referenced in CSS vars but never linked", and that claim was
+copied straight into `PLATFORM-PLAN.md` as the entire justification for a phase.
+Verified in a running browser instead of read:
 
-- **Load the display fonts** (Bungee / Archivo Black / Playfair) — currently
-  referenced in CSS vars but never linked, so it falls back to system fonts.
-- **Background confetti cannon** (ingredient emojis blasting in from the edges).
-- **Celebrate confetti explosion** on successful order (foreground burst).
-- Favicon-in-the-bar, louder neon glow/intensity, overall "in your face" energy.
-- Revisit layout density to match the original's punch.
-  → One focused styling pass once components are stable (post-cutover).
+- **The fonts load and render.** `@fontsource/bungee`, `@fontsource/archivo-black`
+  and `@fontsource/space-grotesk` are imported in `+layout.svelte`;
+  `document.fonts.check()` is true for all three, and headings compute to
+  `Archivo Black` with buttons on `Bungee`. (Playfair is named nowhere in
+  `neo.css` — that part was never true either.)
+- **The background cannon runs.** `startBackgroundCannon` is wired in the layout and
+  the canvas is a full-viewport fixed layer. Its `width`/`height` read `0` from the
+  main thread, which looks broken and isn't: `useWorker: true` transfers the canvas
+  to an OffscreenCanvas, so the worker owns the buffer and `getContext` throws by
+  design. Check `getBoundingClientRect()` instead.
+- **The celebrate burst fires** on a sent order, from `+page.svelte`.
+- The palette is in force: `--bg` computes to `#ffe600`.
+
+What is genuinely left is subjective and unscheduled: louder neon glow, favicon in
+the bar, layout density. Not a phase — a pass to make when someone dislikes
+something specific.
+
+> **The lesson, since it cost a phase's justification:** a doc that says a thing is
+> broken is a _claim_, not a fact. This one was wrong for long enough to be quoted
+> as a reason. Check the running app before scheduling work off the back of a note.

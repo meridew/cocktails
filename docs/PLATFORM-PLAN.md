@@ -546,25 +546,36 @@ The cross-tenant isolation suite rewritten against the new actor, still driving 
 A's real credential at host B's real ids and still expecting 404. `capabilities.test.ts`
 still failing any endpoint that declares no capability. Database wiped and recreated._
 
-### Phase 1 — the look, delivered at last
+### ~~Phase 1 — the look, delivered at last~~ ❌ withdrawn, 31 Jul 2026 — its premise was false
 
-Before three new areas get built, establish what they are built _from_. `neo.css` is
-the verbatim original design and **has never once rendered as designed**: the display
-fonts are referenced in CSS variables and never loaded, so every screen so far has
-fallen back to system fonts.
+**This phase existed because of a claim that turned out not to be true.** It said
+`neo.css` "has never once rendered as designed" because the display fonts were
+"referenced in CSS variables and never loaded". That came from a stale note in
+`OUTSTANDING.md`, and it was written into this plan as a whole phase's justification
+without anyone opening the app.
 
-1. **Self-host and load Bungee, Archivo Black and Playfair.** Self-hosted, not
-   hotlinked — this is an offline-first PWA and a third-party font request is both a
-   dependency and a privacy leak.
-2. **Restore the background confetti cannon** and the celebrate burst.
-3. **Extract the shared vocabulary** the new screens need — app bar, panel, list row,
-   form field, keypad, empty state, danger action — as components styled from
-   `neo.css`. Additions go in `app.css`.
-4. **`neo.css` stays byte-identical.** This is restoration, not redesign. The original
-   is retrievable for comparison: `git show 5a41824:index.html`.
+Checked in a running browser before starting the work:
 
-_Gate: walked in a browser at phone and desktop widths, screenshotted beside the
-original, and the fonts confirmed loading in the network panel rather than assumed._
+| Claimed                         | Actually                                                                                                                                                          |
+| ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Display fonts never loaded      | All three imported in `+layout.svelte`; `document.fonts.check()` true for each; headings compute to Archivo Black, buttons to Bungee                              |
+| Falls back to system fonts      | It does not. `--bg` computes to `#ffe600`; the palette is in force                                                                                                |
+| Confetti cannon needs restoring | Running. The canvas reads `0×0` from the main thread because `useWorker: true` hands it to an OffscreenCanvas — it measures 1280×720 by `getBoundingClientRect()` |
+| Celebrate burst needs restoring | Fires from `+page.svelte` on a sent order                                                                                                                         |
+| Playfair needs loading          | `neo.css` never mentions Playfair                                                                                                                                 |
+
+**What was genuinely useful in this phase — the shared component vocabulary — moves
+into phase 2.** Extracting an app bar, a panel, a list row and a form field _before_
+any of the three areas exist would be guessing at an abstraction with no consumers.
+Phase 2 builds the first area against `neo.css` directly; whatever repeats by the end
+of it gets extracted then, with evidence.
+
+`neo.css` stays byte-identical regardless — that guardrail is unaffected.
+
+> The lesson is recorded in `OUTSTANDING.md` and it is the same one this whole
+> rewrite is about: **a document saying something is broken is a claim, not a fact.**
+> This plan was written by reading notes rather than running the app, and that is how
+> a phase got scheduled to fix something that already worked.
 
 ### Phase 2 — the front door and the admin area
 
@@ -578,6 +589,10 @@ original, and the fonts confirmed loading in the network panel rather than assum
    Dan), their parties, ban/unban with a reason, delete, promote to admin.
 4. **`/admin` — parties.** Create against a host, name and date, open and close,
    delete. The guest link and its QR code. `Open the bar`.
+5. **Extract the shared vocabulary, at the end** — app bar, panel, list row, form
+   field, empty state, danger action. Built against `neo.css` first and pulled out
+   once this area shows what actually repeats, rather than guessed at up front with
+   no consumers. Additions go in `app.css`; `neo.css` stays byte-identical.
 
 _Gate: walked in a browser end to end — register a host from a private window, then
 as Dan find them, fill their cupboard, create their party, open it, and open its bar._

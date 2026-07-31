@@ -124,6 +124,13 @@ export interface Allowed {
  * A party scope whose event doesn't exist is **404**, and so is one belonging to
  * somebody else — the id must not confirm the party is real. That asymmetry is the
  * whole of the tenancy suite.
+ *
+ * **Order matters, and it is authentication first.** The existence check used to run
+ * before anything else, so an anonymous caller asking about a party that isn't there
+ * got a 404 where every other guarded endpoint answers 401 — a small leak (it says
+ * the id is unknown) and an inconsistency someone could probe with. Now: allowed,
+ * then unauthenticated, then not-yours-or-not-there. Both of the last two answer 404,
+ * which is what makes them indistinguishable.
  */
 export async function requireCapability(
   event: RequestEvent,
@@ -132,11 +139,12 @@ export async function requireCapability(
 ): Promise<Allowed | { denied: Denied }> {
   const actor = await resolveActor(event, scope);
 
-  if (scope.kind === 'party' && !eventById(scope.eventId)) {
-    return { denied: fail(404, 'no such party') };
+  // An admin holds every capability everywhere, including over a party that doesn't
+  // exist — the handler's own lookup answers that, and answering it here would just
+  // be a second place to keep in step.
+  if (can(actor, capability, scope) && (scope.kind !== 'party' || eventById(scope.eventId))) {
+    return { actor };
   }
-
-  if (can(actor, capability, scope)) return { actor };
 
   /**
    * **Did they present a credential at all** — not "do they have an actor for this
@@ -150,9 +158,12 @@ export async function requireCapability(
   const authenticated = Boolean(actor.account) || sessionStaff(bearer(event)) !== null;
   if (!authenticated) return { denied: fail(401, 'unauthorized') };
 
-  // Signed in as somebody, but not somebody with a claim on this. For a party or a
-  // host they don't belong to, 404 rather than 403: a 403 confirms it exists.
-  if (scope.kind === 'party' && actor.party === null) return { denied: fail(404, 'no such party') };
+  // Signed in as somebody, but not somebody with a claim on this. A party or host
+  // they don't belong to is **404, not 403** — and so is one that doesn't exist, so
+  // the two cannot be told apart. A 403 would confirm the id is real.
+  if (scope.kind === 'party' && (actor.party === null || !eventById(scope.eventId))) {
+    return { denied: fail(404, 'no such party') };
+  }
   if (scope.kind === 'host' && actor.account?.id !== scope.userId) {
     return { denied: fail(404, 'no such host') };
   }
