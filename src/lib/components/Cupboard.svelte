@@ -123,27 +123,36 @@
   {#if !loaded}
     <p class="empty">Loading…</p>
   {:else}
-    <!-- The number this screen exists to move. Sticky, so the effect of a tick is
-         never off-screen while you work down a long list. -->
-    <p class="stat cupboard-stat" aria-live="polite">
-      <b>{pourable.length}</b>
-      {pourable.length === 1 ? 'drink' : 'drinks'} from
-      <b>{ticked.size}</b>
-      {ticked.size === 1 ? 'bottle' : 'bottles'}
-    </p>
+    <!--
+      The count and the controls on one surface.
 
-    {#if readonly}
-      <p class="empty">This is their list — you can look, not change it.</p>
-    {:else}
-      <div class="row-acts">
+      They used to be two bare children sitting straight on the page background while
+      everything around them was on a card, so the Save button floated between two
+      panels looking like it had come adrift. They belong together anyway: the number
+      is what the buttons are about.
+
+      Sticky, so the effect of a tick is never off-screen while you work down a list
+      of 173 bottles.
+    -->
+    <div class="panel-acts cupboard-stat">
+      <p class="stat" aria-live="polite">
+        <b>{pourable.length}</b>
+        {pourable.length === 1 ? 'drink' : 'drinks'} from
+        <b>{ticked.size}</b>
+        {ticked.size === 1 ? 'bottle' : 'bottles'}
+      </p>
+
+      {#if readonly}
+        <span class="row-note">Their list — you can look, not change it.</span>
+      {:else}
         <button type="button" class="btn btn-go" disabled={!dirty || busy} onclick={save}>
           {busy ? 'Saving…' : dirty ? 'Save' : 'Saved'}
         </button>
         {#if dirty}
-          <button type="button" class="btn" disabled={busy} onclick={revert}>Undo</button>
+          <button type="button" class="btn btn-quiet" disabled={busy} onclick={revert}>Undo</button>
         {/if}
-      </div>
-    {/if}
+      {/if}
+    </div>
 
     {#if nextBest.length}
       <!-- The question a tick list can't answer on its own: not "what can I make"

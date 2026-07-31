@@ -27,9 +27,10 @@
    * mean hiding it again on /bar.
    */
   import { goto } from '$app/navigation';
-  import { onMount } from 'svelte';
+  import { onDestroy, onMount } from 'svelte';
   import { DRINKS, type Drink } from '$lib/data';
   import { eventMenu, joinParty, type EventMenu, type MenuItem } from '$lib/api';
+  import { groupByBase } from '$lib/menu';
   import { getDeviceId, getSavedName, saveName } from '$lib/device';
 
   import { addLine, basketCount } from '$lib/stores/basket.svelte';
@@ -141,10 +142,18 @@
   );
 
   /**
-   * What the party leads with. Curation is optional, so **no short list means show
-   * everything** — its absence is a default, not a broken menu.
+   * **The menu.** The cupboard is what the host *has*; the short list is what the bar
+   * is prepared to make, and that is what a guest may order.
+   *
+   * There used to be a `Show everything` door beside this one, and it was a mistake:
+   * a guest could order round the curation, which made curating pointless. Whatever
+   * somebody deliberately left off the list is off it.
+   *
+   * **No short list still means everything**, which is not the same hole. That is the
+   * cupboard's rule again — never asked is not answered no — so a party nobody has
+   * curated works rather than serving an empty menu. Curation is what *narrows*.
    */
-  const featured = $derived.by(() => {
+  const onOffer = $derived.by(() => {
     const list = menu?.shortList ?? [];
     if (list.length === 0) return items;
     const byId = new Map(items.map((i) => [i.id, i]));
@@ -154,25 +163,17 @@
     });
   });
 
-  /** Which door is open. `featured` is where everyone starts. */
-  let door = $state<'featured' | 'all' | 'walk'>('featured');
+  /** Which door is open. The menu, or being walked through it. */
+  let door = $state<'menu' | 'walk'>('menu');
   let query = $state('');
 
-  /** `Show everything`, grouped by base spirit so 200 drinks are navigable. */
-  const grouped = $derived.by(() => {
-    const q = query.trim().toLowerCase();
-    const hits = q
-      ? items.filter((i) => i.name.toLowerCase().includes(q) || i.base.toLowerCase().includes(q))
-      : items;
-    const by = new Map<string, MenuItem[]>();
-    for (const i of hits) {
-      const key = i.base || 'Other';
-      (by.get(key) ?? by.set(key, []).get(key)!).push(i);
-    }
-    return [...by.entries()]
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([base, list]) => ({ base, list: list.sort((a, b) => a.name.localeCompare(b.name)) }));
-  });
+  /**
+   * Grouped by base spirit and searchable — worth it once a party offers more than a
+   * screenful, and harmless when it doesn't.
+   */
+  const grouped = $derived(groupByBase(onOffer, query));
+  /** Only worth the search box and the headings when there is something to sort. */
+  const manyDrinks = $derived(onOffer.length > 12);
 
   /**
    * A card's emoji. The six house drinks carry their own; the generated 270 don't,
@@ -252,10 +253,34 @@
   /** Only ever suggests something the bar can actually pour, and only when it's open. */
   function surprise() {
     if (closed) return;
-    const pool = featured.length > 0 ? featured : items;
-    if (pool.length === 0) return;
-    choose(pool[Math.floor(Math.random() * pool.length)]!);
+    if (onOffer.length === 0) return;
+    choose(onOffer[Math.floor(Math.random() * onOffer.length)]!);
   }
+
+  /**
+   * Which card just went in, so it can say so.
+   *
+   * Adding a drink changed a small number in the corner and nothing else, which is
+   * easy to miss on a phone held at arm's length in a kitchen. `neo.css` already had
+   * the answer — `.cocktail.just-picked` glows and `.order.added` flips the button to
+   * the accent — and the phase 5 rewrite of this page simply stopped using both.
+   *
+   * Cleared on a timer rather than on the next click, so adding the same drink twice
+   * flashes twice instead of looking like nothing happened the second time.
+   */
+  let justPicked = $state<string | null>(null);
+  let pickedTimer: ReturnType<typeof setTimeout> | undefined;
+  function flash(id: string) {
+    clearTimeout(pickedTimer);
+    justPicked = null;
+    // A frame apart, or re-adding the same drink re-renders with the class already
+    // present and the animation never restarts.
+    requestAnimationFrame(() => {
+      justPicked = id;
+      pickedTimer = setTimeout(() => (justPicked = null), 1100);
+    });
+  }
+  onDestroy(() => clearTimeout(pickedTimer));
 
   /**
    * Add a drink to the round.
@@ -266,8 +291,15 @@
    */
   function choose(item: MenuItem) {
     const configurable = DRINKS.find((d) => d.name === item.name);
-    if (configurable) selected = configurable;
-    else addLine(item.name);
+    if (configurable) {
+      selected = configurable;
+      // The flash comes when the sheet's own "Add to order" fires, not now — this
+      // tap only opened a dialog, and saying "added" would be a lie for the second
+      // or two before they confirm.
+      return;
+    }
+    addLine(item.name);
+    flash(item.id);
   }
 
   function toggleFav(name: string) {
@@ -289,7 +321,7 @@
     if (e.key !== 'Escape') return;
     if (celebrating) celebrating = false;
     else if (orderOpen) view.order = false;
-    else if (door !== 'featured') door = 'featured';
+    else if (door !== 'menu') door = 'menu';
   }}
 />
 
@@ -382,12 +414,14 @@
       {:else if door === 'walk'}
         <ChooseADrink
           {stock}
+          offered={onOffer}
           canOrder={!closed}
-          onpick={(r) => {
-            addLine(r.name);
-            door = 'featured';
+          onpick={(name, id) => {
+            addLine(name);
+            door = 'menu';
+            flash(id);
           }}
-          onclose={() => (door = 'featured')}
+          onclose={() => (door = 'menu')}
         />
       {:else}
         <div class="menubar">
@@ -399,14 +433,6 @@
               onclick={() => (view.favesOnly = !favesOnly)}>⭐ Faves</button
             >
           {/if}
-          <button
-            type="button"
-            class="chip"
-            aria-pressed={door === 'all'}
-            onclick={() => (door = door === 'all' ? 'featured' : 'all')}
-          >
-            {door === 'all' ? '← Back' : '📖 Everything'}
-          </button>
           <button type="button" class="chip" onclick={() => (door = 'walk')}
             >🤔 Help me choose</button
           >
@@ -416,11 +442,14 @@
           <InstallButton />
         </div>
 
-        {#if door === 'all'}
+        <!-- One menu: what the bar is prepared to make. The search box and the base
+             headings only appear once there is enough to need them — on a party
+             offering eight drinks they would be furniture. -->
+        {#if manyDrinks}
           <input
             class="askbar-input menu-search"
             type="search"
-            placeholder="Search {items.length} drinks…"
+            placeholder="Search {onOffer.length} drinks…"
             bind:value={query}
             aria-label="Search the menu"
           />
@@ -439,11 +468,11 @@
           {/if}
         {:else}
           <div class="menu" class:faves-only={favesOnly}>
-            {#each featured as item (item.id)}
+            {#each onOffer as item (item.id)}
               {@render card(item)}
             {/each}
           </div>
-          {#if featured.length === 0}
+          {#if onOffer.length === 0}
             <p class="menu-empty">
               The bar hasn't got anything on tonight — ask whoever's pouring.
             </p>
@@ -467,7 +496,13 @@
        pourable, so a greyed-out card would be a drink the host can't make and never
        claimed to. A shut bar is different — that is about the party, not the drink,
        and it applies to every card at once. -->
-  <article class="cocktail" class:is-fav={favourites.has(item.name)} class:is-out={!!closed}>
+  {@const added = justPicked === item.id}
+  <article
+    class="cocktail"
+    class:is-fav={favourites.has(item.name)}
+    class:is-out={!!closed}
+    class:just-picked={added}
+  >
     <button
       type="button"
       class="fav"
@@ -478,8 +513,19 @@
       {favourites.has(item.name) ? '⭐' : '☆'}
     </button>
     <h3><span class="emoji">{emojiFor(item)}</span> {item.name}</h3>
-    <button type="button" class="order" disabled={!!closed} onclick={() => choose(item)}>
-      {closed === 'closed' ? 'Bar closed' : closed ? 'Not yet' : 'Add to order'}
+    <!-- `just-picked` and `added` are both neo.css's, and both were sitting unused:
+         the card glows and the button flips to the accent for a beat. A number in
+         the corner going from 1 to 2 is not enough to notice on a phone held at
+         arm's length in somebody's kitchen. -->
+    <button
+      type="button"
+      class="order"
+      class:added
+      disabled={!!closed}
+      onclick={() => choose(item)}
+    >
+      {#if added}✓ Added{:else if closed === 'closed'}Bar closed{:else if closed}Not yet{:else}Add
+        to order{/if}
     </button>
   </article>
 {/snippet}

@@ -1687,3 +1687,48 @@ button.row:hover {
 .deck-door > * {
   max-width: 1040px;
 }
+
+/*
+ * The quiet button. `btn` had three weights and they were all loud: the base is a
+ * white card with a hard shadow, `btn-go` is the send colour, `btn-danger` is the
+ * accent. So "Back to the menu" carried exactly as much visual weight as "Add it to
+ * my round", and the walk read as four equal choices when one of them was a way out.
+ *
+ * Not a link, because it still needs a 44px target on a phone — just quieter.
+ */
+.btn-quiet {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.btn-quiet:active {
+  box-shadow: none;
+  transform: translate(1px, 1px);
+}
+
+/*
+ * A row of controls that belongs to the card above it rather than to the page.
+ *
+ * The cupboard put its counter and its Save button as bare children on the yellow
+ * while everything else sat on a card, so the "Saved" pill floated between two
+ * panels looking like it had come loose. This gives that row the same surface as
+ * everything around it.
+ */
+.panel-acts {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 14px 16px;
+  margin: 0 0 18px;
+  background: var(--surface);
+  border: var(--border) solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+/* The count sits with the controls it explains, so it loses its own margins. */
+.panel-acts .stat {
+  margin: 0 auto 0 0;
+}

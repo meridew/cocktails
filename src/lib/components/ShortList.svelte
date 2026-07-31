@@ -21,6 +21,7 @@
   import { onMount } from 'svelte';
   import { SvelteSet } from 'svelte/reactivity';
   import { eventMenu, setShortList, Unauthorized, type MenuItem } from '$lib/api';
+  import { groupByBase } from '$lib/menu';
 
   let { eventId }: { eventId: string } = $props();
 
@@ -38,20 +39,7 @@
   const dirty = $derived(ticked.size !== saved.length || saved.some((id) => !ticked.has(id)));
 
   /** Grouped by base spirit and searchable, because this can be 200 rows. */
-  const groups = $derived.by(() => {
-    const q = filter.trim().toLowerCase();
-    const hits = q
-      ? items.filter((i) => i.name.toLowerCase().includes(q) || i.base.toLowerCase().includes(q))
-      : items;
-    const by = new Map<string, MenuItem[]>();
-    for (const i of hits) {
-      const key = i.base || 'Other';
-      (by.get(key) ?? by.set(key, []).get(key)!).push(i);
-    }
-    return [...by.entries()]
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([base, list]) => ({ base, list: list.sort((a, b) => a.name.localeCompare(b.name)) }));
-  });
+  const groups = $derived(groupByBase(items, filter));
 
   function adopt(list: string[]): void {
     saved = list;

@@ -31,19 +31,38 @@
 
   let {
     stock,
+    offered,
     canOrder = true,
     onpick,
     onclose,
   }: {
     stock: string[];
+    /**
+     * What the bar is prepared to make — the party's menu, not its cupboard.
+     *
+     * The walk is intersected with this rather than with everything the ingredients
+     * allow. Without it, "help me choose" would happily arrive at a drink somebody
+     * deliberately left off the short list, which is the same bypass the `Everything`
+     * door was removed for — just harder to notice.
+     */
+    offered: { id: string; name: string }[];
     /** False when the party isn't taking orders — the walk still runs, it just can't add. */
     canOrder?: boolean;
-    onpick: (recipe: Recipe) => void;
+    onpick: (name: string, id: string) => void;
     onclose: () => void;
   } = $props();
 
-  /** What this cupboard can pour. The walk never leaves this set. */
-  const pourable = $derived(makeable(stock, { ignore: OPTIONAL_CATEGORIES }));
+  /**
+   * What this walk may reach: pourable from the cupboard **and** on the menu.
+   *
+   * Both, because the two answer different questions — the cupboard says what is
+   * physically possible, the menu says what is on offer — and a drink needs to pass
+   * both to be suggested.
+   */
+  const onMenu = $derived(new Set(offered.map((o) => o.id)));
+  const pourable = $derived(
+    makeable(stock, { ignore: OPTIONAL_CATEGORIES }).filter((r) => onMenu.has(r.id)),
+  );
   const pourableIds = $derived(new Set(pourable.map((r) => r.id)));
 
   let base = $state<string | null>(null);
@@ -129,7 +148,12 @@
     <p><strong>{finished.name}</strong>{finished.blurb ? ` — ${finished.blurb}` : ''}</p>
     <!-- Still worth walking when the bar is shut: knowing what you'd have had is the
          friendly half of being told you can't have it. Only the adding is off. -->
-    <button class="btn btn-go" type="button" disabled={!canOrder} onclick={() => onpick(finished)}>
+    <button
+      class="btn btn-go"
+      type="button"
+      disabled={!canOrder}
+      onclick={() => onpick(finished.name, finished.id)}
+    >
       {canOrder ? 'Add it to my round' : 'The bar is not taking orders'}
     </button>
   {:else if askable}
@@ -153,15 +177,24 @@
     <p>{inPlay.length === 0 ? 'Nothing matches that combination.' : 'Any of these:'}</p>
     <div class="suggests">
       {#each inPlay.slice(0, 12) as r (r.id)}
-        <button class="btn btn-go" type="button" disabled={!canOrder} onclick={() => onpick(r)}>
+        <button
+          class="btn btn-go"
+          type="button"
+          disabled={!canOrder}
+          onclick={() => onpick(r.name, r.id)}
+        >
           {r.name}
         </button>
       {/each}
     </div>
   {/if}
 
+  <!-- Quiet on purpose. These are ways *out* of the walk, and giving them the same
+       weight as the answers above made four equal-looking buttons where only two of
+       them moved you forward. -->
   <div class="row-acts">
-    {#if base}<button class="btn" type="button" onclick={restart}>Start again</button>{/if}
-    <button class="btn" type="button" onclick={onclose}>Back to the menu</button>
+    {#if base}<button class="btn btn-quiet" type="button" onclick={restart}>Start again</button
+      >{/if}
+    <button class="btn btn-quiet" type="button" onclick={onclose}>Back to the menu</button>
   </div>
 </section>
