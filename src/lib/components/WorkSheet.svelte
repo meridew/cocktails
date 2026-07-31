@@ -20,6 +20,7 @@
    * their party" one context instead of a navigation each way.
    */
   import type { Snippet } from 'svelte';
+  import { dialog } from '$lib/dialog';
 
   let {
     title,
@@ -43,12 +44,25 @@
    * it to the same value. What actually needs holding is scroll *chaining* — a flick
    * that runs out of sheet would otherwise carry on into the deck behind it — and
    * that is `overscroll-behavior: contain` on `.worksheet-body`, in CSS.
+   *
+   * Modal behaviour, on the other hand, is `use:dialog` below and not written here.
+   * The first version of this file hand-rolled an Escape handler on `svelte:window`
+   * and stopped there — no focus trap, no inert background, no focus returned to the
+   * button that opened it — while seven other overlays in this app were already
+   * using the shared action that does all four. That is the actual lesson about
+   * frameworks: the primitive existed and was good, and a new overlay quietly
+   * shipped without it.
    */
 </script>
 
-<svelte:window onkeydown={(e) => e.key === 'Escape' && onclose()} />
-
-<div class="worksheet" role="dialog" aria-modal="true" aria-label={title}>
+<div
+  class="worksheet"
+  role="dialog"
+  aria-modal="true"
+  aria-label={title}
+  tabindex="-1"
+  use:dialog={{ onclose }}
+>
   <div class="worksheet-card">
     <header class="worksheet-head">
       <div class="worksheet-title">
