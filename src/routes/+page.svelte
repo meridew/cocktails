@@ -146,7 +146,9 @@
     <span class="brand">COCKTAILS</span>
   </header>
 
-  <main class="deck">
+  <!-- `deck-hero` centres this vertically as well as horizontally: the front door is
+       one short card, unlike the lists every other deck holds. -->
+  <main class="deck deck-hero">
     {#if loading}
       <p class="empty">One moment…</p>
     {:else if awaitingConfirmation || (user && !user.emailVerified)}

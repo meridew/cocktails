@@ -1064,14 +1064,47 @@ a.bt-gate-alt {
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   min-height: 0;
+  padding: 16px 14px 48px;
+
+  /*
+   * Centred by the container, not by each child's own margins.
+   *
+   * This used to be `.deck > * { max-width: 760px; margin-left: auto; margin-right:
+   * auto }`, which does the right thing until a child declares its own margin — and
+   * `.panel { margin: 0 0 18px }` sits *below* it in this file at equal specificity,
+   * so it won.  The column was pinned to the left edge on any screen wider than
+   * 788px, and looked fine on every phone and on the 800px-wide pane it was checked
+   * in.  Reported from a real desktop: "aligned top left".
+   *
+   * A flex container positions the whole margin box, so a child restating `margin: 0`
+   * cannot un-centre itself. Ordering in this file stops mattering.
+   */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 .deck > * {
+  /* Both halves are needed: `align-items: center` shrinks a flex item to its content,
+     so without the width a panel would be as wide as its longest line. */
+  width: 100%;
   max-width: 760px;
-  margin-left: auto;
-  margin-right: auto;
 }
-.deck {
-  padding: 16px 14px 48px;
+
+/*
+ * Vertically centred too — the front door only.
+ *
+ * It is one short card, and on a 900px-tall screen sitting it at the top leaves two
+ * thirds of the page empty below. The other decks are lists that are usually longer
+ * than the window, and centring those would only make them inconsistent with
+ * themselves as they filled up.
+ *
+ * `safe` is doing real work: plain `center` in a scroll container puts overflow
+ * *above* the scrollport, where it cannot be scrolled back to. `safe center` falls
+ * back to flex-start the moment the content is taller than the deck — so a long error
+ * state, or a small window, degrades to the normal top-aligned scroll.
+ */
+.deck-hero {
+  justify-content: safe center;
 }
 
 /*
@@ -1455,4 +1488,26 @@ button.row:hover {
      smudge rather than a drink. It has a whole line to itself; it can have a size of
      its own too. */
   font-size: 1.35rem;
+}
+
+/*
+ * `.appbar-bartender` holding a word rather than an emoji.
+ *
+ * neo.css sizes it 40×40 for the 🍸 glyph, which is right where it was designed — the
+ * guest menu's bartender-mode button. The working screens reuse it for "Sign out" and
+ * "Back", and eight characters do not fit forty pixels: it wrapped to two lines and
+ * spilled past the app bar's height.
+ *
+ * A modifier rather than a redefinition, so the icon uses keep neo.css's square.
+ */
+.appbar-word {
+  width: auto;
+  min-width: 44px;
+  padding: 0 14px;
+  font-family: var(--font-accent);
+  font-size: 0.68rem;
+  font-weight: var(--fw-accent);
+  letter-spacing: var(--ls-accent);
+  text-transform: var(--ttu);
+  white-space: nowrap;
 }

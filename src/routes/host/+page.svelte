@@ -63,7 +63,7 @@
 <div class="workshell">
   <header class="appbar">
     <div class="brand">🍸 Your bar</div>
-    <button class="appbar-bartender" type="button" onclick={leave}>Sign out</button>
+    <button class="appbar-bartender appbar-word" type="button" onclick={leave}>Sign out</button>
   </header>
 
   <main class="deck">

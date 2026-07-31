@@ -99,7 +99,7 @@
 <div class="workshell">
   <header class="appbar">
     <div class="brand">🍸 {party?.name ?? 'Your party'}</div>
-    <a class="appbar-bartender" href="/host">Back</a>
+    <a class="appbar-bartender appbar-word" href="/host">Back</a>
   </header>
 
   <main class="deck">
