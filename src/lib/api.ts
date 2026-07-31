@@ -255,6 +255,17 @@ export interface Party {
  */
 export const myParties = () => req<{ ok: true; events: Party[] }>('/events');
 
+/**
+ * One party, for a screen that is *about* one party.
+ *
+ * Guarded by `orders:read`, which is exactly the set of people who can be standing
+ * on `/bar/<id>`: Dan, its host, and whoever is working it. That makes it the right
+ * way for the bar to learn its own name — and a 404 here is the honest answer to
+ * "this isn't your bar", rather than the screen silently flipping to a sign-in gate
+ * with nothing said, which is what reading the party out of device storage did.
+ */
+export const partyById = (eventId: string) => req<{ ok: true; event: Party }>(`/events/${eventId}`);
+
 /** Admin only: a party is created *for* a host, who must already have an account. */
 export const createParty = (hostUserId: string, name: string, startsAt?: number | null) =>
   req<{ ok: true; event: Party }>('/events', {

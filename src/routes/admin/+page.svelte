@@ -235,7 +235,9 @@
       const { token, staff } = await openBar(party.id);
       adoptApprovedSession(token, staff);
       rememberEvent(party.id);
-      await goto('/bar');
+      // Named in the address. `/bar` used to be told which party by `rememberEvent`
+      // above, which is the same storage any guest menu overwrites.
+      await goto(`/bar/${party.id}`);
     });
 
   const guestLink = (party: Party): string => `${page.url.origin}/e/${party.id}`;

@@ -187,7 +187,9 @@ describe('Google sign-in', () => {
   });
 
   test('and the front door knows not to offer it', async () => {
-    const { load } = await import('../src/routes/+page.server');
+    // On the layout since sign-in stopped being only the front door's — the bar's
+    // gate raises the same sheet without leaving the party.
+    const { load } = await import('../src/routes/+layout.server');
     assert.equal(load().googleEnabled, false, 'the button must not render without credentials');
   });
 });

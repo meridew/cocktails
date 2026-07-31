@@ -2199,3 +2199,77 @@ button.row:hover {
   margin-top: 4px;
   padding-top: 14px;
 }
+
+/* ---- naming the bar, and the door into it -------------------------------- */
+
+/*
+ * The bar header used to read `🍸 Bar` and nothing else, so a bartender could not
+ * see which party they were serving — and therefore could not notice it changing,
+ * which it silently did whenever the device opened another party's menu.
+ *
+ * It carries a real name now, and a real name can be long. `.bar-top h2` is
+ * `white-space: nowrap`, so without a min-width of zero a flex item refuses to
+ * shrink below its content and "Priya's housewarming" pushes the count and both
+ * icons off the end of the row.
+ */
+.bar-where {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/*
+ * The staff door at the foot of the guest menu.
+ *
+ * It was an unlabelled 🍸 in the appbar: top-level and permanent for the guests who
+ * will never want it, and unrecognisable as "the way in" to the barman who does.
+ * Down here it is a named thing at the end of a scroll — muted, because a guest
+ * passing it should register it and move on.
+ */
+.menu-staff {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: fit-content;
+  margin: 28px auto 8px;
+  padding: 10px 18px;
+  min-height: 44px;
+  border-radius: 999px;
+  background: var(--panel-bg);
+  color: var(--panel-text);
+  font-family: var(--font-display);
+  text-transform: var(--ttu);
+  letter-spacing: var(--ls-head);
+  font-size: 0.8rem;
+  text-decoration: none;
+}
+/* Quieter than a drink card, but not *faded*: element opacity over the menu's
+   gradient turned the dark pill olive and made it look broken rather than
+   secondary. The background stays solid; only the label softens. */
+.menu-staff span:not(.emoji),
+.menu-staff {
+  color: rgba(255, 255, 255, 0.82);
+}
+.menu-staff:hover,
+.menu-staff:focus-visible {
+  color: var(--panel-text);
+}
+
+/*
+ * The other half of "hosting is not helping", in the sign-in sheet.
+ *
+ * The subtitle above the form used to say "for hosts and whoever is running the
+ * bar", which sent barmen into host registration — an account that grants standing
+ * at no bar at all. The form is for hosts; this line is where everyone else is told
+ * where their own door is.
+ */
+.sheet-aside {
+  margin: 14px 0 0;
+  padding-top: 12px;
+  border-top: 2px solid rgba(10, 10, 18, 0.12);
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: var(--text-soft);
+}

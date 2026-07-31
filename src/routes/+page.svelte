@@ -16,19 +16,15 @@
   import { page } from '$app/state';
   import {
     currentAccount,
-    googleSignInUrl,
     resendVerification,
-    signInToAccount,
     signOutOfAccount,
-    signUp,
     liveParties,
     type AccountUser,
   } from '$lib/api';
   import { refreshActor, session } from '$lib/stores/session.svelte';
-  import { dialog } from '$lib/dialog';
-  import KeyRound from '@lucide/svelte/icons/key-round';
+  import SignInSheet from '$lib/components/SignInSheet.svelte';
 
-  /** From +page.server.ts: whether Google is configured on this deployment. */
+  /** From +layout.server.ts: whether Google is configured on this deployment. */
   let { data }: { data: { googleEnabled: boolean } } = $props();
 
   /**
@@ -57,7 +53,7 @@
   const glassFor = (id: string): string =>
     GLASSES[[...id].reduce((n, c) => n + c.charCodeAt(0), 0) % GLASSES.length]!;
 
-  /** Sign-in is a rare act by a few people, so it lives behind an icon. */
+  /** Sign-in is a rare act by a few people, so it lives behind one named button. */
   let signingIn = $state(false);
 
   let user = $state<AccountUser | null>(null);
@@ -65,12 +61,6 @@
   let busy = $state(false);
   let error = $state('');
   let notice = $state('');
-
-  /** Sign in unless they've asked to register — signing in is the commoner visit. */
-  let registering = $state(false);
-  let name = $state('');
-  let email = $state('');
-  let password = $state('');
 
   /**
    * Who just signed up, when there is no session to show for it.
@@ -114,9 +104,10 @@
   }
 
   onMount(async () => {
-    // `?signin` opens the drawer straight away. The bar gate's "I work here" link
-    // uses it: `/` is a list of parties now, so landing there with the form closed
-    // left people looking at somebody else's birthday wondering where sign-in went.
+    // `?signin` opens the sheet straight away, for a link that means "sign in" rather
+    // than "here's the door". The bar gate used to be the caller and no longer is —
+    // it raises the sheet in place now, because sending a barman here to sign in was
+    // sending them away from the only screen their answer was about.
     if (page.url.searchParams.has('signin')) signingIn = true;
 
     void liveParties()
@@ -142,18 +133,6 @@
     }
   }
 
-  const submit = () =>
-    attempt(async () => {
-      if (registering) {
-        await signUp(name.trim(), email.trim(), password);
-        awaitingConfirmation = email.trim();
-      } else {
-        await signInToAccount(email.trim(), password);
-      }
-      password = '';
-      await refresh();
-    });
-
   const leave = () =>
     attempt(async () => {
       await signOutOfAccount();
@@ -167,18 +146,6 @@
       await resendVerification(who);
       notice = 'Sent again — check your inbox.';
     });
-
-  /**
-   * Hand the browser to Google.
-   *
-   * A full navigation rather than a fetch: the consent screen is a page, and Google
-   * refuses to be framed or XHR'd. `location.href` because this leaves the app.
-   */
-  const withGoogle = () =>
-    attempt(async () => {
-      const { url } = await googleSignInUrl();
-      window.location.href = url;
-    });
 </script>
 
 <svelte:head><title>COCKTAILS!!!</title></svelte:head>
@@ -190,13 +157,15 @@
       Sign-in is a rare act by a handful of people, so it gets the corner and the
       page goes to the guests who are most of the traffic.
 
-      The icon comes from `@lucide/svelte` rather than being drawn here: hand-rolled
-      SVG paths are a thing to get subtly wrong and then maintain, and the first two
-      attempts at this one were an emoji that rendered gold and a "key" that looked
-      like a magnifying glass. Tree-shaken, so only this glyph ships.
+      **It says which kind of person it is for**, which a key icon could not. This was
+      a 22px glyph with an `aria-label` nobody sees, and it was the only thing on an
+      otherwise entirely guest-facing page standing for both "it's my party" and "I'm
+      pouring tonight" — two different people, one of whom this door is wrong for.
+      Naming it costs one word and answers half the question on sight; the other half
+      is answered inside, where helping now points back at the party.
     -->
-    <button class="appbar-bartender appbar-key" type="button" onclick={() => (signingIn = true)}>
-      <KeyRound size={22} strokeWidth={2.25} aria-label="Sign in" />
+    <button class="appbar-bartender appbar-word" type="button" onclick={() => (signingIn = true)}>
+      Host sign-in
     </button>
   </header>
 
@@ -278,86 +247,21 @@
 </div>
 
 {#if signingIn}
-  <!-- `use:dialog` gives it the focus trap, the Escape handler and the inert
-       background that neo.css's other sheets get. It is the same form as before —
-       only its place in the page changed, from the whole door to a drawer behind an
-       icon. -->
-  <!-- svelte-ignore a11y_click_events_have_key_events -->
-  <div
-    class="sheet"
-    role="dialog"
-    aria-modal="true"
-    aria-label="Sign in"
-    tabindex="-1"
-    use:dialog={{ onclose: () => (signingIn = false) }}
-    onclick={(e) => {
-      if (e.target === e.currentTarget) signingIn = false;
+  <!-- The same sheet the bar's gate raises. It was inlined here while `/` was the
+       only place anyone signed in; the moment "I work here" had to sign somebody in
+       *without* moving them off their party, one copy of this form became two, and
+       two copies of a login form is how they drift. -->
+  <SignInSheet
+    googleEnabled={data.googleEnabled}
+    allowRegister
+    onclose={() => (signingIn = false)}
+    onsignedin={async () => {
+      signingIn = false;
+      await refresh();
     }}
-  >
-    <div class="sheet-card">
-      <button
-        type="button"
-        class="sheet-close"
-        onclick={() => (signingIn = false)}
-        aria-label="Close">✕</button
-      >
-      <h2>{registering ? 'Set up your account' : 'Welcome back'}</h2>
-      <p class="hint">
-        {registering
-          ? "Tell us what you've got in, and we'll work out what the bar can pour."
-          : 'For hosts and whoever is running the bar.'}
-      </p>
-
-      {#if data.googleEnabled}
-        <button class="btn btn-go" type="button" onclick={withGoogle} disabled={busy}>
-          Continue with Google
-        </button>
-      {/if}
-
-      <form
-        onsubmit={(e) => {
-          e.preventDefault();
-          void submit();
-        }}
-      >
-        {#if registering}
-          <label class="field">
-            Your name
-            <input bind:value={name} autocomplete="name" required />
-          </label>
-        {/if}
-        <label class="field">
-          Email
-          <input type="email" bind:value={email} autocomplete="email" required />
-        </label>
-        <label class="field">
-          Password
-          <input
-            type="password"
-            bind:value={password}
-            autocomplete={registering ? 'new-password' : 'current-password'}
-            required
-          />
-        </label>
-        <div class="row-acts">
-          <button class="btn btn-go" type="submit" disabled={busy}>
-            {busy ? 'One moment…' : registering ? 'Create my account' : 'Sign in'}
-          </button>
-          <button
-            class="btn"
-            type="button"
-            onclick={() => {
-              registering = !registering;
-              error = '';
-              notice = '';
-            }}
-          >
-            {registering ? 'I have an account' : 'I need an account'}
-          </button>
-        </div>
-      </form>
-
-      {#if error}<p class="says says-bad" role="alert">{error}</p>{/if}
-    </div>
-  </div>
+    onregistered={(who) => {
+      signingIn = false;
+      awaitingConfirmation = who;
+    }}
+  />
 {/if}

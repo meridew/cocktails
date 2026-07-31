@@ -178,7 +178,7 @@
   onMount(() => {
     // Notifications sent before the bar became a route still carry `/?bartender`.
     if (new URLSearchParams(location.search).has('bartender')) {
-      void goto('/bar', { replaceState: true });
+      void goto(`/bar/${data.eventId}`, { replaceState: true });
       return;
     }
     applyDeepLink(location.search);
@@ -300,9 +300,14 @@
     <nav class="topnav" aria-label="Sections">
       <span class="nav-btn" aria-current="true">Menu</span>
     </nav>
-    <!-- Grouped, because `.appbar-bartender` carries `margin-left:auto` — with two
-         of them loose in the flex row each claimed the free space, stranding the
-         first one in the middle of the bar. -->
+    <!--
+      The cocktail glass that used to sit here has gone to the foot of the menu.
+
+      It was an unlabelled emoji, in the corner of every guest's screen, leading to a
+      staff sign-up flow — prominent for the ~95% who will never want it and invisible
+      as "the way in" to the few who do, because nothing said what it was. It is a
+      named row down there now, where a guest scrolls past it and a barman can read it.
+    -->
     <div class="appbar-actions">
       <button
         type="button"
@@ -312,9 +317,6 @@
       >
         <span class="emoji">⚙️</span>
       </button>
-      <a class="appbar-bartender" href="/bar" aria-label="Bartender mode">
-        <span class="emoji">🍸</span>
-      </a>
     </div>
   </header>
 
@@ -326,7 +328,7 @@
       {#if staffRequest.active}
         <!-- The answer to "am I in yet?" must be reachable without opening the bar:
              someone who navigated away shouldn't have to go hunting for it. -->
-        <a class="ask-banner ask-{staffRequest.kind}" href="/bar">
+        <a class="ask-banner ask-{staffRequest.kind}" href="/bar/{data.eventId}">
           {#if staffRequest.kind === 'pending'}
             ⏳ Waiting for the host to approve <strong>{staffRequest.name}</strong>…
           {:else}
@@ -445,6 +447,20 @@
             </p>
           {/if}
         {/if}
+
+        <!--
+          The staff door, named, and at the bottom where it belongs.
+
+          This is the only route into the bar for someone with no account, and until
+          now it was an unlabelled 🍸 in the appbar — so the people who needed it
+          couldn't find it and the people who didn't kept finding it. It carries the
+          party in its href, which is what lets the gate on the other side say *which*
+          bar it is about.
+        -->
+        <a class="menu-staff" href="/bar/{data.eventId}">
+          <span class="emoji" aria-hidden="true">🍸</span>
+          I'm pouring here
+        </a>
       {/if}
     </section>
   </main>

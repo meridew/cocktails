@@ -18,6 +18,7 @@
     bumpOrder,
     setItemProgress,
     admitOrderGuest,
+    partyById,
     Unauthorized,
     NotFound,
   } from '$lib/api';
@@ -37,9 +38,18 @@
   import { can, party, ORDER_STATUSES, STATUS_META } from '$lib/shared';
   import type { Handoff, Order, OrderStatus, Staff } from '$lib/shared';
   import { view } from '$lib/stores/view.svelte';
-  import { currentEventId } from '$lib/party';
 
-  let { onclose }: { onclose: () => void } = $props();
+  /**
+   * **The party comes from the route now, not from device storage.**
+   *
+   * It used to be `currentEventId()`, which `/e/<id>`'s loader rewrites every time any
+   * guest menu is opened — so the bar followed whichever party this device last looked
+   * at. The server always used the token's own party, so no data went astray; what
+   * broke was the *client's* permission question, which was asked about the stored id
+   * and therefore stopped matching the credential. A helper's queue vanished mid-shift
+   * and the gate offered to ask permission they already held.
+   */
+  let { eventId, onclose }: { eventId: string; onclose: () => void } = $props();
 
   const POLL_MS = 4000;
   /** Scopes the in-flight guard for actions that aren't tied to one order. */
@@ -57,8 +67,15 @@
   let busy = new SvelteSet<string>(); // order ids with an in-flight mutation
   let timer: ReturnType<typeof setInterval> | undefined;
 
-  /** Which party this bar is. A bar screen without one has nothing to show. */
-  let eventId = $derived(currentEventId() ?? '');
+  /**
+   * What this bar is called.
+   *
+   * The header said `🍸 Bar` and nothing else, which meant a bartender could not tell
+   * which party they were serving — and therefore could not notice when it changed
+   * underneath them. `partyById` is gated on `orders:read`, so it answers for exactly
+   * the people who belong on this screen and 404s for everyone else.
+   */
+  let partyName = $state('');
 
   /**
    * **Whether you may work this bar — asked of the actor, not of a token.**
@@ -170,6 +187,11 @@
     await fetchOrders();
     startPolling();
     void fetchStaff();
+    void partyById(eventId)
+      .then((r) => (partyName = r.event.name))
+      .catch(() => {
+        /* the header falls back to "Bar" — never a reason to block the queue */
+      });
     // One opt-in applies everywhere: someone who already allowed notifications as a
     // guest should start getting order alerts on signing in, not meet a second
     // consent step for a permission they've already given.
@@ -300,7 +322,9 @@
      and wrong for a route that *is* the whole screen. -->
 <div class="bartender">
   <header class="bar-top">
-    <h2>🍸 Bar</h2>
+    <!-- Named, so a bartender can see at a glance whose queue this is. `bar-where`
+         truncates rather than pushing the count and the two icons off the row. -->
+    <h2 class="bar-where">🍸 {partyName || 'Bar'}</h2>
     {#if working}
       <span class="bar-count" class:zero={activeCount === 0}>{activeCount}</span>
     {/if}
@@ -322,7 +346,7 @@
   {#if connErr}<p class="bt-conn" role="status">{connErr}</p>{/if}
 
   {#if !working}
-    <StaffGate onasked={onclose} />
+    <StaffGate {eventId} {partyName} onasked={onclose} />
   {:else if showStaff && canManageStaff}
     <StaffAdmin
       {staff}

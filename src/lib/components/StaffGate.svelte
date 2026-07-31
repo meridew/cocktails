@@ -24,10 +24,10 @@
    * (Approval needs no panel: the queue simply appears.)
    */
   import { onMount } from 'svelte';
+  import { page } from '$app/state';
   import { LIMITS } from '$lib/shared';
-  import { openBar } from '$lib/api';
-  import { adoptApprovedSession, session } from '$lib/stores/session.svelte';
-  import { currentEventId } from '$lib/party';
+  import { liveParties, openBar, NotFound } from '$lib/api';
+  import { adoptApprovedSession, refreshActor, session } from '$lib/stores/session.svelte';
   import {
     askToHelp,
     checkDecision,
@@ -35,13 +35,36 @@
     staffRequest,
   } from '$lib/stores/staffRequest.svelte';
   import { getSavedName, saveName } from '$lib/device';
+  import SignInSheet from '$lib/components/SignInSheet.svelte';
 
-  /** Fired once a request is lodged, so the bar can get out of the way. */
-  let { onasked }: { onasked: () => void } = $props();
+  /**
+   * **Which bar this is a door to.** It used to ask `currentEventId()` — device
+   * storage — so the gate could not name what it was asking about, and could be
+   * asking about a party the person had merely glanced at. It comes from the route
+   * now, which is the same party the queue behind this gate belongs to.
+   */
+  let {
+    eventId,
+    partyName = '',
+    onasked,
+  }: { eventId: string; partyName?: string; onasked: () => void } = $props();
+
+  /**
+   * The party's name, for someone who cannot yet read the party.
+   *
+   * `partyById` needs `orders:read`, which is precisely what a helper standing at
+   * this gate does not have — so the caller can only pass a name when the person
+   * already had one. The public party list is the honest source for everyone else: a
+   * bar worth asking to help at is a bar that is open, and open parties are listed.
+   */
+  let publicName = $state('');
+  const where = $derived(partyName || publicName);
 
   let askName = $state(getSavedName());
   let busy = $state(false);
   let error = $state('');
+  /** Signing in happens here, not somewhere else. See `signingIn` below. */
+  let signingIn = $state(false);
 
   let message = $derived(error || session.expiredMessage);
 
@@ -57,6 +80,25 @@
   let hasAccount = $derived(session.actor.account !== null);
 
   /**
+   * The server has said this bar is not theirs to open.
+   *
+   * **Holding an account is not the same as being staff here**, and until now the
+   * two were conflated: `hasAccount` alone chose the "Open the bar" branch, so a host
+   * helping out at a *friend's* party got one button, a refusal, and no second move —
+   * the ask-to-help form was unreachable to them by construction. That was survivable
+   * while a bar could only be arrived at from the party you were already standing in.
+   * `/bar/<id>` is a real address now, so it is not.
+   *
+   * It is a refusal to *this* attempt, not a fact about the person, so it clears when
+   * they sign in as somebody else.
+   */
+  let refused = $state(false);
+  $effect(() => {
+    void session.actor;
+    refused = false;
+  });
+
+  /**
    * An outstanding or unacknowledged request always wins: that's the news, and
    * burying it behind a form was the original defect.
    */
@@ -65,7 +107,7 @@
       ? 'waiting'
       : staffRequest.kind === 'declined'
         ? 'declined'
-        : hasAccount
+        : hasAccount && !refused
           ? 'open'
           : 'ask',
   );
@@ -81,15 +123,22 @@
     busy = true;
     error = '';
     try {
-      const eventId = currentEventId();
-      if (!eventId) {
-        error = 'Open this party’s link first, so we know which bar you mean.';
-        return;
-      }
       const { token, staff } = await openBar(eventId);
       adoptApprovedSession(token, staff);
     } catch (e) {
-      error = (e as Error).message || 'That bar isn’t yours to open.';
+      /**
+       * **404 is the endpoint being careful, not the party being missing.** It answers
+       * the same way for a party that isn't yours as for one that doesn't exist, so an
+       * id cannot be used to discover whose parties are real. Surfacing that raw put
+       * the word "not found" on screen about a party the person is looking at the name
+       * of — so it is translated here, where the question that was asked is known.
+       */
+      if (e instanceof NotFound) {
+        refused = true;
+        error = '';
+      } else {
+        error = (e as Error).message || 'That bar isn’t yours to open.';
+      }
     } finally {
       busy = false;
     }
@@ -102,11 +151,6 @@
     error = '';
     try {
       saveName(name);
-      const eventId = currentEventId();
-      if (!eventId) {
-        error = 'Open this party’s link first, so we know which bar you mean.';
-        return;
-      }
       await askToHelp(eventId, name);
       // Waiting is a background activity — hand the screen back so they can carry
       // on ordering instead of staring at a modal until somebody answers.
@@ -132,21 +176,37 @@
   onMount(() => {
     // Reopening the panel is a deliberate "any news?" — answer it immediately.
     void checkDecision();
+
+    if (!partyName) {
+      void liveParties()
+        .then((r) => (publicName = r.parties.find((p) => p.id === eventId)?.name ?? ''))
+        .catch(() => {
+          /* the copy falls back to "the bar" — never a reason to block the door */
+        });
+    }
   });
 </script>
 
 <div class="bt-gate">
   {#if mode === 'open'}
-    <p class="bt-gate-msg">Ready when you are</p>
+    <p class="bt-gate-msg">Open the bar{where ? ` at ${where}` : ''}?</p>
     <p class="bt-gate-hint">You're signed in, so this is one tap.</p>
     <button type="button" class="bt-unlock" onclick={openTheBar} disabled={busy}>
       {busy ? 'One moment…' : 'Open the bar'}
     </button>
   {:else if mode === 'ask'}
-    <p class="bt-gate-msg">Helping out tonight?</p>
+    <!-- **It says which bar.** "Helping out tonight?" could not, because the party
+         came from device storage and might have been one this person merely glanced
+         at on the way past. -->
+    <p class="bt-gate-msg">Pouring at {where || 'this party'}?</p>
     <p class="bt-gate-hint">
-      Give your name and whoever's behind the bar can wave you in. We'll tell you as soon as they do
-      — carry on ordering meanwhile.
+      {#if refused}
+        This one isn't yours to open — it's somebody else's party. Whoever's behind the bar can
+        still wave you in.
+      {:else}
+        Give your name and whoever's behind the bar can wave you in. We'll tell you as soon as they
+        do — carry on ordering meanwhile.
+      {/if}
     </p>
     <input
       type="text"
@@ -158,12 +218,24 @@
       onkeydown={(e) => e.key === 'Enter' && submitRequest()}
     />
     <button type="button" class="bt-unlock" onclick={submitRequest} disabled={busy}>
-      {busy ? 'Sending…' : 'Ask to help'}
+      {busy ? 'Sending…' : "I'm pouring here"}
     </button>
-    <!-- The way in for anyone who works here. Opens the sign-in drawer on the front
-         door rather than merely landing on it — `/` is the party list now, so a bare
-         link left people looking at a list of parties wondering where the form went. -->
-    <a class="bt-gate-alt" href="/?signin">I work here</a>
+    <!--
+      **This used to be the worst link in the app.** It was `href="/?signin"`, so the
+      one control labelled in a barman's own words carried them off the party to a form
+      whose subtitle read "for hosts and whoever is running the bar", and on to host
+      registration — which grants standing at no bar at all. Three wrong turns in one
+      tap, and the ask-to-help door they were one tap from was now behind finding the
+      party's link again.
+
+      It signs them in here instead. Nothing moves; the sheet closes and `mode` flips
+      to `open`, which is the "you already have standing" branch two states up.
+    -->
+    {#if !hasAccount}
+      <button type="button" class="bt-gate-alt" onclick={() => (signingIn = true)}>
+        I already have an account
+      </button>
+    {/if}
   {:else if mode === 'waiting'}
     <p class="bt-status-badge is-sent">✓ Request sent</p>
     <p class="bt-gate-msg">Waiting for the bar…</p>
@@ -180,3 +252,21 @@
 
   {#if message}<p class="bt-conn" role="status">{message}</p>{/if}
 </div>
+
+{#if signingIn}
+  <!-- No `allowRegister`: a brand-new account has standing at no party, so offering
+       one here would answer a question nobody asked and cost an email round trip to
+       find that out. Someone with no account is already looking at the door that
+       does work — it's the button above this one. -->
+  <SignInSheet
+    googleEnabled={Boolean(page.data.googleEnabled)}
+    hint="Hosts and admins. If you're just helping out tonight, ask to be waved in instead — you don't need an account."
+    onclose={() => (signingIn = false)}
+    onsignedin={async () => {
+      signingIn = false;
+      // The gate reads `session.actor`, so it has to be re-asked before `mode` can
+      // move off `ask` — signing in changes who the server says we are.
+      await refreshActor();
+    }}
+  />
+{/if}
