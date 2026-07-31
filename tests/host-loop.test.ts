@@ -186,6 +186,65 @@ describe('what a host may do at their own party', () => {
     assert.equal(staff.status, 403, 'and does not decide who else is behind the bar');
   });
 
+  test('every single thing that changes the night is refused', async () => {
+    // The watch screen has two buttons on it and neither touches an order. This is
+    // the assertion that makes that restraint real rather than cosmetic: a control
+    // appearing there by accident would still be refused. Driven as the host, at
+    // their *own* party, which is the case most likely to be quietly widened.
+    const orders = await queue(asBar(ana));
+    const target = orders[0];
+    assert.ok(target, 'there should be a drink to try to touch');
+
+    const asHost = { 'Content-Type': 'application/json', ...asAccount(ana.host) };
+    const q = `?eventId=${ana.eventId}`;
+    const attempts: [string, Promise<Response>][] = [
+      [
+        'advance',
+        request(`/api/orders/${target.id}${q}`, {
+          ...send('PATCH', { status: 'making' }),
+          headers: asHost,
+        }),
+      ],
+      [
+        'delete an order',
+        request(`/api/orders/${target.id}${q}`, { method: 'DELETE', headers: asHost }),
+      ],
+      [
+        'clear the queue',
+        request(`/api/orders/clear${q}`, { ...send('POST', { which: 'all' }), headers: asHost }),
+      ],
+      [
+        'bump',
+        request(`/api/orders/${target.id}/bump${q}`, {
+          ...send('POST', { bumped: true }),
+          headers: asHost,
+        }),
+      ],
+      ['see the staff', request(`/api/staff${q}`, { headers: asHost })],
+      [
+        'mint a join code',
+        request(`/api/staff/join-code${q}`, { ...send('POST', {}), headers: asHost }),
+      ],
+      [
+        'close the party',
+        request(`/api/events/${ana.eventId}`, {
+          ...send('PATCH', { status: 'done' }),
+          headers: asHost,
+        }),
+      ],
+      [
+        'take a bar session',
+        request(`/api/events/${ana.eventId}/bar`, { ...send('POST', {}), headers: asHost }),
+      ],
+    ];
+    for (const [what, pending] of attempts) {
+      assert.equal((await pending).status, 403, `a host must not be able to ${what}`);
+    }
+
+    // ...and reading it still works, or the screen would have nothing to show.
+    assert.equal((await request(`/api/orders${q}`, { headers: asAccount(ana.host) })).status, 200);
+  });
+
   test("but not watch somebody else's", async () => {
     const res = await request(`/api/orders?eventId=${bruno.eventId}`, {
       headers: asAccount(ana.host),

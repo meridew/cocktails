@@ -597,16 +597,33 @@ of it gets extracted then, with evidence.
 _Gate: walked in a browser end to end — register a host from a private window, then
 as Dan find them, fill their cupboard, create their party, open it, and open its bar._
 
-### Phase 3 — the host area
+### ~~Phase 3 — the host area~~ ✅ done, 31 Jul 2026
 
 1. **My cupboard.** All 173 ingredients, ten shelves, search, and the live count of
    what it pours. Optional: a host who never opens it is a normal host (§13).
 2. **My parties.** Read-only except for the short list and the guest link — Dan owns
    the rest.
-3. **Watch the queue.** A read-only view of the night, reachable from the party.
+3. **Watch the queue.** A read-only view of the night, at `/host/<id>`.
 
-_Gate: walked in a browser as a real registered host, in a browser profile that has
-never held an admin session — the check that no screen depends on being Dan._
+> **The short list moved to phase 5, where the plan already had it.** Curating it
+> now would mean building a picker over a menu of six fixed drinks — there is nothing
+> to curate until the menu is generated from the cupboard. The capability
+> (`menu:curate`) and the table (`event_menu`) exist and are unused, which is the
+> honest state: the mechanism is ready and the screen waits for something worth
+> choosing from.
+
+_Gate: **met.** Walked as a real registered host — signed up, verified, signed in
+through the form — with every trace of the admin session scrubbed from the browser
+first: cookie cleared, `localStorage` and `sessionStorage` emptied. Not a separate
+browser profile, which the in-app browser can't give me, but the same property: no
+state a previous admin left behind._
+
+**The bit worth keeping.** The watch screen has **two buttons on it** — copy the
+link, and see the menu — and neither touches an order. That restraint is checked
+against the server rather than trusted: driving the host's own session at their own
+party returns `200` for reading the queue and **403 for every one of** advance,
+delete, clear, bump, list staff, mint a join code, close the party, and take a bar
+session. A control appearing here by accident would still be refused.
 
 ### Phase 4 — the bar, rebuilt
 

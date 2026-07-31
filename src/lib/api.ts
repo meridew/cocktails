@@ -92,7 +92,16 @@ export const createOrder = (input: NewOrderInput) =>
     body: JSON.stringify({ ...input, eventId: currentEventId() ?? undefined }),
   });
 
-export const listOrders = () => req<OrderListResponse>('/orders');
+/**
+ * The queue.
+ *
+ * A bar session names its own party, so the bar passes nothing. An account holder
+ * has no such session — a host watching their own night, or Dan at a laptop — so
+ * they say which party they mean. The server refuses either way if they may not see
+ * it; naming a party is not permission to read it.
+ */
+export const listOrders = (eventId?: string) =>
+  req<OrderListResponse>(eventId ? `/orders?eventId=${encodeURIComponent(eventId)}` : '/orders');
 
 /**
  * Move an order along. `handoff` is only meaningful when serving, and saying

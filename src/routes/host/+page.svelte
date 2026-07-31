@@ -98,11 +98,9 @@
                 </span>
               </span>
               <span class="row-acts">
-                {#if party.status === 'live'}
-                  <!-- Watch, not work. There is deliberately no control here that
-                     changes anything about the queue — see the capability table. -->
-                  <a class="btn" href="/e/{party.id}">See the menu</a>
-                {/if}
+                <!-- Watch, not work. `/host/<id>` is a spectator's view of the night:
+                     every row on it is a statement, never a button. -->
+                <a class="btn btn-go" href="/host/{party.id}">Watch</a>
                 <button class="btn" type="button" onclick={() => copyLink(party)}>Guest link</button
                 >
               </span>
