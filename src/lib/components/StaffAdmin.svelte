@@ -13,11 +13,21 @@
   let {
     staff,
     loaded,
+    eventId,
     onchanged,
     onclose,
   }: {
     staff: Staff[];
     loaded: boolean;
+    /**
+     * **Which party, said out loud.** Every call on this screen is party-scoped on
+     * the server, and none of them used to say which — so they worked for a helper
+     * (who holds a bar token that names one) and answered 400 for an account-holder
+     * who had not taken one. That is Dan opening `/bar/<id>` from a link rather than
+     * through "Work it", and it made pending requests invisible to the one person
+     * who can approve them.
+     */
+    eventId: string;
     onchanged: () => void;
     onclose: () => void;
   } = $props();
@@ -92,7 +102,7 @@
               type="button"
               class="bt-act start"
               disabled={busy.has(person.id)}
-              onclick={() => act(person.id, () => approveStaff(person.id))}
+              onclick={() => act(person.id, () => approveStaff(person.id, eventId))}
             >
               ✓ Approve
             </button>
@@ -100,7 +110,7 @@
               type="button"
               class="bt-act del"
               disabled={busy.has(person.id)}
-              onclick={() => act(person.id, () => removeStaff(person.id))}
+              onclick={() => act(person.id, () => removeStaff(person.id, eventId))}
               aria-label="Deny {nameOf(person)}"
             >
               ✕
@@ -132,7 +142,7 @@
                 type="button"
                 class="bt-act"
                 disabled={busy.has(person.id)}
-                onclick={() => act(person.id, () => revokeStaff(person.id))}
+                onclick={() => act(person.id, () => revokeStaff(person.id, eventId))}
               >
                 Revoke
               </button>
@@ -141,7 +151,7 @@
               type="button"
               class="bt-act del"
               disabled={busy.has(person.id)}
-              onclick={() => act(person.id, () => removeStaff(person.id))}
+              onclick={() => act(person.id, () => removeStaff(person.id, eventId))}
               aria-label="Remove {nameOf(person)}"
             >
               🗑
@@ -162,7 +172,7 @@
                 disabled={busy.has('__all')}
                 onclick={() =>
                   act('__all', async () => {
-                    await revokeAllHelpers();
+                    await revokeAllHelpers(eventId);
                     confirmingRevokeAll = false;
                   })}
               >

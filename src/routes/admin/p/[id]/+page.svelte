@@ -11,6 +11,7 @@
   import {
     deleteParty,
     eventMenu,
+    getStock,
     listHosts,
     myParties,
     openBar,
@@ -22,6 +23,7 @@
   import { adoptApprovedSession, session } from '$lib/stores/session.svelte';
   import { rememberEvent } from '$lib/party';
   import AppBar from '$lib/components/AppBar.svelte';
+  import Cupboard from '$lib/components/Cupboard.svelte';
   import Gate from '$lib/components/Gate.svelte';
   import ShortList from '$lib/components/ShortList.svelte';
   import WorkSheet from '$lib/components/WorkSheet.svelte';
@@ -35,11 +37,20 @@
   let error = $state('');
   let notice = $state('');
   let curating = $state(false);
+  let cupboardOpen = $state(false);
   let menuSummary = $state<{ featured: number; total: number } | null>(null);
+  /** What the host has in, so the card can say it without opening the tick list. */
+  let stock = $state<string[] | null>(null);
 
   const STATUS_WORD = { draft: 'Not open', live: 'On now', done: 'Finished' } as const;
   const when = (ms: number | null): string =>
     ms ? new Date(ms).toLocaleDateString(undefined, { day: 'numeric', month: 'short' }) : 'no date';
+
+  const countStock = async (userId: string): Promise<void> => {
+    stock = await getStock(userId)
+      .then((r) => r.stock)
+      .catch(() => null);
+  };
 
   async function countMenu(): Promise<void> {
     try {
@@ -62,6 +73,7 @@
       party = p?.events.find((e) => e.id === eventId) ?? null;
       host = h?.hosts.find((x) => x.id === party?.hostUserId) ?? null;
       await countMenu();
+      if (host) await countStock(host.id);
       loading = false;
     })();
   });
@@ -182,6 +194,45 @@
           </div>
         </section>
 
+        <!--
+          **The cupboard, on the party page.**
+
+          It belongs to the host and is shared across their parties, which is why it
+          used to live only on `/admin/h/<id>` — reachable from here through a button
+          called "Their account", the card that also holds Suspend and Delete. The
+          job on the night before a party is *cupboard, then short list*, in that
+          order, because the second is chosen out of what the first makes possible.
+          Sending that through the account screen put two taps and a wrong-sounding
+          label between two halves of one task.
+
+          The card says whose it is and that it is shared, so editing it here cannot
+          be mistaken for a per-party setting.
+        -->
+        <section class="panel">
+          <h2>What {host?.name ?? 'the host'} has in</h2>
+          <p class="card-stat">
+            {#if stock === null}
+              <span class="row-note">Couldn't count it.</span>
+            {:else if stock.length === 0}
+              <span class="row-note">
+                Nothing recorded — the menu falls back to the house six.
+              </span>
+            {:else}
+              <b>{stock.length}</b>
+              <span class="row-note">
+                {stock.length === 1 ? 'bottle' : 'bottles'} · pours
+                <b>{menuSummary?.total ?? '…'}</b> drinks
+              </span>
+            {/if}
+          </p>
+          <p class="row-note">
+            Their cupboard, shared across every party they throw — not just this one.
+          </p>
+          <button class="btn" type="button" onclick={() => (cupboardOpen = true)}>
+            {stock && stock.length > 0 ? 'Change it' : 'Fill it in'}
+          </button>
+        </section>
+
         <section class="panel">
           <h2>What it leads with</h2>
           <p class="card-stat">
@@ -249,5 +300,22 @@
     }}
   >
     <ShortList {eventId} />
+  </WorkSheet>
+{/if}
+
+{#if cupboardOpen && host}
+  <!-- Same component the host uses on their own screen — one set of rules about what
+       counts as pourable, not two. Closing it re-counts *both* cards, because a
+       cupboard change moves what the short list can even offer. -->
+  <WorkSheet
+    title="What {host.name} has in"
+    subtitle="Shared across their parties"
+    onclose={() => {
+      cupboardOpen = false;
+      if (host) void countStock(host.id);
+      void countMenu();
+    }}
+  >
+    <Cupboard userId={host.id} onsaved={(saved) => (stock = saved)} />
   </WorkSheet>
 {/if}

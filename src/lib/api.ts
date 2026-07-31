@@ -410,18 +410,38 @@ export const requestStaffAccess = (eventId: string, name: string, deviceId: stri
 export const claimStaffAccess = (claim: string) =>
   req<StaffClaimResponse>('/staff/claim', { method: 'POST', body: JSON.stringify({ claim }) });
 
-export const listStaff = () => req<StaffListResponse>('/staff');
+/**
+ * **Every one of these names its party**, and that was a real hole rather than tidying.
+ *
+ * All five endpoints go through `requirePartyInScope`, which takes the party from a
+ * **bar session token** or from `?eventId=` and answers 400 "which party?" with
+ * neither. These calls sent neither — so they worked for a helper (who always holds a
+ * token) and failed for an **account-holder who had not taken one**, which is exactly
+ * Dan opening `/bar/<id>` from a link, a bookmark or the guest menu rather than
+ * through "Work it".
+ *
+ * The failure was silent and the consequence was the whole point of the screen:
+ * `fetchStaff` swallows the error, so the staff list came back empty, the pending-request
+ * dot never appeared, and **a helper who asked to serve was invisible**. `listOrders`
+ * had always passed its id; these had drifted.
+ */
+export const listStaff = (eventId: string) =>
+  req<StaffListResponse>(`/staff?eventId=${encodeURIComponent(eventId)}`);
 
-export const approveStaff = (id: string) =>
-  req<OkResponse>(`/staff/${id}/approve`, { method: 'POST' });
+export const approveStaff = (id: string, eventId: string) =>
+  req<OkResponse>(`/staff/${id}/approve?eventId=${encodeURIComponent(eventId)}`, {
+    method: 'POST',
+  });
 
 /** Deny a pending request, or remove a helper entirely. */
-export const removeStaff = (id: string) => req<OkResponse>(`/staff/${id}`, { method: 'DELETE' });
+export const removeStaff = (id: string, eventId: string) =>
+  req<OkResponse>(`/staff/${id}?eventId=${encodeURIComponent(eventId)}`, { method: 'DELETE' });
 
-export const revokeStaff = (id: string) =>
-  req<OkResponse>(`/staff/${id}/revoke`, { method: 'POST' });
+export const revokeStaff = (id: string, eventId: string) =>
+  req<OkResponse>(`/staff/${id}/revoke?eventId=${encodeURIComponent(eventId)}`, { method: 'POST' });
 
-export const revokeAllHelpers = () => req<OkResponse>('/staff/revoke-all', { method: 'POST' });
+export const revokeAllHelpers = (eventId: string) =>
+  req<OkResponse>(`/staff/revoke-all?eventId=${encodeURIComponent(eventId)}`, { method: 'POST' });
 
 // ---- Web Push ----
 

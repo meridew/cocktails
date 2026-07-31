@@ -155,7 +155,7 @@
     if (!canManageStaff) return;
     const started = session.generation;
     try {
-      const r = await listStaff();
+      const r = await listStaff(eventId);
       if (started !== session.generation) return;
       staff = r.staff;
       staffLoaded = true;
@@ -375,6 +375,7 @@
   {:else if showStaff && canManageStaff}
     <StaffAdmin
       {staff}
+      {eventId}
       loaded={staffLoaded}
       onchanged={fetchStaff}
       onclose={() => (showStaff = false)}

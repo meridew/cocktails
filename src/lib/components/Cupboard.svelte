@@ -73,7 +73,7 @@
    * Which shelf is open. `all` is the whole cupboard, and stays the default —
    * unticking something you cannot find is a worse failure than scrolling.
    */
-  let shelf = $state<'all' | Category>('all');
+  let shelf = $state<'all' | 'in' | Category>('all');
 
   /** Ticked-of-total per shelf, so the tabs double as "how far have I got". */
   const shelfCounts = $derived(
@@ -91,13 +91,46 @@
         items: g.items.filter((i) => i.toLowerCase().includes(q)),
       })).filter((g) => g.items.length > 0);
     }
+    /**
+     * **"In stock" — the shelf that answers "what has he actually got?"**
+     *
+     * Everything else here narrows by *category*, which is the right way to fill a
+     * cupboard in and the wrong way to check one over. Reviewing 29 ticks spread
+     * through 173 rows the night before a party meant scrolling the lot and trusting
+     * your eyes. This is the same list with the noise removed.
+     *
+     * Empty groups are dropped so no heading dangles over nothing.
+     */
+    if (shelf === 'in') {
+      return STOCK_GROUPS.map((g) => ({
+        ...g,
+        items: g.items.filter((i) => ticked.has(i)),
+      })).filter((g) => g.items.length > 0);
+    }
     return shelf === 'all' ? STOCK_GROUPS : STOCK_GROUPS.filter((g) => g.category === shelf);
   });
 
+  /** Every bottle this screen can actually draw a row for. */
+  const STOCKABLE_SET = new Set(STOCK_GROUPS.flatMap((g) => g.items));
+
+  /**
+   * Take a saved list, minus anything with no row to show it in.
+   *
+   * A cupboard can hold an ingredient the tick list has never heard of — a leftover
+   * from an older recipe set, or a name that changed. It counted towards the total
+   * while being invisible and impossible to untick, so the header said "30 bottles"
+   * above 29 rows. Found on a seeded cupboard holding `Dark Rum`, which no recipe
+   * mentions and no shelf lists.
+   *
+   * Dropped from `saved` as well as from `ticked`, so the two still agree and the
+   * screen does not open looking unsaved. `saveStock` already discards what it
+   * doesn't recognise, so the next save quietly cleans the record too.
+   */
   function adopt(list: string[]): void {
-    saved = list;
+    const real = list.filter((i) => STOCKABLE_SET.has(i));
+    saved = real;
     ticked.clear();
-    for (const i of list) ticked.add(i);
+    for (const i of real) ticked.add(i);
   }
 
   async function load(): Promise<void> {
@@ -222,6 +255,18 @@
           >
             Everything <b>{ticked.size}</b>
           </button>
+          <!-- Second, not last: checking what is in is the commoner job once a
+               cupboard exists, and it should not be at the end of a scrolling row. -->
+          {#if ticked.size > 0}
+            <button
+              type="button"
+              class="bar-tab"
+              aria-current={shelf === 'in'}
+              onclick={() => (shelf = 'in')}
+            >
+              In stock <b>{ticked.size}</b>
+            </button>
+          {/if}
           {#each STOCK_GROUPS as group (group.category)}
             <button
               type="button"
