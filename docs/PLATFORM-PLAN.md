@@ -22,9 +22,8 @@ symptom; the missing axis is the cause, and §8 phase 0 fixes the cause first.
 **Phases 0, 2, 3, 4, 5 and 6 are done.** The app now does what §1 has always said it
 does: a host records what they have in, and their guests get a menu generated from
 it — 60 drinks from 30 bottles rather than six curated ones filtered down. A
-Playwright suite walks the whole party in a real browser. What remains is phases 7 and
-8, both deferred by Dan — and phase 6's gate, which is the first green run on the Mac
-and can only happen on a push.
+Playwright suite walks the whole party in a real browser and gates on the Mac. **Every
+scheduled phase is done**; what remains is 7 and 8, both deferred by Dan.
 
 **Phase 1 was withdrawn, not skipped.** Its premise — that the look was broken — was
 a claim in a document rather than an observed fact, and it was false.
@@ -719,14 +718,15 @@ generated menu currently offers a non-drinker nothing. Every one of the 270 is a
 cocktail. A host with a well-stocked bar and a pregnant guest has a problem the app
 does not know about.
 
-### ~~Phase 6 — end to end~~ ✅ built, 31 Jul 2026 — _gate pending the first CI run_
+### ~~Phase 6 — end to end~~ ✅ done, 31 Jul 2026
 
 Playwright over the flows that now exist, sharded across the M4's ten cores: register
 → cupboard → Dan creates a party → guest orders from the generated menu → helper
 serves it → guest notified. Plus the negative ones: a host cannot advance an order, a
 banned host cannot sign in, one party's guest cannot see another's menu.
 
-_Gate: the suite runs in CI on the Mac runner._
+_Gate: the suite runs in CI on the Mac runner._ **Met** — run `30628097272`, 13
+passed in 9.5s, whole job 66s including the Chromium download.
 
 13 specs in `e2e/`, green in about ten seconds. `npm run test:e2e` builds the app and
 drives `build/index.js` — the same artefact launchd runs — against a SQLite file that
