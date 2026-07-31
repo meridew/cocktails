@@ -17,7 +17,7 @@
 import { test, describe, beforeAll } from 'vitest';
 import assert from 'node:assert/strict';
 import { request, send } from './app';
-import { asAccount, person, useMemoryEmail, type Account } from './fixtures/people';
+import { admittedDevice, asAccount, person, useMemoryEmail, type Account } from './fixtures/people';
 
 interface Party {
   host: Account;
@@ -80,7 +80,12 @@ async function party(label: string): Promise<Party> {
 async function order(eventId: string, who: string): Promise<string> {
   const res = await request(
     '/api/orders',
-    send('POST', { eventId, name: who, items: [{ name: 'Mojito', qty: 1 }] }),
+    send('POST', {
+      eventId,
+      name: who,
+      items: [{ name: 'Mojito', qty: 1 }],
+      deviceId: admittedDevice(eventId, who.replace(/\W+/g, '-')),
+    }),
   );
   return (await okJson<{ id: string }>(res, `order for ${who}`)).id;
 }
@@ -157,7 +162,12 @@ describe('two parties running at the same time', () => {
   test('ordering at a party that does not exist is refused', async () => {
     const res = await request(
       '/api/orders',
-      send('POST', { eventId: 'nope', name: 'Lost', items: [{ name: 'Wine', qty: 1 }] }),
+      send('POST', {
+        eventId: 'nope',
+        name: 'Lost',
+        items: [{ name: 'Wine', qty: 1 }],
+        deviceId: 'dev-lost',
+      }),
     );
     assert.equal(res.status, 404, 'an unknown party must not silently become a live one');
   });
@@ -167,7 +177,7 @@ describe('two parties running at the same time', () => {
     // wrong *silently* — the guest orders at a stranger's bar and nothing says so.
     const res = await request(
       '/api/orders',
-      send('POST', { name: 'Vague', items: [{ name: 'Wine', qty: 1 }] }),
+      send('POST', { name: 'Vague', items: [{ name: 'Wine', qty: 1 }], deviceId: 'dev-vague' }),
     );
     assert.equal(res.status, 404);
   });
@@ -337,7 +347,12 @@ describe('a party only takes orders while it is open', () => {
   const orderAt = (eventId: string) =>
     request(
       '/api/orders',
-      send('POST', { name: 'Guest', items: [{ name: 'Mojito', qty: 1 }], eventId }),
+      send('POST', {
+        name: 'Guest',
+        items: [{ name: 'Mojito', qty: 1 }],
+        eventId,
+        deviceId: admittedDevice(eventId, 'gate'),
+      }),
     );
 
   const setStatus = (eventId: string, status: string) =>

@@ -84,6 +84,9 @@ export type Capability =
   | 'staff:approve'
   | 'staff:revoke'
   | 'staff:invite'
+  // Who is at the party. A guest is admitted once and pours all night.
+  | 'guests:read'
+  | 'guests:admit'
   // A host's cupboard — scoped to a person, not a party.
   | 'stock:read'
   | 'stock:edit'
@@ -110,6 +113,8 @@ export const CAPABILITIES: readonly Capability[] = [
   'staff:approve',
   'staff:revoke',
   'staff:invite',
+  'guests:read',
+  'guests:admit',
   'stock:read',
   'stock:edit',
   'party:create',
@@ -130,6 +135,8 @@ export const SCOPE_OF: Record<Capability, Scope['kind']> = {
   'orders:advance': 'party',
   'orders:delete': 'party',
   'orders:clear': 'party',
+  'guests:read': 'party',
+  'guests:admit': 'party',
   'staff:read': 'party',
   'staff:approve': 'party',
   'staff:revoke': 'party',
@@ -160,6 +167,12 @@ const STAFF_AT_THIS_PARTY: readonly Capability[] = [
   'orders:advance',
   'orders:delete',
   'orders:clear',
+  // Letting a guest in is bar work, not host work: whoever is pouring is the one
+  // looking at the room, and they already decide whose drink gets made next.
+  // Pointedly *not* `staff:approve` — waving in someone who wants a drink is a
+  // different thing from waving in someone who wants to work the bar.
+  'guests:read',
+  'guests:admit',
 ];
 
 /**

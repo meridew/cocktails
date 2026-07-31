@@ -42,6 +42,8 @@ import * as hostById from '../src/routes/api/hosts/[id]/+server';
 import * as hostStock from '../src/routes/api/hosts/[id]/stock/+server';
 import * as eventById from '../src/routes/api/events/[id]/+server';
 import * as eventMenu from '../src/routes/api/events/[id]/menu/+server';
+import * as eventGuests from '../src/routes/api/events/[id]/guests/+server';
+import * as parties from '../src/routes/api/parties/+server';
 import * as eventBar from '../src/routes/api/events/[id]/bar/+server';
 
 type Handlers = Record<string, unknown>;
@@ -75,6 +77,8 @@ export const ROUTES: Record<string, Handlers> = {
   '/api/events/[id]/bar': eventBar,
   '/api/events/[id]': eventById,
   '/api/events/[id]/menu': eventMenu,
+  '/api/events/[id]/guests': eventGuests,
+  '/api/parties': parties,
   // Better Auth's catch-all. Listed last for readability; matching order is the
   // pass order in resolve(), not this one.
   '/api/account/[...all]': account,

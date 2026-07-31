@@ -11,7 +11,14 @@ import assert from 'node:assert/strict';
 import { STATUS_META, orderProgress, type Order } from '$lib/shared';
 import { request } from './app';
 import { clearOrders } from '$lib/server/db';
-import { barToken, partyFor, person, useMemoryEmail, type Account } from './fixtures/people';
+import {
+  admittedDevice,
+  barToken,
+  partyFor,
+  person,
+  useMemoryEmail,
+  type Account,
+} from './fixtures/people';
 
 let dan: Account;
 let eventId = '';
@@ -26,7 +33,10 @@ const auth = () => ({ Authorization: `Bearer ${token}` });
 
 /** Place an order with the given lines and return it. */
 async function place(name: string, items: { name: string; qty: number }[]): Promise<Order> {
-  const res = await request('/api/orders', send('POST', { name, items, eventId }));
+  const res = await request(
+    '/api/orders',
+    send('POST', { name, items, eventId, deviceId: admittedDevice(eventId) }),
+  );
   assert.equal(res.status, 200);
   return ((await res.json()) as { order: Order }).order;
 }

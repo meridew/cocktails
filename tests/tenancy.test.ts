@@ -15,7 +15,14 @@ import { test, describe, beforeAll } from 'vitest';
 import assert from 'node:assert/strict';
 import { request, send } from './app';
 import { createStaff, genId, listOrders } from '$lib/server/db';
-import { barToken, partyFor, person, useMemoryEmail, type Account } from './fixtures/people';
+import {
+  admittedDevice,
+  barToken,
+  partyFor,
+  person,
+  useMemoryEmail,
+  type Account,
+} from './fixtures/people';
 
 interface Host {
   account: Account;
@@ -51,7 +58,12 @@ async function makeHost(label: string): Promise<Host> {
   // what used to make the *order* in this function load-bearing.
   const placed = await request(
     '/api/orders',
-    send('POST', { name: `${label} guest`, eventId, items: [{ name: 'Mojito', qty: 1 }] }),
+    send('POST', {
+      name: `${label} guest`,
+      eventId,
+      items: [{ name: 'Mojito', qty: 1 }],
+      deviceId: admittedDevice(eventId, label),
+    }),
   );
   assert.equal(placed.status, 200);
   const orderId = ((await placed.json()) as { id: string }).id;

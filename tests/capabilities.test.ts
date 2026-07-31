@@ -100,6 +100,15 @@ const GOVERNED: Record<string, Requirement> = {
   'POST /api/events/[id]/bar': 'orders:advance',
   // A menu is what's on the kitchen table under the QR code — not a secret.
   'GET /api/events/[id]/menu': 'public',
+  // Anyone may put their hand up; only the bar decides. A guest has no credential
+  // and never will, so joining cannot be gated on one — the gate is that joining
+  // gets you nothing until somebody admits you.
+  'POST /api/events/[id]/guests': 'public',
+  'GET /api/events/[id]/guests': 'guests:read',
+  'PATCH /api/events/[id]/guests': 'guests:admit',
+  // What's on tonight. Names and ids of live parties, and nothing else — see the
+  // endpoint for what that publishes and what it deliberately doesn't.
+  'GET /api/parties': 'public',
   // Reading it is public; *choosing* it is the host's or Dan's. Pointedly not the
   // bar's — a helper pours what the party serves, they don't decide it.
   'PUT /api/events/[id]/menu': 'menu:curate',
@@ -216,7 +225,18 @@ describe('the declared requirement is actually enforced', () => {
     const forbidden: [string, Requirement][] = guarded.filter(
       ([, r]) =>
         r !== 'session' &&
-        !['orders:read', 'orders:advance', 'orders:delete', 'orders:clear'].includes(r),
+        // Running the bar now includes letting guests in — a helper is the person
+        // looking at the room. It pointedly does not include `staff:*`: waving in
+        // somebody who wants a drink is a different thing from waving in somebody
+        // who wants to work the bar.
+        ![
+          'orders:read',
+          'orders:advance',
+          'orders:delete',
+          'orders:clear',
+          'guests:read',
+          'guests:admit',
+        ].includes(r),
     );
     assert.ok(forbidden.length > 0, 'this test proves nothing if nothing is restricted');
 
@@ -237,6 +257,7 @@ describe('the declared requirement is actually enforced', () => {
   test('a helper is allowed the queue they are there to run', async () => {
     for (const key of [
       'GET /api/orders',
+      'GET /api/events/[id]/guests',
       'POST /api/orders/clear',
       'POST /api/orders/[id]/bump',
     ] as const) {

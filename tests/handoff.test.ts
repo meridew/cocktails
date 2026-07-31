@@ -11,7 +11,14 @@ import assert from 'node:assert/strict';
 import { HANDOFFS, HANDOFF_META, STATUS_META, isHandoff, type Order } from '$lib/shared';
 import { request } from './app';
 import { clearOrders } from '$lib/server/db';
-import { barToken, partyFor, person, useMemoryEmail, type Account } from './fixtures/people';
+import {
+  admittedDevice,
+  barToken,
+  partyFor,
+  person,
+  useMemoryEmail,
+  type Account,
+} from './fixtures/people';
 
 let dan: Account;
 let eventId = '';
@@ -27,7 +34,12 @@ const auth = () => ({ Authorization: `Bearer ${token}` });
 async function place(name: string): Promise<Order> {
   const res = await request(
     '/api/orders',
-    send('POST', { name, eventId, items: [{ name: 'Mojito', qty: 1 }] }),
+    send('POST', {
+      name,
+      eventId,
+      items: [{ name: 'Mojito', qty: 1 }],
+      deviceId: admittedDevice(eventId),
+    }),
   );
   return ((await res.json()) as { order: Order }).order;
 }

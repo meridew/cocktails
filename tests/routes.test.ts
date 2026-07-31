@@ -13,7 +13,14 @@ import { test, describe, beforeAll } from 'vitest';
 import assert from 'node:assert/strict';
 import { LIMITS, type Actor } from '$lib/shared';
 import { request } from './app';
-import { barToken, partyFor, person, useMemoryEmail, type Account } from './fixtures/people';
+import {
+  admittedDevice,
+  barToken,
+  partyFor,
+  person,
+  useMemoryEmail,
+  type Account,
+} from './fixtures/people';
 
 let dan: Account;
 let eventId = '';
@@ -28,8 +35,14 @@ const json = (body: unknown, headers: Record<string, string> = {}) => send('POST
 const patch = (body: unknown, headers: Record<string, string> = {}) => send('PATCH', body, headers);
 const auth = (t = token) => ({ Authorization: `Bearer ${t}` });
 
-/** Place an order and return its id. */
-async function placeOrder(name = 'Guest', deviceId?: string): Promise<string> {
+/**
+ * Place an order and return its id.
+ *
+ * The device defaults to one the bar has already admitted, because every test below
+ * is about something else — validation, throttling, the status chain — and an
+ * un-admitted guest's drink never reaches the queue those tests then read.
+ */
+async function placeOrder(name = 'Guest', deviceId = admittedDevice(eventId)): Promise<string> {
   const res = await request(
     '/api/orders',
     json({ name, eventId, items: [{ name: 'Mojito', qty: 1 }], deviceId }),
@@ -178,7 +191,7 @@ describe('POST /api/orders', () => {
   test('accepts a valid order as pending', async () => {
     const res = await request(
       '/api/orders',
-      json({ name: 'Dan', eventId, items: [{ name: 'Wine' }] }),
+      json({ name: 'Dan', eventId, items: [{ name: 'Wine' }], deviceId: admittedDevice(eventId) }),
     );
     assert.equal(res.status, 200);
     const { order } = (await res.json()) as { order: { status: string; items: unknown[] } };
@@ -193,14 +206,24 @@ describe('POST /api/orders', () => {
     const dirty = `${String.fromCharCode(0)}Da${String.fromCharCode(127)}n `;
     const res = await request(
       '/api/orders',
-      json({ name: dirty, eventId, items: [{ name: 'Mojito' }] }),
+      json({
+        name: dirty,
+        eventId,
+        items: [{ name: 'Mojito' }],
+        deviceId: admittedDevice(eventId),
+      }),
     );
     const { order } = (await res.json()) as { order: { name: string } };
     assert.equal(order.name, 'Dan', 'control characters should be stripped and the value trimmed');
 
     const long = await request(
       '/api/orders',
-      json({ name: 'x'.repeat(200), eventId, items: [{ name: 'Mojito' }] }),
+      json({
+        name: 'x'.repeat(200),
+        eventId,
+        items: [{ name: 'Mojito' }],
+        deviceId: admittedDevice(eventId),
+      }),
     );
     const { order: capped } = (await long.json()) as { order: { name: string } };
     assert.equal(capped.name.length, LIMITS.maxFieldLen, 'over-long names are capped');
@@ -219,6 +242,7 @@ describe('POST /api/orders', () => {
           { name: 'Fraction', qty: 2.7 },
           null,
         ],
+        deviceId: admittedDevice(eventId),
       }),
     );
     const { order } = (await res.json()) as { order: { items: { name: string; qty: number }[] } };
@@ -235,7 +259,10 @@ describe('POST /api/orders', () => {
       name: `Drink ${i}`,
       qty: 1,
     }));
-    const res = await request('/api/orders', json({ name: 'Many', eventId, items }));
+    const res = await request(
+      '/api/orders',
+      json({ name: 'Many', eventId, items, deviceId: admittedDevice(eventId) }),
+    );
     const { order } = (await res.json()) as { order: { items: unknown[] } };
     assert.equal(order.items.length, LIMITS.maxItemsPerOrder);
   });
@@ -263,7 +290,12 @@ describe('POST /api/orders', () => {
     const other = await request(
       '/api/orders',
       json(
-        { name: 'Innocent', eventId, items: [{ name: 'Mojito' }] },
+        {
+          name: 'Innocent',
+          eventId,
+          items: [{ name: 'Mojito' }],
+          deviceId: admittedDevice(eventId),
+        },
         { 'x-forwarded-for': '198.51.100.43' },
       ),
     );
