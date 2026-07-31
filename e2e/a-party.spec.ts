@@ -4,6 +4,7 @@ import {
   arriveAt,
   createParty,
   freshEmail,
+  askAndApprove,
   partyId,
   register,
   signIn,
@@ -97,7 +98,7 @@ test('a host stocks up, Dan opens the bar, a guest orders and a helper pours it'
   await guest.getByRole('button', { name: 'Send order' }).click();
   await expect(guest.getByRole('heading', { name: /Cheers/ })).toBeVisible();
 
-  // ---- Dan: behind the bar, and a code for whoever is helping -------------
+  // ---- Dan: behind the bar ------------------------------------------------
   await dan.goto('/admin');
   await dan.getByRole('button', { name: new RegExp(hostName) }).click();
   await dan
@@ -107,22 +108,9 @@ test('a host stocks up, Dan opens the bar, a guest orders and a helper pours it'
   await expect(dan).toHaveURL(/\/bar$/);
   await expect(dan.locator('.ord', { hasText: 'Priya' })).toBeVisible();
 
-  await dan.getByRole('button', { name: /Bar options/ }).click();
-  await dan.getByRole('button', { name: 'Bar staff' }).click();
-  await dan.getByRole('button', { name: 'Show a join code' }).click();
-  const code = (await dan.locator('.joincode').innerText()).trim();
-  expect(code).toMatch(/^\d+$/);
-
-  // ---- the helper: in on a code, and pouring ------------------------------
+  // ---- the helper: asked for, waved in, and pouring ----------------------
   const helper = await phone(browser);
-  // Arriving at the party first is what tells this device which bar it is joining —
-  // a helper always comes through a guest link, never to a bare /bar.
-  await arriveAt(helper, id);
-  await helper.goto('/bar');
-  await helper.getByRole('button', { name: 'Helping out tonight?' }).click();
-  await helper.getByPlaceholder('your name').fill('Marco');
-  await helper.getByLabel('Join code').fill(code);
-  await helper.getByLabel('Join code').press('Enter');
+  await askAndApprove(helper, dan, id, 'Marco');
 
   const order = helper.locator('.ord', { hasText: 'Priya' });
   await expect(order).toBeVisible();

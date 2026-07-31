@@ -1,36 +1,40 @@
 <script lang="ts">
   /**
-   * The door to the bar. Three ways through, in order of how often they're used:
-   *   • the host taps their PIN
-   *   • a helper types a join code the host just read out — instant
-   *   • a helper asks, and waits for the host to approve their device
+   * The door to the bar. **One question: are you already entitled, or are you asking?**
    *
-   * The join code is the primary helper path on purpose. Request-and-approve solves
-   * *remote* onboarding, and at a party the host is standing right there — so the
-   * asynchronous version turned a five-second conversation into a multi-minute wait
-   * that could stall indefinitely. It's kept as the fallback for when the host isn't
-   * nearby, and it now pushes them, so it can't sit unnoticed.
+   * It used to offer three doors, led by a keypad. That keypad could never work —
+   * `setAccountPin` had no endpoint and no screen, so no PIN was ever set, and it
+   * answered a generic "wrong PIN" to everybody forever. It was also circular: it
+   * built its request from the live account session, the very credential it existed
+   * to spare a bar phone from carrying. And the join code it sat in front of was
+   * *more* work for the person approving — reading six digits aloud, versus tapping
+   * yes to a name already on their screen. Both are gone.
+   *
+   * What is left is the two answers that were ever really distinct:
+   *
+   * - **You have standing.** Your account may work this party, so open the bar.
+   *   Nothing to type; the guard has already agreed.
+   * - **Somebody has to vouch for you.** Give a name, ask, and whoever is behind the
+   *   bar taps yes. They are notified, and so are you when they answer.
    *
    * Every state a request can be in is shown explicitly — sent, waiting, declined —
-   * because the previous version deleted the outcome as soon as it read it and left
-   * people staring at a sign-in form with no idea what had happened. The lifecycle
-   * lives in the staffRequest store, so it survives closing the panel and reloading.
+   * because an earlier version deleted the outcome as soon as it read it and left
+   * people staring at a form with no idea what had happened. The lifecycle lives in
+   * the staffRequest store, so it survives closing the panel and reloading.
    * (Approval needs no panel: the queue simply appears.)
    */
   import { onMount } from 'svelte';
-  import { JOIN_CODE_LENGTH, LIMITS, PIN_LENGTH, isValidPin } from '$lib/shared';
-  import { Unauthorized } from '$lib/api';
-  import { session, signInWithPin } from '$lib/stores/session.svelte';
+  import { LIMITS } from '$lib/shared';
+  import { openBar } from '$lib/api';
+  import { adoptApprovedSession, session } from '$lib/stores/session.svelte';
   import { currentEventId } from '$lib/party';
   import {
     askToHelp,
     checkDecision,
     clearRequest,
-    joinWithJoinCode,
     staffRequest,
   } from '$lib/stores/staffRequest.svelte';
   import { getSavedName, saveName } from '$lib/device';
-  import Keypad from '$lib/components/Keypad.svelte';
 
   /** Fired once a request is lodged, so the bar can get out of the way. */
   let { onasked }: { onasked: () => void } = $props();
@@ -38,73 +42,54 @@
   let askName = $state(getSavedName());
   let busy = $state(false);
   let error = $state('');
-  /** Which door the person is currently at. */
-  let door = $state<'pin' | 'join' | 'ask'>('pin');
 
   let message = $derived(error || session.expiredMessage);
 
   /**
-   * An outstanding or unacknowledged request always wins over the doors: that's the
-   * news, and burying it behind a sign-in form was the original defect.
+   * Whether this device is signed in as somebody at all.
+   *
+   * Deliberately *not* "may they work this party" — the client cannot know that, and
+   * a client that decides its own access is a client that can be lied to. It offers
+   * the button to anyone holding an account and lets the server answer; a host who
+   * isn't entitled gets a refusal with a reason rather than a hidden control they
+   * can't see the point of.
+   */
+  let hasAccount = $derived(session.actor.account !== null);
+
+  /**
+   * An outstanding or unacknowledged request always wins: that's the news, and
+   * burying it behind a form was the original defect.
    */
   let mode = $derived(
     staffRequest.kind === 'pending'
       ? 'waiting'
       : staffRequest.kind === 'declined'
         ? 'declined'
-        : door,
+        : hasAccount
+          ? 'open'
+          : 'ask',
   );
 
-  /** Move to another door with a clean slate. */
-  const goto = (next: 'pin' | 'join' | 'ask') => () => {
-    door = next;
-    error = '';
-  };
-
-  async function submitPin(pin: string) {
-    if (!isValidPin(pin) || busy) return;
-    busy = true;
-    error = '';
-    try {
-      // The keypad proves you're still you; it does not work out who you are. The
-      // device remembers whose account signed in here, and which party it's working.
-      const eventId = currentEventId();
-      const userId = session.actor.account?.id ?? '';
-      if (!eventId || !userId) {
-        error = 'Sign in with your account on this device first.';
-        return;
-      }
-      await signInWithPin(eventId, userId, pin);
-    } catch (e) {
-      error =
-        e instanceof Unauthorized ? 'Wrong PIN' : (e as Error).message || 'That PIN didn’t work';
-    } finally {
-      busy = false;
-    }
-  }
-
-  async function submitJoin(code: string) {
-    const name = askName.trim();
+  /**
+   * Take a bar session on the account already signed in here.
+   *
+   * The same call `/admin`'s "Work it" makes — there is one way for an entitled
+   * person to get behind a bar, and this is the other place it is offered from.
+   */
+  async function openTheBar() {
     if (busy) return;
-    if (!name) {
-      error = 'Pop your name in first, so the bar knows who you are';
-      return;
-    }
     busy = true;
     error = '';
     try {
-      saveName(name);
       const eventId = currentEventId();
       if (!eventId) {
         error = 'Open this party’s link first, so we know which bar you mean.';
         return;
       }
-      await joinWithJoinCode(eventId, code, name);
+      const { token, staff } = await openBar(eventId);
+      adoptApprovedSession(token, staff);
     } catch (e) {
-      error =
-        e instanceof Unauthorized
-          ? 'That code is wrong or has expired'
-          : (e as Error).message || 'That code didn’t work';
+      error = (e as Error).message || 'That bar isn’t yours to open.';
     } finally {
       busy = false;
     }
@@ -123,7 +108,6 @@
         return;
       }
       await askToHelp(eventId, name);
-      door = 'pin';
       // Waiting is a background activity — hand the screen back so they can carry
       // on ordering instead of staring at a modal until somebody answers.
       onasked();
@@ -135,10 +119,7 @@
   }
 
   /** Acknowledge a finished request and go back to the door. */
-  function dismiss() {
-    clearRequest();
-    door = 'pin';
-  }
+  const dismiss = () => clearRequest();
 
   /** How long ago the request was sent, so "waiting" doesn't feel like a hang. */
   function since(ts: number): string {
@@ -155,39 +136,17 @@
 </script>
 
 <div class="bt-gate">
-  {#if mode === 'pin'}
-    <p class="bt-gate-msg">Enter bar PIN</p>
-    <Keypad length={PIN_LENGTH} label="Bar PIN" disabled={busy} {busy} onsubmit={submitPin} />
-    <button type="button" class="bt-gate-alt" onclick={goto('join')}> Helping out tonight? </button>
-    <!-- The way in for anyone who works here. Points at the front door rather than
-         at /host: signing in moved there, and /host now assumes you already have. -->
-    <a class="bt-gate-alt" href="/">I work here</a>
-  {:else if mode === 'join'}
-    <p class="bt-gate-msg">Got a join code?</p>
-    <p class="bt-gate-hint">Ask whoever’s running the bar — they can show you one.</p>
-    <input
-      type="text"
-      autocomplete="name"
-      autocapitalize="words"
-      placeholder="your name"
-      maxlength={LIMITS.maxFieldLen}
-      bind:value={askName}
-    />
-    <Keypad
-      length={JOIN_CODE_LENGTH}
-      label="Join code"
-      disabled={busy}
-      {busy}
-      onsubmit={submitJoin}
-    />
-    <button type="button" class="bt-gate-alt" onclick={goto('ask')}>
-      No code? Ask them to let you in
+  {#if mode === 'open'}
+    <p class="bt-gate-msg">Ready when you are</p>
+    <p class="bt-gate-hint">You're signed in, so this is one tap.</p>
+    <button type="button" class="bt-unlock" onclick={openTheBar} disabled={busy}>
+      {busy ? 'One moment…' : 'Open the bar'}
     </button>
-    <button type="button" class="bt-gate-alt" onclick={goto('pin')}>Back</button>
   {:else if mode === 'ask'}
-    <p class="bt-gate-msg">Ask to help at the bar</p>
+    <p class="bt-gate-msg">Helping out tonight?</p>
     <p class="bt-gate-hint">
-      We’ll notify them, and tell you as soon as they answer. You can carry on ordering meanwhile.
+      Give your name and whoever's behind the bar can wave you in. We'll tell you as soon as they do
+      — carry on ordering meanwhile.
     </p>
     <input
       type="text"
@@ -199,49 +158,25 @@
       onkeydown={(e) => e.key === 'Enter' && submitRequest()}
     />
     <button type="button" class="bt-unlock" onclick={submitRequest} disabled={busy}>
-      {busy ? 'Sending…' : 'Ask to join'}
+      {busy ? 'Sending…' : 'Ask to help'}
     </button>
-    <button type="button" class="bt-gate-alt" onclick={goto('join')}>Back</button>
+    <!-- The way in for anyone who works here. Opens the sign-in drawer on the front
+         door rather than merely landing on it — `/` is the party list now, so a bare
+         link left people looking at a list of parties wondering where the form went. -->
+    <a class="bt-gate-alt" href="/?signin">I work here</a>
   {:else if mode === 'waiting'}
     <p class="bt-status-badge is-sent">✓ Request sent</p>
-    <p class="bt-gate-msg">Waiting for the host…</p>
+    <p class="bt-gate-msg">Waiting for the bar…</p>
     <p class="bt-gate-hint">
-      Asked as <strong>{staffRequest.name}</strong>, {since(staffRequest.at)}. We’ve notified them.
+      Asked as <strong>{staffRequest.name}</strong>, {since(staffRequest.at)}. We've told them.
     </p>
-    <p class="bt-gate-hint">
-      Close this and carry on — we’ll tell you either way, and it’ll be here when you come back.
-    </p>
-    <button
-      type="button"
-      class="bt-unlock"
-      onclick={() => {
-        clearRequest();
-        door = 'join';
-      }}
-    >
-      Got a code instead?
-    </button>
-    <button type="button" class="bt-gate-alt" onclick={dismiss}>Cancel request</button>
+    <button type="button" class="bt-gate-alt" onclick={dismiss}>Cancel</button>
   {:else}
-    <p class="bt-status-badge is-no">✕ Not approved</p>
-    <p class="bt-gate-msg">Request declined</p>
-    <p class="bt-gate-hint">
-      The host didn’t approve this one — or it sat unanswered too long and expired.
-      {#if staffRequest.name}Asked as <strong>{staffRequest.name}</strong>, {since(
-          staffRequest.at,
-        )}.{/if}
-    </p>
-    <button
-      type="button"
-      class="bt-unlock"
-      onclick={() => {
-        clearRequest();
-        door = 'join';
-      }}
-    >
-      Try a join code
-    </button>
-    <button type="button" class="bt-gate-alt" onclick={dismiss}>Back to PIN</button>
+    <p class="bt-status-badge is-declined">✕ Not this time</p>
+    <p class="bt-gate-msg">They didn't let you in</p>
+    <p class="bt-gate-hint">Have a word with whoever's pouring, then ask again.</p>
+    <button type="button" class="bt-unlock" onclick={dismiss}>Ask again</button>
   {/if}
-  {#if message}<p class="bt-err" role="alert">{message}</p>{/if}
+
+  {#if message}<p class="bt-conn" role="status">{message}</p>{/if}
 </div>

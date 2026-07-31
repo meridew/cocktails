@@ -9,32 +9,14 @@
  * A helper's `deviceId` is their *identity*, never their credential: it's sent in
  * every order payload and so isn't secret. The credential is always a
  * server-issued session token.
+ *
+ * **There is one way in, and it is being let in.** A keypad PIN and a read-aloud
+ * join code both used to live here. The PIN could never be set, so it never worked;
+ * the code worked but was more effort for the person approving — reading six digits
+ * aloud, versus tapping yes to a name already on their screen. Somebody with an
+ * account that may work the party opens the bar directly; everybody else asks, and
+ * whoever is already behind the bar decides.
  */
-
-/**
- * Digits in the keypad code. Short on purpose — it's tapped on a phone behind the
- * bar, repeatedly, by someone holding a cocktail shaker. A 6-digit space is only
- * 10^6, so the security comes from throttling (per-IP *and* per-account) rather than
- * from length; see the limiters in the API's auth module.
- */
-export const PIN_LENGTH = 6;
-
-/** Digits only, exactly PIN_LENGTH of them. Shared so both sides agree. */
-export function isValidPin(v: unknown): v is string {
-  return typeof v === 'string' && new RegExp(`^\\d{${PIN_LENGTH}}$`).test(v);
-}
-
-/**
- * A join code is the same shape as the keypad code — same keys, same muscle memory —
- * but a different credential: short-lived, revocable, and it only ever grants access
- * to one party's bar. The host reads it out; the helper is in immediately.
- */
-export const JOIN_CODE_LENGTH = PIN_LENGTH;
-
-export const isValidJoinCode = isValidPin;
-
-/** How long a join code stays usable. One code comfortably onboards a shift. */
-export const JOIN_CODE_TTL_MS = 15 * 60 * 1000;
 
 /**
  * `pending` — asked to help, waiting to be let in.

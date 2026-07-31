@@ -100,7 +100,7 @@ describe('schema', () => {
         name: string;
       }[]
     ).map((r) => r.name);
-    for (const t of ['orders', 'subscriptions', 'staff', 'staff_sessions', 'join_codes']) {
+    for (const t of ['orders', 'subscriptions', 'staff', 'staff_sessions', 'event_guest']) {
       assert.ok(tables.includes(t), `missing table ${t}`);
     }
   });

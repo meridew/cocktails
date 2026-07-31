@@ -46,13 +46,11 @@ import {
   event,
   eventGuest,
   eventMenu,
-  joinCodes,
   orders,
   staff,
   staffSessions,
   stock,
   subscriptions,
-  userPin,
 } from './schema';
 import { user } from './schema.auth';
 
@@ -486,25 +484,6 @@ export function createDb(dbPath: string) {
       db.delete(subscriptions).where(eq(subscriptions.deviceId, deviceId)).run();
     },
 
-    /** Record a join code (hashed) that the host can read out to a helper. */
-    createJoinCode(codeHash: string, expiresAt: number, createdBy: string | null): void {
-      // Opportunistic sweep, so the table stays tiny.
-      db.delete(joinCodes).where(lt(joinCodes.expiresAt, now())).run();
-      db.insert(joinCodes).values({ codeHash, expiresAt, createdBy, createdAt: now() }).run();
-    },
-
-    /** A join code, only if it exists and hasn't expired. */
-    liveJoinCode(codeHash: string): { expiresAt: number } | null {
-      const row = db.select().from(joinCodes).where(eq(joinCodes.codeHash, codeHash)).get();
-      if (!row || row.expiresAt < now()) return null;
-      return { expiresAt: row.expiresAt };
-    },
-
-    /** Invalidate every outstanding code — the host's "stop letting people in". */
-    clearJoinCodes(): void {
-      db.delete(joinCodes).run();
-    },
-
     // ---- events ----
 
     /**
@@ -627,21 +606,6 @@ export function createDb(dbPath: string) {
     },
 
     // ---- the keypad ----
-
-    pinFor(userId: string): string | null {
-      return db.select().from(userPin).where(eq(userPin.userId, userId)).get()?.pinHash ?? null;
-    },
-
-    setPin(userId: string, pinHash: string): void {
-      db.insert(userPin)
-        .values({ userId, pinHash, createdAt: now() })
-        .onConflictDoUpdate({ target: userPin.userId, set: { pinHash: sql`excluded.pin_hash` } })
-        .run();
-    },
-
-    clearPin(userId: string): void {
-      db.delete(userPin).where(eq(userPin.userId, userId)).run();
-    },
 
     // ---- people with accounts ----
     //
@@ -950,10 +914,6 @@ export const setInStock: Db['setInStock'] = (userId, ingredient, inStock) =>
 export const listEventMenu: Db['listEventMenu'] = (eventId) => d().listEventMenu(eventId);
 export const setEventMenu: Db['setEventMenu'] = (eventId, ids) => d().setEventMenu(eventId, ids);
 
-export const pinFor: Db['pinFor'] = (userId) => d().pinFor(userId);
-export const setPin: Db['setPin'] = (userId, hash) => d().setPin(userId, hash);
-export const clearPin: Db['clearPin'] = (userId) => d().clearPin(userId);
-
 export const userById: Db['userById'] = (id) => d().userById(id);
 export const userByEmail: Db['userByEmail'] = (email) => d().userByEmail(email);
 export const allUsers: Db['allUsers'] = () => d().allUsers();
@@ -971,10 +931,6 @@ export const deleteSubscription: Db['deleteSubscription'] = (dev, endpoint) =>
   d().deleteSubscription(dev, endpoint);
 export const deleteSubscriptionsForDevice: Db['deleteSubscriptionsForDevice'] = (dev) =>
   d().deleteSubscriptionsForDevice(dev);
-export const createJoinCode: Db['createJoinCode'] = (hash, expiresAt, by) =>
-  d().createJoinCode(hash, expiresAt, by);
-export const liveJoinCode: Db['liveJoinCode'] = (hash) => d().liveJoinCode(hash);
-export const clearJoinCodes: Db['clearJoinCodes'] = () => d().clearJoinCodes();
 
 export const staffByIdUnscoped: Db['staffByIdUnscoped'] = (id) => d().staffByIdUnscoped(id);
 export const staffInEvent: Db['staffInEvent'] = (eventId, id) => d().staffInEvent(eventId, id);

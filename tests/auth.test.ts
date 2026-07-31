@@ -14,22 +14,12 @@
 import { test, describe, beforeAll } from 'vitest';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import {
-  hashPassword,
-  verifyPassword,
-  logout,
-  sessionStaff,
-  setAccountPin,
-  signInWithPin,
-  pinBlocked,
-  notePinAttempt,
-} from '$lib/server/auth';
+import { hashPassword, verifyPassword, logout, sessionStaff } from '$lib/server/auth';
 import {
   createStaff,
   createStaffSession,
   genId,
   now,
-  pinFor,
   setStaffStatus,
   staffSession,
 } from '$lib/server/db';
@@ -138,68 +128,5 @@ describe('sessions', () => {
     assert.ok(sessionStaff(token));
     setStaffStatus(id, 'revoked');
     assert.equal(sessionStaff(token), null);
-  });
-});
-
-describe('the keypad', () => {
-  test('the right PIN returns a session that speaks for the account', async () => {
-    await setAccountPin(dan.id, '123456');
-    const result = await signInWithPin(eventId, dan.id, '123456');
-    assert.ok(result, 'the correct PIN should sign in');
-    assert.equal(sessionStaff(result.token)?.userId, dan.id);
-  });
-
-  test('a wrong PIN does not', async () => {
-    await setAccountPin(dan.id, '123456');
-    assert.equal(await signInWithPin(eventId, dan.id, '654321'), null);
-  });
-
-  test('an account with no PIN set cannot be signed in with one', async () => {
-    const other = await person('auth-nopin');
-    assert.equal(await signInWithPin(eventId, other.id, '123456'), null);
-  });
-
-  test('an account that is not working this party gets nothing', async () => {
-    // The PIN proves who you are; it does not grant a shift you never had.
-    const other = await person('auth-elsewhere');
-    await setAccountPin(other.id, '111111');
-    assert.equal(await signInWithPin(eventId, other.id, '111111'), null);
-  });
-
-  test('the PIN is stored hashed, never in the clear', async () => {
-    await setAccountPin(dan.id, '246813');
-    const stored = pinFor(dan.id);
-    assert.ok(stored);
-    assert.ok(!stored.includes('246813'), 'the PIN itself must not be recoverable');
-    assert.match(stored, /^[0-9a-f]+:[0-9a-f]+$/, 'salt:hash, like a password');
-  });
-});
-
-describe('the keypad throttle', () => {
-  test('blocks after the 10th failure and clears on success', () => {
-    const ip = '10.0.0.1';
-    const who = 'acct-throttle';
-    for (let i = 0; i < 9; i++) notePinAttempt(ip, who, false);
-    assert.equal(pinBlocked(ip, who), false, 'nine failures is still allowed');
-    notePinAttempt(ip, who, false);
-    assert.equal(pinBlocked(ip, who), true);
-    notePinAttempt(ip, who, true);
-    assert.equal(pinBlocked(ip, who), false, 'a correct PIN clears both counters');
-  });
-
-  test('is per-account, so one victim cannot lock everyone else out', () => {
-    // This is why the second layer stopped being global. With one shared PIN a
-    // global counter was right; with one PIN each it means an attacker grinding at
-    // a single person shuts every other keypad in the building.
-    const ip = '10.0.0.2';
-    for (let i = 0; i < 10; i++) notePinAttempt(ip, 'acct-victim', false);
-    assert.equal(pinBlocked('10.0.0.3', 'acct-victim'), true, 'the account under attack is shut');
-    assert.equal(pinBlocked('10.0.0.3', 'acct-bystander'), false, 'everyone else carries on');
-  });
-
-  test('is also per-IP, so one address cannot spread its guessing thinly', () => {
-    const ip = '10.0.0.4';
-    for (let i = 0; i < 10; i++) notePinAttempt(ip, `acct-spread-${i}`, false);
-    assert.equal(pinBlocked(ip, 'acct-spread-fresh'), true);
   });
 });

@@ -15,6 +15,13 @@
       "when": 1785502635293,
       "tag": "0001_guest_admission",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1785507586415,
+      "tag": "0002_one_way_in",
+      "breakpoints": true
     }
   ]
 }

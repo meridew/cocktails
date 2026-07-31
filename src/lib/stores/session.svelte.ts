@@ -7,12 +7,7 @@
  * `api.ts` reads the token through a registered hook, so no signature carries it.
  */
 import { ANONYMOUS, type Actor, type Staff } from '$lib/shared';
-import {
-  configureAuth,
-  signInWithPin as pinRequest,
-  logout as logoutRequest,
-  me as meRequest,
-} from '$lib/api';
+import { configureAuth, logout as logoutRequest, me as meRequest } from '$lib/api';
 import { storage } from '$lib/storage';
 
 const TOKEN_KEY = 'staff_token';
@@ -84,19 +79,6 @@ function adopt(newToken: string, who: Staff): void {
   staff = who;
   expiredMessage = '';
   storage.write(TOKEN_KEY, token);
-}
-
-/**
- * Exchange the keypad code for a session, as yourself.
- *
- * The device remembers whose account it is — it signed in properly once — so it
- * says which; this only proves it's still them. Throws on failure and the caller
- * shows why.
- */
-export async function signInWithPin(eventId: string, userId: string, pin: string): Promise<void> {
-  const result = await pinRequest(eventId, userId, pin);
-  adopt(result.token, result.staff);
-  await refreshActor();
 }
 
 /** Adopt the session an approved helper collected with their claim secret. */

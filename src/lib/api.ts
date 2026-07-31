@@ -8,13 +8,10 @@ import type {
   OrderCreatedResponse,
   OrderListResponse,
   OkResponse,
-  LoginResponse,
   MeResponse,
   StaffClaimResponse,
   StaffListResponse,
   StaffRequestCreated,
-  JoinCodeResponse,
-  JoinResponse,
   Staff,
 } from '$lib/shared';
 import { currentEventId } from './party';
@@ -383,17 +380,6 @@ export const deleteParty = (id: string) => req<OkResponse>(`/events/${id}`, { me
 
 // ---- staff auth ----
 
-/**
- * The admin door. There is deliberately no email/password client: the gate is
- * PIN-only, and `POST /api/auth/login` exists purely as break-glass if the PIN
- * throttle is ever jammed — reachable with curl, and covered by the route tests.
- */
-export const signInWithPin = (eventId: string, userId: string, pin: string) =>
-  req<LoginResponse>('/auth/pin', {
-    method: 'POST',
-    body: JSON.stringify({ eventId, userId, pin }),
-  });
-
 export const logout = () => req<OkResponse>('/auth/logout', { method: 'POST' });
 
 /**
@@ -439,17 +425,3 @@ export const subscribePush = (body: {
 /** Turn this device off entirely — every role. See the route for why it's a delete. */
 export const unsubscribePush = (deviceId: string) =>
   req<OkResponse>('/subscriptions', { method: 'DELETE', body: JSON.stringify({ deviceId }) });
-
-// ---- staff: join codes ----
-
-/** Host mints a code to read out. The plaintext comes back exactly once. */
-export const createJoinCode = () => req<JoinCodeResponse>('/staff/join-code', { method: 'POST' });
-
-export const revokeJoinCodes = () => req<OkResponse>('/staff/join-code', { method: 'DELETE' });
-
-/** Helper redeems a code and is working the bar immediately. */
-export const joinWithCode = (eventId: string, code: string, name: string, deviceId: string) =>
-  req<JoinResponse>('/staff/join', {
-    method: 'POST',
-    body: JSON.stringify({ eventId, code, name, deviceId }),
-  });

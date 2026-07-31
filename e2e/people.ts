@@ -215,3 +215,35 @@ export async function partyId(hostPage: Page, partyName: string): Promise<string
   if (!id) throw new Error(`could not read the party id from "${href}"`);
   return id;
 }
+
+/**
+ * A helper with no account, let in the way the app now does it: they ask from the
+ * bar gate, and somebody already behind the bar taps yes.
+ *
+ * The join code this replaced was quicker to script and no longer exists — reading
+ * six digits aloud was more work for the approver than tapping a name they were
+ * already looking at. Two pages are needed because two people are involved, which is
+ * the honest shape of "somebody vouches for you".
+ */
+export async function askAndApprove(
+  helper: Page,
+  approver: Page,
+  eventId: string,
+  name: string,
+): Promise<void> {
+  await arriveAt(helper, eventId, name);
+  await helper.goto('/bar');
+  await helper.getByPlaceholder('your name').fill(name);
+  await helper.getByRole('button', { name: 'Ask to help' }).click();
+
+  // The approver is already behind the bar; the request shows up under Bar staff.
+  await approver.getByRole('button', { name: /Bar options/ }).click();
+  await approver.getByRole('button', { name: 'Bar staff' }).click();
+  const row = approver.locator('.bt-staff-row', { hasText: name });
+  await expect(row).toBeVisible();
+  await row.getByRole('button', { name: '✓ Approve' }).click();
+
+  // The helper's device is polling for the decision, so the queue simply appears.
+  await helper.goto('/bar');
+  await expect(helper.locator('.bt-gate')).toHaveCount(0);
+}

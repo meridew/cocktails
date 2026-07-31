@@ -18,24 +18,18 @@
 import { createHash, randomBytes, randomInt, scrypt, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
 import type { Staff, StaffStatus } from '$lib/shared';
-import { JOIN_CODE_LENGTH, JOIN_CODE_TTL_MS, isValidJoinCode } from '$lib/shared';
 import {
-  clearPin,
   clearStaffClaim,
-  createJoinCode as dbCreateJoinCode,
   createStaff,
   createStaffSession,
   deleteStaffSession,
   genId,
-  liveJoinCode,
   now,
   pendingStaffForDevice,
-  pinFor,
   purgeExpiredSessions,
   purgeStalePendingStaff,
   renameStaff,
   setJoinedVia,
-  setPin,
   setStaffClaim,
   setStaffStatus,
   staffByClaim,
@@ -50,7 +44,6 @@ import { createRateLimiter } from './ratelimit';
 const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 /** How long an unapproved request stays collectable before it's swept. */
 const CLAIM_TTL_MS = 12 * 60 * 60 * 1000; // 12 hours — comfortably one party
-const DUMMY_SALT = randomBytes(16); // constant-time "no such user" path
 const KEY_LEN = 64; // derived-key length, shared by hash + verify
 
 /**
@@ -119,116 +112,6 @@ function startSession(row: StaffRow): { token: string; staff: Staff } {
   return { token, staff: toStaff(row) };
 }
 
-/** Set or change the keypad code for an account. Hashed like a password. */
-export async function setAccountPin(userId: string, pin: string): Promise<void> {
-  setPin(userId, await hashPassword(pin));
-}
-
-export const clearAccountPin = (userId: string): void => clearPin(userId);
-
-export const hasAccountPin = (userId: string): boolean => pinFor(userId) !== null;
-
-/**
- * Get back behind a bar with the keypad, as yourself.
- *
- * The device already knows *who* — it signed in properly once — so this proves it is
- * still that person, not which person it is. The PIN is stored hashed against the
- * account rather than sitting in the environment: the old shared `STAFF_PIN` had no
- * owner, so it could not be rotated by the person it belonged to and could not tell
- * two people apart.
- *
- * The session it returns is a **staff** one, because Better Auth has no supported
- * way to mint an account session without a credential (PLATFORM-PLAN §8 phase 0.7).
- * That costs nothing here: the staff row carries `userId`, so `resolveActor` reads
- * the account role through it and the holder is themselves again.
- *
- * A short numeric secret is only ~10^4–10^6 possibilities, so **throttling is the
- * whole defence** — see the limiter at the endpoint, which is per-IP and per-account.
- */
-export async function signInWithPin(
-  eventId: string,
-  userId: string,
-  pin: string,
-): Promise<{ token: string; staff: Staff } | null> {
-  const stored = pinFor(userId);
-  // Hash regardless, so "no PIN set" and "wrong PIN" cost the same. Otherwise the
-  // response time says which accounts have a keypad configured.
-  if (!stored) {
-    await scryptAsync(pin, DUMMY_SALT, KEY_LEN, SCRYPT);
-    return null;
-  }
-  if (!(await verifyPassword(pin, stored))) return null;
-
-  const row = staffForAccount(eventId, userId);
-  if (!row || row.status !== 'active') return null;
-  return startSession(row);
-}
-
-// ---- join codes ------------------------------------------------------------
-
-/**
- * Mint a code the host reads out to someone standing next to them.
- *
- * This is the primary way helpers get in. Request-and-approve solves *remote*
- * onboarding, which a house party doesn't have — the host is right there, so a
- * code collapses ask→wait→approve→collect into one step that can't stall.
- *
- * Short-lived and revocable, and it only ever grants bar access at one party, so
- * the worst a leaked code buys is fifteen minutes of it, revocable at any time.
- */
-export function createJoinCode(createdBy: string | null): { code: string; expiresAt: number } {
-  // 6 digits from rejection-free arithmetic on a uniform 32-bit draw would still
-  // bias slightly; randomInt is uniform by construction.
-  const code = String(randomInt(0, 10 ** JOIN_CODE_LENGTH)).padStart(JOIN_CODE_LENGTH, '0');
-  const expiresAt = now() + JOIN_CODE_TTL_MS;
-  dbCreateJoinCode(sha256(code), expiresAt, createdBy);
-  return { code, expiresAt };
-}
-
-/**
- * Redeem a code: create (or revive) an active helper bound to this device and
- * issue them a session. Returns null for an unknown, expired or malformed code.
- *
- * A device that already has a pending request is upgraded rather than duplicated —
- * someone who asked, got impatient, and then went and got the code shouldn't end
- * up as two rows in the host's list.
- */
-export function redeemJoinCode(
-  eventId: string,
-  code: string,
-  name: string,
-  deviceId: string,
-): { token: string; staff: Staff } | null {
-  if (!isValidJoinCode(code) || !deviceId) return null;
-  if (!liveJoinCode(sha256(code))) return null;
-
-  const existing = staffForDevice(eventId, deviceId);
-  if (existing) {
-    // Revive the row this device already has rather than adding a second. A code
-    // grants access without anyone approving it, so `approved_by` stays null and
-    // `joined_via` carries the fact instead.
-    setStaffStatus(existing.id, 'active', null);
-    setJoinedVia(existing.id, 'code');
-    clearStaffClaim(existing.id);
-    if (name) renameStaff(existing.id, name);
-    const row = staffByIdUnscoped(existing.id);
-    return row ? startSession(row) : null;
-  }
-
-  const id = genId();
-  createStaff({ id, eventId, displayName: name, deviceId, status: 'active', joinedVia: 'code' });
-  const row = staffByIdUnscoped(id);
-  return row ? startSession(row) : null;
-}
-
-/**
- * Open the bar for a host, using the account they signed up with.
- *
- * Without this the loop doesn't close: a host could create their party and then
- * have no way into its bar screen except a PIN meant for Dan. The staff session is
- * still what the bar endpoints consume — this only mints one from an account,
- * rather than introducing a second thing for those endpoints to understand.
- */
 export function barSessionForAccount(
   eventId: string,
   userId: string,
@@ -320,65 +203,6 @@ export function approveStaff(id: string, approvedBy: string | null): boolean {
 }
 
 // ---- brute-force brakes ----------------------------------------------------
-
-/**
- * Keypad throttle, in two layers: **per IP and per account.**
- *
- * Per-IP alone isn't enough — a 6-digit PIN is a 10^6 space, and behind Cloudflare
- * we see the real client IP, so an attacker with a few thousand addresses could
- * spread the guessing thinly and stay under any per-IP cap.
- *
- * The second layer used to be **global**, which was right when there was one shared
- * PIN and is wrong now that everyone has their own: a global counter means one
- * attacker grinding at one account locks every other person's keypad too. Keying it
- * to the account being guessed at bounds the damage to that account, which is the
- * only one actually under attack.
- *
- * Jamming one account's keypad is still possible, and still acceptable: signing in
- * with the account itself always works, so nobody is ever locked out of the app —
- * only out of the shortcut. A correct PIN clears both counters.
- */
-const PIN_WINDOW_MS = 15 * 60 * 1000;
-const pinByIp = createRateLimiter({ max: 10, windowMs: PIN_WINDOW_MS });
-const pinByAccount = createRateLimiter({ max: 10, windowMs: PIN_WINDOW_MS });
-
-export function pinBlocked(ip: string, userId: string): boolean {
-  return pinByIp.isLimited(ip) || (userId !== '' && pinByAccount.isLimited(userId));
-}
-
-export function notePinAttempt(ip: string, userId: string, ok: boolean): void {
-  if (ok) {
-    pinByIp.clear(ip);
-    if (userId) pinByAccount.clear(userId);
-    return;
-  }
-  pinByIp.record(ip);
-  if (userId) pinByAccount.record(userId);
-}
-
-/**
- * Join-code throttle. Identical reasoning to the PIN: a 6-digit code is a 10^6
- * space, so per-IP alone would let a pool of addresses grind it down. The global
- * limiter is what actually bounds it. Codes also expire, which shrinks the window
- * an attacker has to work in.
- */
-const GLOBAL_KEY = 'all';
-const joinLimiter = createRateLimiter({ max: 10, windowMs: 15 * 60 * 1000 });
-const joinGlobalLimiter = createRateLimiter({ max: 60, windowMs: 15 * 60 * 1000 });
-
-export function joinBlocked(ip: string): boolean {
-  return joinLimiter.isLimited(ip) || joinGlobalLimiter.isLimited(GLOBAL_KEY);
-}
-
-export function noteJoinAttempt(ip: string, ok: boolean): void {
-  if (ok) {
-    joinLimiter.clear(ip);
-    joinGlobalLimiter.clear(GLOBAL_KEY);
-    return;
-  }
-  joinLimiter.record(ip);
-  joinGlobalLimiter.record(GLOBAL_KEY);
-}
 
 /**
  * Claim-polling throttle. The claim secret is long and random, so this is about

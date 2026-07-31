@@ -8,15 +8,7 @@
    */
   import { SvelteSet } from 'svelte/reactivity';
   import type { Staff } from '$lib/shared';
-  import {
-    approveStaff,
-    createJoinCode,
-    removeStaff,
-    revokeAllHelpers,
-    revokeJoinCodes,
-    revokeStaff,
-    Unauthorized,
-  } from '$lib/api';
+  import { approveStaff, removeStaff, revokeAllHelpers, revokeStaff, Unauthorized } from '$lib/api';
   import { session } from '$lib/stores/session.svelte';
 
   let {
@@ -93,57 +85,6 @@
   </header>
 
   {#if err}<p class="bt-conn" role="status">{err}</p>{/if}
-
-  <!-- The fast path: read this out to whoever's next to you and they're in. No
-       waiting, no approval round-trip, nothing to notice and act on later. -->
-  <section class="bt-staff-group">
-    <h4>Add someone now</h4>
-    {#if joinCode}
-      <p class="joincode" aria-label="Join code {joinCode.code.split('').join(' ')}">
-        {joinCode.code}
-      </p>
-      <p class="bt-staff-note">
-        They tap 🍸 → “Helping out tonight?” and type this. Expires in {mmss(codeLeft)}.
-      </p>
-      <div class="bt-acts">
-        <button
-          type="button"
-          class="bt-act"
-          disabled={busy.has('__code')}
-          onclick={() =>
-            act('__code', async () => {
-              joinCode = await createJoinCode();
-            })}
-        >
-          New code
-        </button>
-        <button
-          type="button"
-          class="bt-act del"
-          disabled={busy.has('__code')}
-          onclick={() =>
-            act('__code', async () => {
-              await revokeJoinCodes();
-              joinCode = null;
-            })}
-        >
-          Stop sharing
-        </button>
-      </div>
-    {:else}
-      <button
-        type="button"
-        class="bt-chip"
-        disabled={busy.has('__code')}
-        onclick={() =>
-          act('__code', async () => {
-            joinCode = await createJoinCode();
-          })}
-      >
-        Show a join code
-      </button>
-    {/if}
-  </section>
 
   <section class="bt-staff-group">
     <h4>

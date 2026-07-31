@@ -14,7 +14,7 @@
  * a pocket puts this page. So we also re-check whenever the page becomes visible,
  * and the API pushes the decision to the device.
  */
-import { claimStaffAccess, joinWithCode, requestStaffAccess } from '$lib/api';
+import { claimStaffAccess, requestStaffAccess } from '$lib/api';
 import { getDeviceId } from '$lib/device';
 import { adoptApprovedSession } from '$lib/stores/session.svelte';
 import { storage } from '$lib/storage';
@@ -103,16 +103,6 @@ export const staffRequest = {
 export async function askToHelp(eventId: string, name: string): Promise<void> {
   const { claim } = await requestStaffAccess(eventId, name, getDeviceId());
   set({ kind: 'pending', name, claim, at: Date.now() });
-}
-
-/**
- * Redeem a code the host read out. The fast path: no waiting, no approval.
- * Clears any outstanding request, since this supersedes it.
- */
-export async function joinWithJoinCode(eventId: string, code: string, name: string): Promise<void> {
-  const result = await joinWithCode(eventId, code, name, getDeviceId());
-  adoptApprovedSession(result.token, result.staff);
-  set({ ...EMPTY });
 }
 
 /**

@@ -17,7 +17,6 @@ import { handle } from '../src/hooks.server';
 
 import * as health from '../src/routes/api/health/+server';
 import * as pushKey from '../src/routes/api/push/key/+server';
-import * as authPin from '../src/routes/api/auth/pin/+server';
 import * as authLogout from '../src/routes/api/auth/logout/+server';
 import * as authMe from '../src/routes/api/auth/me/+server';
 import * as orders from '../src/routes/api/orders/+server';
@@ -29,8 +28,6 @@ import * as orderAdmit from '../src/routes/api/orders/[id]/admit/+server';
 import * as staff from '../src/routes/api/staff/+server';
 import * as staffRequests from '../src/routes/api/staff/requests/+server';
 import * as staffClaim from '../src/routes/api/staff/claim/+server';
-import * as staffJoin from '../src/routes/api/staff/join/+server';
-import * as staffJoinCode from '../src/routes/api/staff/join-code/+server';
 import * as staffRevokeAll from '../src/routes/api/staff/revoke-all/+server';
 import * as staffById from '../src/routes/api/staff/[id]/+server';
 import * as staffApprove from '../src/routes/api/staff/[id]/approve/+server';
@@ -53,7 +50,6 @@ type Handlers = Record<string, unknown>;
 export const ROUTES: Record<string, Handlers> = {
   '/api/health': health,
   '/api/push/key': pushKey,
-  '/api/auth/pin': authPin,
   '/api/auth/logout': authLogout,
   '/api/auth/me': authMe,
   '/api/orders': orders,
@@ -65,8 +61,6 @@ export const ROUTES: Record<string, Handlers> = {
   '/api/staff': staff,
   '/api/staff/requests': staffRequests,
   '/api/staff/claim': staffClaim,
-  '/api/staff/join': staffJoin,
-  '/api/staff/join-code': staffJoinCode,
   '/api/staff/revoke-all': staffRevokeAll,
   '/api/staff/[id]': staffById,
   '/api/staff/[id]/approve': staffApprove,

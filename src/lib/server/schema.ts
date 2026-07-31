@@ -99,23 +99,6 @@ export const eventMenu = sqliteTable(
 );
 
 /**
- * The keypad, owned by one person.
- *
- * Replaces a single `STAFF_PIN` in the Mac's environment — a shared secret with no
- * owner that could not be rotated without editing a file and restarting. Sign in
- * with the account once on a device; the keypad gets you back afterwards, as
- * *yourself*, not as a generic bar session.
- */
-export const userPin = sqliteTable('user_pin', {
-  userId: text('user_id')
-    .primaryKey()
-    .references(() => user.id, { onDelete: 'cascade' }),
-  /** scrypt, same parameters as a password. A four-digit secret deserves no less. */
-  pinHash: text('pin_hash').notNull(),
-  createdAt: integer('created_at').notNull(),
-});
-
-/**
  * Who is at a party, and whether the bar has let them in.
  *
  * **The approval is on the person, not the drink.** A guest is admitted once and
@@ -245,17 +228,5 @@ export const staffSessions = sqliteTable('staff_sessions', {
   tokenHash: text('token_hash').primaryKey(),
   staffId: text('staff_id').notNull(),
   expiresAt: integer('expires_at').notNull(),
-  createdAt: integer('created_at').notNull(),
-});
-
-/**
- * Short-lived codes the host reads out to onboard a helper on the spot. Only the
- * SHA-256 is stored: a stolen database shouldn't hand anyone the bar. Reusable
- * until they expire, because one code often onboards several people.
- */
-export const joinCodes = sqliteTable('join_codes', {
-  codeHash: text('code_hash').primaryKey(),
-  expiresAt: integer('expires_at').notNull(),
-  createdBy: text('created_by'),
   createdAt: integer('created_at').notNull(),
 });

@@ -102,9 +102,15 @@ export async function barToken(a: Account, eventId: string): Promise<string> {
 }
 
 /**
- * A helper with no account at all, let in the way a real one is: an admin reads out
- * a code and they redeem it. Minting their session directly would skip the only path
- * that actually exists for them.
+ * A helper with no account at all, let in the way a real one is: they ask, and
+ * somebody already behind the bar taps yes.
+ *
+ * **This used to redeem a join code**, which was the fast path and is gone. Reading
+ * six digits aloud was more work for the person approving than tapping a name they
+ * were already looking at, and it was a second credential to keep safe for no gain.
+ * Asking is now the only way in for somebody with no account, so it is the only way
+ * a fixture may build one — minting a session directly would skip the path that
+ * actually exists.
  */
 export async function helper(
   admin: Account,
@@ -112,17 +118,30 @@ export async function helper(
   name: string,
   deviceId: string,
 ): Promise<string> {
-  const adminToken = await barToken(admin, eventId);
-  const minted = await request('/api/staff/join-code', {
-    method: 'POST',
-    headers: asBar(adminToken),
-  });
-  assert.equal(minted.status, 200, 'admin should be able to mint a join code');
-  const { code } = (await minted.json()) as { code: string };
+  const asked = await request('/api/staff/requests', send('POST', { eventId, name, deviceId }));
+  assert.equal(asked.status, 200, 'anyone may ask to help');
+  const { claim } = (await asked.json()) as { claim: string };
 
-  const joined = await request('/api/staff/join', send('POST', { eventId, code, name, deviceId }));
-  assert.equal(joined.status, 200, 'the code should let a helper in');
-  return ((await joined.json()) as { token: string }).token;
+  // Whoever is behind the bar decides. The admin holds `staff:approve` on their
+  // account alone, so no bar token is needed to answer.
+  const listed = await request(`/api/staff?eventId=${eventId}`, { headers: asAccount(admin) });
+  assert.equal(listed.status, 200, 'the bar can see who is waiting');
+  const { staff } = (await listed.json()) as { staff: { id: string; name: string }[] };
+  const waiting = staff.find((r) => r.name === name);
+  assert.ok(waiting, `${name} should be in the list of people waiting`);
+
+  const approved = await request(`/api/staff/${waiting.id}/approve?eventId=${eventId}`, {
+    ...send('POST', {}),
+    headers: { 'Content-Type': 'application/json', ...asAccount(admin) },
+  });
+  assert.equal(approved.status, 200, 'approving should work');
+
+  // The claim secret is what turns a yes into a session. It is sent exactly once,
+  // here — unlike the device id, which rides along on every order and so could
+  // never be the credential.
+  const claimed = await request('/api/staff/claim', send('POST', { claim }));
+  assert.equal(claimed.status, 200, 'an approved request should hand over a session');
+  return ((await claimed.json()) as { token: string }).token;
 }
 
 /**

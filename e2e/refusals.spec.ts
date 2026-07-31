@@ -3,6 +3,7 @@ import {
   ADMIN_EMAIL,
   PASSWORD,
   arriveAt,
+  askAndApprove,
   barAuth,
   createParty,
   freshEmail,
@@ -168,19 +169,8 @@ test('a helper pours, but does not decide what is on the menu', async ({ browser
     .locator('.row', { hasText: partyName })
     .getByRole('button', { name: 'Work it' })
     .click();
-  await dan.getByRole('button', { name: /Bar options/ }).click();
-  await dan.getByRole('button', { name: 'Bar staff' }).click();
-  await dan.getByRole('button', { name: 'Show a join code' }).click();
-  const code = (await dan.locator('.joincode').innerText()).trim();
-
   const helper = await phone(browser);
-  await arriveAt(helper, id);
-  await helper.goto('/bar');
-  await helper.getByRole('button', { name: 'Helping out tonight?' }).click();
-  await helper.getByPlaceholder('your name').fill('Marco');
-  await helper.getByLabel('Join code').fill(code);
-  await helper.getByLabel('Join code').press('Enter');
-  await expect(helper.locator('.bt-gate')).toHaveCount(0);
+  await askAndApprove(helper, dan, id, 'Marco');
   const headers = await barAuth(helper);
 
   // They are genuinely in — this is a working bar session, not a rejected one.

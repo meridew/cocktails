@@ -83,7 +83,6 @@ export type Capability =
   | 'staff:read'
   | 'staff:approve'
   | 'staff:revoke'
-  | 'staff:invite'
   // Who is at the party. A guest is admitted once and pours all night.
   | 'guests:read'
   | 'guests:admit'
@@ -112,7 +111,6 @@ export const CAPABILITIES: readonly Capability[] = [
   'staff:read',
   'staff:approve',
   'staff:revoke',
-  'staff:invite',
   'guests:read',
   'guests:admit',
   'stock:read',
@@ -140,7 +138,6 @@ export const SCOPE_OF: Record<Capability, Scope['kind']> = {
   'staff:read': 'party',
   'staff:approve': 'party',
   'staff:revoke': 'party',
-  'staff:invite': 'party',
   'stock:read': 'host',
   'stock:edit': 'host',
   'party:create': 'platform',

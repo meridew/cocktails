@@ -101,6 +101,11 @@
   }
 
   onMount(async () => {
+    // `?signin` opens the drawer straight away. The bar gate's "I work here" link
+    // uses it: `/` is a list of parties now, so landing there with the form closed
+    // left people looking at somebody else's birthday wondering where sign-in went.
+    if (page.url.searchParams.has('signin')) signingIn = true;
+
     void liveParties()
       .then((r) => (parties = r.parties))
       .catch(() => {

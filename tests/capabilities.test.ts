@@ -51,9 +51,6 @@ type Requirement =
 const GOVERNED: Record<string, Requirement> = {
   'GET /api/health': 'public',
   'GET /api/push/key': 'public',
-  // The keypad is how you *become* authenticated, so a capability gate would be
-  // circular. Its own defence is the throttle — see pin.test.ts.
-  'POST /api/auth/pin': 'public',
   // Logging out asks for nothing: refusing an expired token would strand a client
   // holding it. "Who am I" answers "nobody" rather than refusing.
   'POST /api/auth/logout': 'public',
@@ -73,9 +70,6 @@ const GOVERNED: Record<string, Requirement> = {
   'GET /api/staff': 'staff:read',
   'POST /api/staff/requests': 'public', // asking to help precedes having any access
   'POST /api/staff/claim': 'public', // the claim secret is the credential here
-  'POST /api/staff/join': 'public', // as is the join code
-  'POST /api/staff/join-code': 'staff:invite',
-  'DELETE /api/staff/join-code': 'staff:invite',
   'POST /api/staff/revoke-all': 'staff:revoke',
   'DELETE /api/staff/[id]': 'staff:revoke',
   'POST /api/staff/[id]/approve': 'staff:approve',

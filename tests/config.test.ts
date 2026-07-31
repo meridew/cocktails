@@ -4,7 +4,6 @@
  */
 import { test, describe } from 'vitest';
 import assert from 'node:assert/strict';
-import { PIN_LENGTH } from '$lib/shared';
 import { resolveAdminEmails, resolveAllowedOrigin } from '$lib/server/config';
 
 describe('resolveAdminEmails', () => {

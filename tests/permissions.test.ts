@@ -56,7 +56,6 @@ const EXPECTED: Record<Capability, { admin: boolean; owner: boolean; staff: bool
   'staff:read': { admin: true, owner: false, staff: false },
   'staff:approve': { admin: true, owner: false, staff: false },
   'staff:revoke': { admin: true, owner: false, staff: false },
-  'staff:invite': { admin: true, owner: false, staff: false },
   'stock:read': { admin: true, owner: true, staff: false },
   'stock:edit': { admin: true, owner: true, staff: false },
   'party:create': { admin: true, owner: false, staff: false },

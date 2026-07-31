@@ -242,8 +242,10 @@ describe('what a host may do at their own party', () => {
       ],
       ['see the staff', request(`/api/staff${q}`, { headers: asHost })],
       [
-        'mint a join code',
-        request(`/api/staff/join-code${q}`, { ...send('POST', {}), headers: asHost }),
+        // The join code is gone; approving somebody is the equivalent power, and a
+        // host must not hold it. Whoever is behind the bar decides who joins them.
+        'approve a helper',
+        request(`/api/staff/whoever/approve${q}`, { ...send('POST', {}), headers: asHost }),
       ],
       [
         'close the party',
