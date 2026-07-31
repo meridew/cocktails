@@ -20,6 +20,7 @@ import { orm } from './db';
 import * as schema from './schema.auth';
 import { config } from './config';
 import { sendEmail } from './email';
+import { render } from './email.render';
 
 export const ACCOUNT_BASE_PATH = '/api/account';
 
@@ -49,8 +50,15 @@ const build = () =>
       sendResetPassword: async ({ user, url }) => {
         await sendEmail({
           to: user.email,
-          subject: 'Reset your cocktails password',
-          text: `Someone asked to reset the password for this account.\n\n${url}\n\nIf that wasn't you, ignore this — nothing has changed.`,
+          ...render({
+            subject: 'Reset your cocktails password',
+            heading: 'Set a new password',
+            lines: ['Someone asked to reset the password for this account.'],
+            cta: { label: 'Choose a new password', url },
+            // Said after the button, not before: somebody who *did* ask this wants
+            // the link, and somebody who didn't needs to know nothing has happened.
+            outro: ["If that wasn't you, ignore this — nothing has changed."],
+          }),
         });
       },
     },
@@ -81,8 +89,15 @@ const build = () =>
       sendVerificationEmail: async ({ user, url }) => {
         await sendEmail({
           to: user.email,
-          subject: 'Confirm your email for cocktails',
-          text: `Confirm this address to finish setting up your account.\n\n${url}`,
+          ...render({
+            subject: 'Confirm your email for cocktails',
+            heading: "You're nearly in",
+            lines: [
+              'Confirm this address to finish setting up your account.',
+              "Then tell us what you've got in, and we'll work out what the bar can pour.",
+            ],
+            cta: { label: 'Confirm my email', url },
+          }),
         });
       },
     },
