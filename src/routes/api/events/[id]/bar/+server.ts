@@ -1,6 +1,7 @@
 import { json, type RequestEvent } from '@sveltejs/kit';
 import { party } from '$lib/shared';
 import { barSessionForAccount } from '$lib/server/auth';
+import { userById } from '$lib/server/db';
 import { denied, fail, requireCapability } from '$lib/server/guards';
 
 /**
@@ -28,7 +29,18 @@ export async function POST(event: RequestEvent) {
   const userId = auth.actor.account?.id;
   if (!userId) return fail(400, 'a bar session needs an account to belong to');
 
-  const session = barSessionForAccount(eventId, userId);
+  /*
+   * Name the row.
+   *
+   * `Actor` deliberately carries an id and a role and nothing else, so this has to
+   * be looked up — and it used to be skipped, which meant `barSessionForAccount`
+   * took its `displayName = ''` default. The staff row it created was real and
+   * worked, but it appeared on the Bar staff screen as a blank line with a Revoke
+   * button beside it: an unnamed person nobody could account for, on the one screen
+   * whose entire job is saying who may pour.
+   */
+  const account = userById(userId);
+  const session = barSessionForAccount(eventId, userId, account?.name ?? '');
   if (!session) return fail(404, 'not found');
   return json({ ok: true, token: session.token, staff: session.staff });
 }

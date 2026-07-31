@@ -79,11 +79,34 @@ function open() {
 }
 
 const SCENARIOS = {
-  /** A queue mid-service: orders across every status, one bumped, one part-poured. */
+  /**
+   * A queue mid-service: orders across every status, one bumped, one part-poured.
+   *
+   * Every order belongs to a party — `orders.event_id` is NOT NULL and has been
+   * since tenancy landed, which this scenario silently predated and died on. It
+   * attaches to the first live party, or the first party of any kind.
+   *
+   * Guests are admitted except one, deliberately. The bar's admit control only
+   * appears for a face it has not been introduced to, so a seed where everyone is
+   * already in cannot show you what that looks like.
+   */
   busy(db) {
+    const event =
+      db.prepare(`SELECT id, name FROM event WHERE status = 'live' ORDER BY created_at`).get() ??
+      db.prepare(`SELECT id, name FROM event ORDER BY created_at`).get();
+    if (!event) {
+      console.error('no parties yet — make one from /admin first');
+      return;
+    }
+
     const insert = db.prepare(
-      `INSERT INTO orders (id, name, items, note, status, device_id, bumped_at, handoff, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO orders (id, event_id, name, items, note, status, device_id, bumped_at, handoff, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    );
+    const admit = db.prepare(
+      `INSERT INTO event_guest (event_id, device_id, name, status, created_at, admitted_at)
+       VALUES (?, ?, ?, ?, ?, ?)
+       ON CONFLICT (event_id, device_id) DO UPDATE SET status = excluded.status`,
     );
     const rows = [
       ['Priya', [{ name: 'Moscow Mule', qty: 2, made: 1 }], 'light on the lime', 'making'],
@@ -95,20 +118,35 @@ const SCENARIOS = {
     ];
     rows.forEach(([name, items, note, status], i) => {
       const ts = now() - (rows.length - i) * 90_000;
+      const device = `dev-${String(name).toLowerCase()}`;
+      // Zoë is the stranger the bar has to wave in.
+      const admitted = name !== 'Zoë';
+      admit.run(
+        event.id,
+        device,
+        name,
+        admitted ? 'admitted' : 'pending',
+        ts,
+        admitted ? ts : null,
+      );
       insert.run(
         id(),
+        event.id,
         name,
         JSON.stringify(items),
         note,
         status,
-        `dev-${String(name).toLowerCase()}`,
+        device,
         name === 'Tom' ? now() : null,
         status === 'serving' ? 'deliver' : null,
         ts,
         ts,
       );
     });
-    console.log(`🍸 ${rows.length} orders across every status (Tom bumped, Priya part-poured)`);
+    console.log(
+      `🍸 ${rows.length} orders on "${event.name}" across every status ` +
+        '(Tom bumped, Priya part-poured, Zoë waiting to be let in)',
+    );
   },
 
   /**
@@ -191,7 +229,10 @@ function show(db) {
   console.log(`   orders        ${count('orders')}`);
   console.log(`   staff         ${count('staff')}`);
   console.log(`   subscriptions ${count('subscriptions')}`);
-  console.log(`   join_codes    ${count('join_codes')}`);
+  // `join_codes` used to be counted here. The table went with the one-way-in
+  // migration, and this line kept asking for it — which made `db.js show` and every
+  // scenario after it die on "no such table".
+  console.log(`   guests        ${count('event_guest')}`);
   // A host's cupboard and a party's short list, because both are now the difference
   // between a menu worth looking at and an empty screen.
   for (const u of db

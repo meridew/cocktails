@@ -9,7 +9,6 @@
   import { SvelteSet } from 'svelte/reactivity';
   import type { Staff } from '$lib/shared';
   import { approveStaff, removeStaff, revokeAllHelpers, revokeStaff, Unauthorized } from '$lib/api';
-  import { session } from '$lib/stores/session.svelte';
 
   let {
     staff,
@@ -27,21 +26,11 @@
   let busy = new SvelteSet<string>();
   let confirmingRevokeAll = $state(false);
 
-  /** The live join code, once minted. Shown in the clear — that's its whole job. */
-  let joinCode = $state<{ code: string; expiresAt: number } | null>(null);
-  /** Ticks so the countdown is honest about how long is left. */
-  let nowMs = $state(Date.now());
-  $effect(() => {
-    if (!joinCode) return;
-    const t = setInterval(() => (nowMs = Date.now()), 1000);
-    return () => clearInterval(t);
-  });
-  let codeLeft = $derived(joinCode ? Math.max(0, joinCode.expiresAt - nowMs) : 0);
-  // Drop it from the screen the moment it stops working, rather than leaving a
-  // dead code up for someone to read out.
-  $effect(() => {
-    if (joinCode && codeLeft <= 0) joinCode = null;
-  });
+  // The join-code state that used to live here — the code, a one-second ticker, a
+  // countdown and an `mmss` formatter — went when the codes did. Nothing had
+  // assigned `joinCode` since, so the ticker never started and the countdown was
+  // permanently zero: forty lines the typecheck was happy with and no eye would
+  // catch, because it rendered nothing.
 
   // Two groups, not three. There is no "admins" section any more: everyone in this
   // list does the same job, and the person who used to sit apart in it holds an
@@ -65,10 +54,8 @@
     }
   }
 
-  const mmss = (ms: number): string => {
-    const s = Math.ceil(ms / 1000);
-    return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
-  };
+  /** A row with no name still has to say who it is — see the endpoint that fills it. */
+  const nameOf = (person: Staff): string => person.name.trim() || 'Unnamed';
 
   const ago = (ts: number): string => {
     const s = Math.max(0, Math.round((Date.now() - ts) / 1000));
@@ -97,7 +84,7 @@
       {#each pending as person (person.id)}
         <div class="bt-staff-row">
           <div class="bt-staff-who">
-            <span class="bt-name">{person.name}</span>
+            <span class="bt-name">{nameOf(person)}</span>
             <span class="bt-ago">asked {ago(person.createdAt)} ago</span>
           </div>
           <div class="bt-acts">
@@ -114,7 +101,7 @@
               class="bt-act del"
               disabled={busy.has(person.id)}
               onclick={() => act(person.id, () => removeStaff(person.id))}
-              aria-label="Deny {person.name}"
+              aria-label="Deny {nameOf(person)}"
             >
               ✕
             </button>
@@ -132,7 +119,7 @@
       {#each helpers as person (person.id)}
         <div class="bt-staff-row" class:is-revoked={person.status === 'revoked'}>
           <div class="bt-staff-who">
-            <span class="bt-name">{person.name}</span>
+            <span class="bt-name">{nameOf(person)}</span>
             <span class="bt-ago">
               {person.status === 'revoked'
                 ? 'no longer has access'
@@ -155,7 +142,7 @@
               class="bt-act del"
               disabled={busy.has(person.id)}
               onclick={() => act(person.id, () => removeStaff(person.id))}
-              aria-label="Remove {person.name}"
+              aria-label="Remove {nameOf(person)}"
             >
               🗑
             </button>

@@ -124,6 +124,10 @@ export function barSessionForAccount(
     // row is bookkeeping, and refusing here would make "revoke all helpers"
     // permanently lock the person who tapped it out of their own party.
     if (row.status !== 'active') setStaffStatus(row.id, 'active', null);
+    // Heal a nameless row rather than only naming new ones. The caller used to omit
+    // the name entirely, so rows already exist showing a blank line on the Bar staff
+    // screen; without this they would stay blank for the life of the party.
+    if (!row.displayName && displayName) renameStaff(row.id, displayName);
     const current = staffByIdUnscoped(row.id);
     return current ? startSession(current) : null;
   }

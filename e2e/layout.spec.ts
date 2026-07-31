@@ -142,3 +142,89 @@ test.describe('a row under pressure', () => {
     expect(measured.overflow).toBeLessThanOrEqual(1);
   });
 });
+
+/**
+ * Muted text on the bar's dark surfaces is actually readable.
+ *
+ * **This exists because it was invisible.** `--text-soft` is defined once at
+ * `:root` as `rgba(10,10,18,0.65)`, which is right on the white cards it was
+ * written for. `.bartender` flips to `background: var(--panel-bg)` (#0a0a12)
+ * without flipping the muted token, so everything neo.css colours with it —
+ * `.bt-empty`, `.bt-ago` — rendered near-black on near-black. Not poor contrast:
+ * a ratio of about 1.02, which is none.
+ *
+ * The bar staff screen showed a Revoke button with nothing beside it, and an empty
+ * queue looked like a screen that had failed to load rather than a bar that was
+ * keeping up.
+ *
+ * Asserted as a contrast ratio rather than as a specific colour, because the fix is
+ * "this must be legible", not "this must be #9e9e9e".
+ */
+test.describe('the bar in the dark', () => {
+  test('muted text on the bar keeps enough contrast to read', async ({ page }) => {
+    const tag = Date.now().toString(36);
+    const hostName = `Darkhost ${tag}`;
+    const theirs = await page
+      .context()
+      .browser()!
+      .newContext()
+      .then((c) => c.newPage());
+    await register(theirs, freshEmail('layout-dark'), hostName);
+    await theirs.close();
+
+    await signIn(page, ADMIN_EMAIL);
+    await createParty(page, hostName, `Dark Party ${tag}`);
+    await page
+      .locator('.row', { hasText: `Dark Party ${tag}` })
+      .getByRole('button', { name: 'Work it' })
+      .click();
+    await expect(page).toHaveURL(/\/bar$/);
+
+    // A brand new party has no orders, so the queue renders its empty state — which
+    // is the element that was invisible.
+    const empty = page.locator('.bt-empty').first();
+    await expect(empty).toBeVisible();
+
+    const ratio = await empty.evaluate((el) => {
+      /** sRGB relative luminance, per WCAG. */
+      const lum = (rgb: number[]) => {
+        const [r, g, b] = rgb.map((v) => {
+          const c = v / 255;
+          return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+        });
+        return 0.2126 * r! + 0.7152 * g! + 0.0722 * b!;
+      };
+      const parse = (s: string) =>
+        s
+          .match(/[\d.]+/g)!
+          .slice(0, 3)
+          .map(Number);
+
+      // The text's own colour may be translucent, so composite it over whatever is
+      // actually behind it — otherwise this measures a colour nobody ever sees.
+      const cs = getComputedStyle(el);
+      const fg = cs.color.match(/[\d.]+/g)!.map(Number);
+      const alpha = fg.length > 3 ? fg[3]! : 1;
+
+      let node: Element | null = el;
+      let bg = [0, 0, 0];
+      while (node) {
+        const c = getComputedStyle(node).backgroundColor;
+        const v = c.match(/[\d.]+/g)?.map(Number);
+        if (v && (v.length < 4 || v[3]! > 0)) {
+          bg = v.slice(0, 3);
+          break;
+        }
+        node = node.parentElement;
+      }
+
+      const composite = fg.slice(0, 3).map((v, i) => v * alpha + bg[i]! * (1 - alpha));
+      const a = lum(composite) + 0.05;
+      const b = lum(bg) + 0.05;
+      return Math.round((Math.max(a, b) / Math.min(a, b)) * 100) / 100;
+    });
+
+    // 4.5:1 is the WCAG AA threshold for body text. It measured 1.02 when broken.
+    expect(ratio).toBeGreaterThanOrEqual(4.5);
+  });
+});

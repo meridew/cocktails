@@ -73,7 +73,42 @@ function classesClaimedWholesaleIn(css: string): Set<string> {
 const INTENTIONAL: Record<string, string> = {
   fav: 'raises the favourite button to a 44px touch target',
   'qty-btn': 'raises the quantity stepper to a 44px touch target',
+  bartender: 'sets --text-soft only; both are dark surfaces and the token is defined light',
+  'order-rail': 'sets --text-soft only; both are dark surfaces and the token is defined light',
 };
+
+/**
+ * Exemptions that are allowed to *feed a component a token*, never to restyle it.
+ *
+ * `--text-soft` is defined once at `:root` as a dark colour, which is right on the
+ * white cards it was written for and invisible on the two surfaces below, both of
+ * which flip to `background: var(--panel-bg)`. Handing them a different value for
+ * the token is the one thing a container is supposed to do; it changes nothing
+ * about what `.bartender` or `.order-rail` *are*.
+ *
+ * Listed separately from `INTENTIONAL` so the exemption stays narrow. Without this
+ * the entry above would quietly license any future declaration on either class,
+ * which is the precise failure `INTENTIONAL` exists to prevent.
+ */
+const TOKENS_ONLY = ['bartender', 'order-rail'];
+
+/** Every declaration `app.css` makes in a rule whose whole selector is `.name`. */
+function declarationsFor(css: string, name: string): string[] {
+  const out: string[] = [];
+  for (const block of stripComments(css).split('}')) {
+    const [selectorList, body] = block.split('{');
+    if (!selectorList || !body) continue;
+    const claims = selectorList
+      .split(',')
+      .some((s) => s.trim().replace(/::?[\w-]+(\([^)]*\))?/g, '') === `.${name}`);
+    if (!claims) continue;
+    for (const d of body.split(';')) {
+      const prop = d.split(':')[0]?.trim();
+      if (prop) out.push(prop);
+    }
+  }
+  return out;
+}
 
 describe('app.css stays out of neo.css’s way', () => {
   test('no neo.css component is redefined wholesale', () => {
@@ -88,6 +123,23 @@ describe('app.css stays out of neo.css’s way', () => {
         'neo.css is frozen and wins; extend with a modifier, pick another name, or — if ' +
         'the override is genuinely intended — add it to INTENTIONAL with the reason.',
     );
+  });
+
+  test('a token-only exemption really only sets tokens', () => {
+    // The narrow half of the exemption. `.bartender { --text-soft: … }` is fine;
+    // `.bartender { background: … }` would be app.css quietly taking over a neo.css
+    // component through a door marked "just a variable".
+    const app = read('app.css');
+    for (const name of TOKENS_ONLY) {
+      const props = declarationsFor(app, name);
+      assert.ok(props.length > 0, `.${name} is exempted but app.css no longer touches it`);
+      const real = props.filter((p) => !p.startsWith('--'));
+      assert.deepEqual(
+        real,
+        [],
+        `.${name} is exempted to set custom properties only, but also sets: ${real.join(', ')}`,
+      );
+    }
   });
 
   test('the allowlist only lists things that are actually overridden', () => {

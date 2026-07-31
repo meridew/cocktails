@@ -63,6 +63,21 @@ beforeEach(() => {
   for (const row of listStaff(eventId)) if (row.id !== danStaffId) deleteStaff(row.id);
 });
 
+describe('taking a bar session', () => {
+  test('names the staff row it creates', () => {
+    // `POST /api/events/[id]/bar` used to call `barSessionForAccount` without a
+    // display name, taking its `= ''` default. The row worked perfectly — it held a
+    // token and passed every capability check — but the Bar staff screen renders one
+    // row per staff member, so it appeared as a blank line with a Revoke button
+    // beside it: an unnamed person on the one screen whose whole job is saying who
+    // may pour. `Actor` carries an id and a role and nothing else, so the endpoint
+    // has to look the account up.
+    const row = listStaff(eventId).find((r) => r.userId === dan.id);
+    assert.ok(row, "Dan's own row should exist — the fixture took a bar session");
+    assert.equal(row.displayName, 'staff-dan', 'a bar session must name the row it creates');
+  });
+});
+
 describe('asking to help', () => {
   test('requires a name and a device', async () => {
     for (const body of [

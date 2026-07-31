@@ -63,4 +63,13 @@ recorded in `docs/PLATFORM-PLAN.md` §9.
   `e2e/`). It also gates in CI. Slower than the rest, and worth running whenever a
   change crosses more than one participant — a host's cupboard reaching a guest's
   menu, a guest's order reaching the bar.
+- **`npx playwright test` does not build.** The server it starts
+  (`scripts/e2e-serve.js`) serves whatever is already in `build/`, so after any
+  source edit it measures the _previous_ bundle. Run `npm run build` first, or use
+  `npm run test:e2e`. A number that stays identical across runs that should have
+  differed is the tell — that is a stale artefact, not a stable measurement.
+- **A regression test has to be seen failing.** Write it, revert the fix, rebuild,
+  watch it fail for the stated reason, then restore. A test written against
+  already-fixed code frequently passes against the broken code too — especially
+  after a redesign, which tends to remove the very pressure that caused the bug.
 - Deploy only when asked. Pushes gate; they do not deploy.
