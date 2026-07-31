@@ -14,6 +14,16 @@
  * That matters: an earlier hand-rolled version used a fixed cache name, so its
  * cleanup step never matched anything and every deploy's superseded bundle
  * accumulated until the origin quota was at risk.
+ *
+ * ## The cleanup below only behaves if *this file* is never served stale
+ *
+ * `activate` deletes every cache that is not this worker's own. That is right for
+ * the newest worker and destructive for an old one: a superseded worker that gets
+ * registered will delete the current cache and then serve its own. Cloudflare was
+ * edge-caching `/service-worker.js` for four hours, which made exactly that
+ * reachable — see the note on `updateViaCache` in svelte.config.js. The registration
+ * option is the fix; this comment is here so the cleanup is not "simplified" later
+ * by someone who reads it as unconditionally safe.
  */
 import { build, files, version } from '$service-worker';
 

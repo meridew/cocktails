@@ -18,9 +18,35 @@ export default {
   preprocess: vitePreprocess(),
   kit: {
     adapter: adapter(),
-    // Web Push needs a service worker; SvelteKit registers src/service-worker.ts
-    // automatically in production and leaves it alone in dev.
-    serviceWorker: { register: true },
+    /*
+     * Web Push needs a service worker; SvelteKit registers src/service-worker.ts
+     * automatically in production and leaves it alone in dev.
+     *
+     * `updateViaCache: 'none'` is load-bearing, and this is the bug it fixes.
+     *
+     * The origin sends no `Cache-Control` for `/service-worker.js`, because
+     * adapter-node's sirv only sets one for `/_app/immutable/`. Cloudflare therefore
+     * applies its default browser-cache TTL to it — the path ends in `.js`, so it is
+     * treated as a static asset — and serves it from the edge:
+     *
+     *     Cache-Control: max-age=14400
+     *     cf-cache-status: HIT
+     *
+     * So for four hours after any deploy, a *fresh registration* could be handed the
+     * **previous** service worker. Reported from an Android phone: refreshing Chrome
+     * showed the new version, then reinstalling the PWA brought the old one back —
+     * and took Chrome with it, because a service worker is scoped to the origin, not
+     * to the tab. An old worker that activates also runs its own `activate` cleanup,
+     * which deletes every cache that is not its own, including the current one.
+     *
+     * `'none'` makes the browser fetch this script bypassing its HTTP cache, which
+     * sends a revalidating request that the edge has to honour rather than answering
+     * from its copy. It is the registration option that exists for exactly this.
+     *
+     * A Cloudflare cache rule that bypasses `/service-worker.js` outright is the
+     * belt-and-braces version and belongs in the dashboard, not here.
+     */
+    serviceWorker: { register: true, options: { updateViaCache: 'none' } },
 
     /*
      * Poll for a new build, so a tab that stays open finds out about one.
