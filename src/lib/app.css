@@ -1488,12 +1488,31 @@ button.row:hover {
 
 /* Sits between grids, so it needs air above and almost none below — the heading
    belongs to the drinks under it, not the ones before. */
+/*
+ * A chip, because the menu's background is the whole palette.
+ *
+ * This was `--h2-color` on nothing — and `--h2-color` is `#ffe600`, which is also
+ * `--bg`. Near the top of a menu the gradient is teal and pink, so the headings
+ * read; further down it is yellow, and "White Rum" measured a contrast ratio of
+ * **1.0** against it. On a 33-drink menu that is most of the headings, invisible,
+ * on the screen a guest actually uses.
+ *
+ * Putting them on the dark panel keeps the yellow — it is a signature, and the
+ * alternative was black text that would have read as a different kind of label —
+ * while making the contrast a property of the chip rather than of wherever the
+ * gradient happens to be. `inline-block` so it hugs the word instead of drawing a
+ * full-width band across the menu.
+ */
 .menu-heading {
+  display: inline-block;
   font-family: var(--font-display);
   text-transform: var(--ttu);
   letter-spacing: var(--ls-head);
   font-size: 0.95rem;
   color: var(--h2-color);
+  background: var(--panel-bg);
+  padding: 6px 12px;
+  border-radius: 999px;
   margin: 22px 0 10px;
 }
 .menu-heading:first-of-type {
@@ -1505,6 +1524,41 @@ button.row:hover {
   padding: 24px 0;
   text-align: center;
   color: var(--text-soft);
+}
+
+/*
+ * The count takes its colour from the row it is in, not from the rail behind it.
+ *
+ * neo.css sets `.qty-n { color: var(--panel-text) }` — white, right if the number
+ * sat on the dark rail. It does not: it sits inside `.basket-item`, which is
+ * `background: var(--row-bg)` — white. Measured contrast **1.0**, so the quantity
+ * was invisible, on the one screen whose entire purpose is showing what you have
+ * ordered. Two buttons, a minus and a plus, and nothing between them.
+ *
+ * `--row-text` is the token that row already declares for its own text, so this is
+ * the number agreeing with its container instead of with its container's container.
+ */
+.basket-item .qty-n {
+  color: var(--row-text);
+}
+
+/*
+ * Every "Add to order" lands on the same line as its neighbour's.
+ *
+ * A card is normal flow, so the button starts wherever the title stopped — and the
+ * title is one line for "Gimlet" and two for "Elderflower & Tonic". Side by side in
+ * the same grid row, their buttons sat 16px apart, which is what makes a menu of
+ * bright rectangles look untidy rather than deliberate.
+ *
+ * Scoped to `.menu` rather than claiming `.cocktail` outright: this is how a card
+ * behaves *in the menu grid*, and neo.css keeps ownership of what a `.cocktail` is.
+ */
+.menu .cocktail {
+  display: flex;
+  flex-direction: column;
+}
+.menu .cocktail .order {
+  margin-top: auto;
 }
 
 /* ---- what the generated menu exposed on the cards --------------------------- */
