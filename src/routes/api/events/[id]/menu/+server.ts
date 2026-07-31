@@ -1,57 +1,119 @@
 import { json, type RequestEvent } from '@sveltejs/kit';
-import { availability, makeable, OPTIONAL_CATEGORIES } from '$lib/shared';
+import { makeable, party, OPTIONAL_CATEGORIES, RECIPES } from '$lib/shared';
 import { DRINKS } from '$lib/data';
-import { eventById, listStock } from '$lib/server/db';
-import { fail } from '$lib/server/guards';
+import { eventById, listEventMenu, listStock, setEventMenu } from '$lib/server/db';
+import { body, denied, fail, requireCapability } from '$lib/server/guards';
+
+/** Recipe ids one party may feature. Generous; a guard against a flood. */
+const MAX_SHORT_LIST = 60;
 
 /**
- * What this party can pour — public, because guests are anonymous.
+ * What this party can pour — **generated from the host's cupboard**, and public,
+ * because guests are anonymous.
  *
  * A menu is not a secret: it's the thing on the kitchen table under the QR code.
  * Requiring a session would mean signing in to read a drinks list, which is the
  * opposite of the point.
  *
- * Computed here rather than shipping raw stock for the client to filter, so the
- * guest menu and the bar cannot disagree about what's available — the same reason
- * the permission table lives in one place.
+ * ## Generated, not filtered
+ *
+ * This used to answer "which of Dan's six curated drinks can we pour", which meant a
+ * host with a well-stocked bar still saw six drinks. It now answers "what can this
+ * cupboard make", from the 270 recipes. That is the promise §1 has been making since
+ * its first paragraph.
+ *
+ * ## Where the list comes from when there is no cupboard
+ *
+ * A host who has never opened the stock screen has not told us they have nothing —
+ * so we cannot generate, and generating from an empty cupboard would produce an
+ * empty menu at exactly the moment someone is deciding whether to trust the app.
+ * They get the **house list**: the six curated drinks, which is what the app served
+ * before any of this and is a working party on its own.
+ *
+ * The distinction survives because the cupboard PUT writes `false` rows rather than
+ * deleting them: untick everything and `recorded` is still true, so a deliberately
+ * bare cupboard produces a bare menu and an untouched one does not.
  */
 export function GET(event: RequestEvent) {
-  const party = eventById(event.params.id!);
-  if (!party) return fail(404, 'no such party');
+  const found = eventById(event.params.id!);
+  if (!found) return fail(404, 'no such party');
 
   // The cupboard belongs to the **host**, not the party — so several parties for the
   // same host all read one list, and a host who restocks does it once.
-  const rows = listStock(party.hostUserId);
+  const rows = listStock(found.hostUserId);
   const stock = rows.filter((r) => r.inStock).map((r) => r.ingredient);
+  const recorded = rows.length > 0;
 
-  /**
-   * A host who has never opened the stock screen has not told us they have nothing.
-   *
-   * Without this, the default state of every brand-new party is a menu with four of
-   * six drinks greyed out — the app looking broken at exactly the moment someone is
-   * deciding whether to trust it. "Never asked" is not "asked and answered no", and
-   * the PUT already keeps that distinction alive by writing `false` rows rather than
-   * deleting them: untick everything and this is `false`, so the gating is real from
-   * the first tick onward.
-   */
-  const unrecorded = rows.length === 0;
+  const items = recorded
+    ? makeable(stock, { ignore: OPTIONAL_CATEGORIES }).map(describe)
+    : DRINKS.map((d) => ({
+        id: d.name,
+        name: d.name,
+        base: d.spirits[0] ?? '',
+        blurb: undefined,
+        glass: undefined,
+        garnish: undefined,
+      }));
 
   return json({
     ok: true,
-    event: { id: party.id, name: party.name },
-    /** name → can we pour it. Unknown drinks report available; see `availability`. */
-    available: unrecorded
-      ? Object.fromEntries(DRINKS.map((d) => [d.name, true]))
-      : availability(
-          stock,
-          DRINKS.map((d) => d.name),
-          { ignore: OPTIONAL_CATEGORIES },
-        ),
-    /** Everything the stock can make, for a host deciding what else to offer. */
-    makeable: makeable(stock, { ignore: OPTIONAL_CATEGORIES }).map((r) => ({
-      id: r.id,
-      name: r.name,
-      base: r.base,
-    })),
+    event: { id: found.id, name: found.name },
+    /** Where the list came from, so the guest screen can say so honestly. */
+    source: recorded ? 'cupboard' : 'house',
+    recorded,
+    items,
+    /**
+     * Recipe ids this party leads with. **Empty means show everything** — curation is
+     * optional and its absence must not read as a broken menu.
+     */
+    shortList: listEventMenu(found.id).filter((id) => items.some((i) => i.id === id)),
+    /**
+     * The cupboard itself, so "help me choose" can run in the browser.
+     *
+     * Shipping this is not the duplication the old comment here warned about. That
+     * was about two *different* computations of what's pourable drifting apart; the
+     * client walks the same `$lib/shared` engine over the same ingredients, and
+     * `items` above stays the authority for what's on the menu. Without it the walk
+     * would need a round trip per question, which is not a walk.
+     */
+    stock,
   });
+}
+
+const describe = (r: (typeof RECIPES)[number]) => ({
+  id: r.id,
+  name: r.name,
+  base: r.base,
+  blurb: r.blurb,
+  glass: r.glass,
+  garnish: r.garnish,
+});
+
+/**
+ * Choose what this party leads with.
+ *
+ * **An empty list is a real answer** — it means "don't feature anything", which
+ * lands the guest on the full generated list. That is also the default, so curating
+ * is genuinely optional rather than a step everyone has to do.
+ *
+ * Ids that aren't on the menu are dropped rather than rejected: a host who curates,
+ * then takes the gin out of their cupboard, should lose that one entry and not have
+ * their whole list refused.
+ */
+export async function PUT(event: RequestEvent) {
+  const eventId = event.params.id!;
+  const auth = await requireCapability(event, 'menu:curate', party(eventId));
+  if (denied(auth)) return auth.denied;
+
+  const b = await body(event);
+  if (!Array.isArray(b.recipes)) return fail(422, 'recipes must be an array');
+  if (b.recipes.length > MAX_SHORT_LIST) return fail(422, 'too many drinks');
+
+  const known = new Set(RECIPES.map((r) => r.id));
+  const wanted = [
+    ...new Set(b.recipes.filter((id): id is string => typeof id === 'string' && known.has(id))),
+  ];
+
+  setEventMenu(eventId, wanted);
+  return json({ ok: true, shortList: wanted });
 }

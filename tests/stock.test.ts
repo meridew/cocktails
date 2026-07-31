@@ -36,9 +36,17 @@ interface StockBody {
 }
 
 interface MenuBody {
-  available: Record<string, boolean>;
-  makeable: { name: string }[];
+  event: { id: string; name: string };
+  /** Where the list came from — the cupboard, or the six house drinks. */
+  source: 'cupboard' | 'house';
+  recorded: boolean;
+  items: { id: string; name: string; base: string }[];
+  shortList: string[];
+  stock: string[];
 }
+
+/** Just the names, which is what nearly every assertion here wants. */
+const names = (m: MenuBody): string[] => m.items.map((i) => i.name);
 
 let dan: Account;
 let ana: Account;
@@ -145,55 +153,65 @@ describe('one cupboard, every party the host has', () => {
   test("a host's parties all read the same list", async () => {
     await putStock(ana.id, MARGARITA, asAccount(ana));
     const second = partyFor(ana.id, "Ana's other party");
-    const first = await readMenu(anaParty);
-    const other = await readMenu(second);
-    assert.equal(first.available['Margarita'], true);
-    assert.equal(
-      other.available['Margarita'],
-      true,
+    assert.ok(names(await readMenu(anaParty)).includes('Margarita'));
+    assert.ok(
+      names(await readMenu(second)).includes('Margarita'),
       'the cupboard follows the host, not the party',
     );
   });
 });
 
-describe('the guest menu follows the cupboard', () => {
-  test('a party whose host has never opened it offers everything', async () => {
-    // The default state of every new party. Gating on an empty cupboard would grey
-    // out four of six drinks before the host had been asked a single question.
-    const { available } = await readMenu(brunoParty);
-    assert.deepEqual(Object.values(available), Array(6).fill(true));
+describe('the menu is generated, not filtered', () => {
+  test('four bottles yield more than the four drinks we happened to curate', async () => {
+    // The promise phase 5 exists to keep. This used to answer "which of the six
+    // house drinks can we pour", so a host with a real bar still saw six.
+    await putStock(ana.id, MARGARITA, asAccount(ana));
+    const menu = await readMenu(anaParty);
+    assert.equal(menu.source, 'cupboard');
+    assert.ok(names(menu).includes('Margarita'));
+    assert.ok(
+      menu.items.every((i) => i.base && i.id),
+      'every item carries what the guest screen groups and keys by',
+    );
   });
 
-  test('but one tick turns the gating on for real', async () => {
+  test('a party whose host has never opened the cupboard gets the house list', async () => {
+    // Not an empty menu: a host who has answered nothing has not said "nothing".
+    // Six curated drinks is a working party, and it is what the app served before
+    // any of this existed.
+    const menu = await readMenu(brunoParty);
+    assert.equal(menu.source, 'house');
+    assert.equal(menu.recorded, false);
+    assert.equal(menu.items.length, 6);
+    assert.ok(names(menu).includes('Wine'), 'the house list keeps the drinks we have no recipe for');
+  });
+
+  test('but one tick switches it to the real thing', async () => {
     const fresh = await person('stock-ticker');
     const party = partyFor(fresh.id, 'Ticker party');
     await putStock(fresh.id, ['Gin'], asAccount(fresh));
-    const { available } = await readMenu(party);
-    assert.equal(available['Mojito'], false, 'a recorded cupboard gates from the first tick');
+    const menu = await readMenu(party);
+    assert.equal(menu.source, 'cupboard');
+    assert.ok(!names(menu).includes('Mojito'), 'gin alone is not a Mojito');
   });
 
   test('and emptying it is an answer, not a blank slate', async () => {
+    // The distinction the `false` rows exist to preserve: an untouched cupboard
+    // falls back to the house list, a deliberately emptied one does not.
     const fresh = await person('stock-cleared');
     const party = partyFor(fresh.id, 'Cleared party');
     await putStock(fresh.id, ['Gin'], asAccount(fresh));
     await putStock(fresh.id, [], asAccount(fresh));
-    const { available } = await readMenu(party);
-    assert.equal(available['Mojito'], false);
-    assert.equal(available['Wine'], true, 'a drink with no recipe is always pourable');
+    const menu = await readMenu(party);
+    assert.equal(menu.recorded, true, 'an emptied cupboard has still been answered');
+    assert.equal(menu.source, 'cupboard');
+    assert.deepEqual(menu.items, [], 'nothing in means nothing on');
   });
 
-  test('a drink with no recipe at all stays on the menu', async () => {
+  test('the stock ships too, so the walk can run in the browser', async () => {
     await putStock(ana.id, MARGARITA, asAccount(ana));
-    const { available } = await readMenu(anaParty);
-    // Hiding these would mean refusing someone a glass of wine because our
-    // ingredient table doesn't model wine — punishing a guest for a gap in our data.
-    assert.equal(available['Wine'], true);
-    assert.equal(available['Pom & Elderflower'], true);
-  });
-
-  test('every curated drink gets an answer', async () => {
-    const { available } = await readMenu(anaParty);
-    assert.equal(Object.keys(available).length, 6, 'a missing key would read as available');
+    const menu = await readMenu(anaParty);
+    assert.deepEqual([...menu.stock].sort(), [...MARGARITA].sort());
   });
 });
 
@@ -204,7 +222,7 @@ describe('the two screens agree', () => {
     const theirs = await readMenu(anaParty);
     assert.deepEqual(
       mine.makeable.map((r) => r.name).sort(),
-      theirs.makeable.map((r) => r.name).sort(),
+      names(theirs).sort(),
       'the host and the guest must not be looking at different drinks',
     );
   });
@@ -220,11 +238,68 @@ describe('the two screens agree', () => {
       mine.makeable.some((r) => r.name === 'Dry Martini'),
       'the host has no olives, but a Martini is still a Martini',
     );
-    assert.deepEqual(
-      mine.makeable.map((r) => r.name).sort(),
-      theirs.makeable.map((r) => r.name).sort(),
-    );
+    assert.deepEqual(mine.makeable.map((r) => r.name).sort(), names(theirs).sort());
     await putStock(ana.id, MARGARITA, asAccount(ana));
+  });
+});
+
+describe('the short list', () => {
+  const curate = (eventId: string, recipes: string[], headers: Record<string, string>) =>
+    request(`/api/events/${eventId}/menu`, send('PUT', { recipes }, headers));
+
+  test('nothing curated means show everything, not show nothing', async () => {
+    // The default state of every party. An empty list must read as "we did not pick
+    // favourites", never as a broken menu.
+    await putStock(ana.id, MARGARITA, asAccount(ana));
+    assert.deepEqual((await readMenu(anaParty)).shortList, []);
+  });
+
+  test('a host curates their own party', async () => {
+    const res = await curate(anaParty, ['margarita'], asAccount(ana));
+    assert.equal(res.status, 200);
+    assert.deepEqual((await readMenu(anaParty)).shortList, ['margarita']);
+  });
+
+  test('ids that are not on the menu are dropped, not refused', async () => {
+    // A host curates, then takes the tequila out. They should lose that one entry,
+    // not have the whole list refused — and the guest screen must never be handed an
+    // id it has no item for.
+    await curate(anaParty, ['margarita'], asAccount(ana));
+    await putStock(ana.id, ['Gin', 'Dry Vermouth'], asAccount(ana));
+    const menu = await readMenu(anaParty);
+    assert.deepEqual(menu.shortList, [], 'no tequila, no margarita to feature');
+    await putStock(ana.id, MARGARITA, asAccount(ana));
+    assert.deepEqual((await readMenu(anaParty)).shortList, ['margarita'], 'and it comes back');
+  });
+
+  test('a name we have never heard of is dropped at the door', async () => {
+    const res = await curate(anaParty, ['margarita', 'not-a-drink'], asAccount(ana));
+    assert.equal(res.status, 200);
+    assert.deepEqual(((await res.json()) as { shortList: string[] }).shortList, ['margarita']);
+  });
+
+  test('emptying it is allowed — curation is optional in both directions', async () => {
+    assert.equal((await curate(anaParty, [], asAccount(ana))).status, 200);
+    assert.deepEqual((await readMenu(anaParty)).shortList, []);
+  });
+
+  test('Admin curates for a host who would rather not', async () => {
+    assert.equal((await curate(anaParty, ['margarita'], asAccount(dan))).status, 200);
+    await curate(anaParty, [], asAccount(dan));
+  });
+
+  test('another host cannot touch it', async () => {
+    // 404 rather than 403, so the id does not confirm the party is real.
+    assert.equal((await curate(anaParty, ['margarita'], asAccount(bruno))).status, 404);
+  });
+
+  test('a helper behind the bar cannot either — pouring is not choosing', async () => {
+    const barHelper = await makeHelper(dan, anaParty, 'Curator', 'dev-curate-helper');
+    assert.equal((await curate(anaParty, ['margarita'], asBar(barHelper))).status, 403);
+  });
+
+  test('and a guest certainly cannot', async () => {
+    assert.equal((await curate(anaParty, ['margarita'], {})).status, 401);
   });
 });
 
@@ -278,10 +353,11 @@ describe('one party per menu', () => {
     await putStock(ana.id, MARGARITA, asAccount(ana));
     await putStock(bruno.id, ['Gin', 'Dry Vermouth'], asAccount(bruno));
 
-    const hers = await readMenu(anaParty);
-    const his = await readMenu(brunoParty);
-    assert.equal(hers.available['Margarita'], true);
-    assert.equal(his.available['Margarita'], false, "bruno has no tequila — ana's is not his");
+    assert.ok(names(await readMenu(anaParty)).includes('Margarita'));
+    assert.ok(
+      !names(await readMenu(brunoParty)).includes('Margarita'),
+      "bruno has no tequila — ana's is not his",
+    );
   });
 
   test('a party that does not exist has no menu', async () => {

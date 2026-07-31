@@ -8,6 +8,20 @@
    * ever ran and is not now: a bookmarked or forwarded link has to keep working, and
    * `/` belongs to the front door.
    *
+   * ## Three doors
+   *
+   * The list is now **generated from the host's cupboard** — up to 270 recipes rather
+   * than a curated six — so "here is the menu, scroll it" stopped being a design. A
+   * guest arrives at one of three:
+   *
+   * - **the short list**, what this party leads with, and the default;
+   * - **everything**, grouped by base spirit and searchable, for someone who knows
+   *   what they want;
+   * - **help me choose**, the walk, for someone who doesn't.
+   *
+   * A party that curated nothing lands on everything, because an empty short list
+   * means "we didn't pick favourites", not "there is no menu".
+   *
    * The shell (appbar, tabbar) lives here rather than in the layout because the bar
    * is a full-screen view of its own — putting the chrome in the layout would only
    * mean hiding it again on /bar.
@@ -15,7 +29,7 @@
   import { goto } from '$app/navigation';
   import { onMount } from 'svelte';
   import { DRINKS, type Drink } from '$lib/data';
-  import { eventMenu } from '$lib/api';
+  import { eventMenu, type EventMenu, type MenuItem } from '$lib/api';
 
   import { addLine, basketCount } from '$lib/stores/basket.svelte';
   import { favourites } from '$lib/stores/favourites.svelte';
@@ -23,6 +37,7 @@
   import { staffRequest } from '$lib/stores/staffRequest.svelte';
   import { celebrate as fireConfetti, startBackgroundCannon } from '$lib/confetti';
   import { lockBackground } from '$lib/dialog';
+  import ChooseADrink from '$lib/components/ChooseADrink.svelte';
   import Configurator from '$lib/components/Configurator.svelte';
   import InstallButton from '$lib/components/InstallButton.svelte';
   import OrderRail from '$lib/components/OrderRail.svelte';
@@ -48,19 +63,91 @@
   let count = $derived(basketCount());
 
   /**
-   * What this party can actually pour, from the host's stock list.
+   * The menu, generated server-side from the host's cupboard.
    *
-   * **Fails open on purpose.** An empty map means every drink is offered, and so
-   * does a failed request or a name the recipe engine has never heard of. Wrongly
-   * offering a drink costs someone a "sorry, we're out"; wrongly hiding one costs a
-   * drink nobody knew they could have had — and a menu that silently shrinks because
-   * the network hiccuped is indistinguishable from a broken app.
-   *
-   * Marked, not hidden: a guest who knows this menu has six drinks and counts four
-   * assumes the app is wrong. "Not tonight" is information.
+   * **Fails open on purpose**, exactly as the old availability map did: a failed
+   * request leaves `menu` null and falls back to the six house drinks, because a menu
+   * that silently empties because the network hiccuped is indistinguishable from a
+   * broken app. Erring towards offering costs someone a "sorry, we're out"; erring
+   * the other way costs a drink nobody knew they could have had.
    */
-  let available = $state<Record<string, boolean>>({});
-  const pourable = (name: string): boolean => available[name] !== false;
+  let menu = $state<EventMenu | null>(null);
+
+  const HOUSE: MenuItem[] = DRINKS.map((d) => ({
+    id: d.name,
+    name: d.name,
+    base: d.spirits[0] ?? '',
+  }));
+
+  const items = $derived(menu?.items ?? HOUSE);
+  const stock = $derived(menu?.stock ?? []);
+
+  /**
+   * What the party leads with. Curation is optional, so **no short list means show
+   * everything** — its absence is a default, not a broken menu.
+   */
+  const featured = $derived.by(() => {
+    const list = menu?.shortList ?? [];
+    if (list.length === 0) return items;
+    const byId = new Map(items.map((i) => [i.id, i]));
+    return list.flatMap((id) => {
+      const found = byId.get(id);
+      return found ? [found] : [];
+    });
+  });
+
+  /** Which door is open. `featured` is where everyone starts. */
+  let door = $state<'featured' | 'all' | 'walk'>('featured');
+  let query = $state('');
+
+  /** `Show everything`, grouped by base spirit so 200 drinks are navigable. */
+  const grouped = $derived.by(() => {
+    const q = query.trim().toLowerCase();
+    const hits = q
+      ? items.filter((i) => i.name.toLowerCase().includes(q) || i.base.toLowerCase().includes(q))
+      : items;
+    const by = new Map<string, MenuItem[]>();
+    for (const i of hits) {
+      const key = i.base || 'Other';
+      (by.get(key) ?? by.set(key, []).get(key)!).push(i);
+    }
+    return [...by.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([base, list]) => ({ base, list: list.sort((a, b) => a.name.localeCompare(b.name)) }));
+  });
+
+  /**
+   * A card's emoji. The six house drinks carry their own; the generated 270 don't,
+   * and a wall of identical glasses is worse than a wall of none — so the base spirit
+   * picks one, which at least groups the cards by eye the way the list groups them by
+   * heading.
+   */
+  const BASE_EMOJI: Record<string, string> = {
+    Gin: '🌿',
+    Vodka: '❄️',
+    Rum: '🏝️',
+    Tequila: '🌵',
+    Mezcal: '🔥',
+    Whiskey: '🥃',
+    Whisky: '🥃',
+    Bourbon: '🥃',
+    Rye: '🥃',
+    Scotch: '🥃',
+    Brandy: '🍇',
+    Cognac: '🍇',
+    Champagne: '🍾',
+    Prosecco: '🍾',
+    Wine: '🍷',
+    Beer: '🍺',
+    Cachaça: '🇧🇷',
+    Pisco: '🍋',
+    Absinthe: '🧚',
+    Aperol: '🧡',
+    Campari: '❤️',
+    Vermouth: '🍸',
+  };
+  const emojiFor = (item: MenuItem): string =>
+    DRINKS.find((d) => d.name === item.name)?.emoji ?? BASE_EMOJI[item.base] ?? '🍸';
 
   onMount(() => {
     // Notifications sent before the bar became a route still carry `/?bartender`.
@@ -70,16 +157,14 @@
     }
     applyDeepLink(location.search);
 
-    // Deliberately not awaited: the menu renders immediately and drinks that turn
-    // out to be off get marked when the answer lands, rather than the whole list
-    // waiting on a request to show anything at all.
-    {
-      void eventMenu(data.eventId)
-        .then((r) => (available = r.available))
-        .catch(() => {
-          /* offline, or a party that's been deleted — offer everything */
-        });
-    }
+    // Deliberately not awaited: the house list renders immediately and is replaced
+    // when the real one lands, rather than the whole page waiting on a request to
+    // show anything at all.
+    void eventMenu(data.eventId)
+      .then((r) => (menu = r))
+      .catch(() => {
+        /* offline, or a party that's been deleted — offer the house list */
+      });
   });
 
   // The mobile order sheet spans two siblings — the rail and its click-to-dismiss
@@ -103,9 +188,22 @@
 
   /** Only ever suggests something the bar can actually pour. */
   function surprise() {
-    const pool = DRINKS.filter((d) => pourable(d.name));
+    const pool = featured.length > 0 ? featured : items;
     if (pool.length === 0) return;
-    selected = pool[Math.floor(Math.random() * pool.length)]!;
+    choose(pool[Math.floor(Math.random() * pool.length)]!);
+  }
+
+  /**
+   * Add a drink to the round.
+   *
+   * The six house drinks have options — ice, garnish, how strong — so they open the
+   * configurator. A generated recipe has none, so it goes straight in: inventing a
+   * sheet with nothing on it just to be consistent would be one more tap for nothing.
+   */
+  function choose(item: MenuItem) {
+    const configurable = DRINKS.find((d) => d.name === item.name);
+    if (configurable) selected = configurable;
+    else addLine(item.name);
   }
 
   function toggleFav(name: string) {
@@ -127,6 +225,7 @@
     if (e.key !== 'Escape') return;
     if (celebrating) celebrating = false;
     else if (orderOpen) view.order = false;
+    else if (door !== 'featured') door = 'featured';
   }}
 />
 
@@ -173,43 +272,72 @@
         </a>
       {/if}
 
-      <div class="menubar">
-        {#if favourites.size}
-          <button
-            type="button"
-            class="chip chip-fav"
-            aria-pressed={favesOnly}
-            onclick={() => (view.favesOnly = !favesOnly)}>⭐ Faves</button
-          >
-        {/if}
-        <button type="button" class="chip chip-surprise" onclick={surprise}>🎲 Surprise</button>
-        <InstallButton />
-      </div>
-
-      <!-- Filtering is neo.css's job (.menu.faves-only hides non-favourites), so
-           the class drives it rather than a filtered list. -->
-      <div class="menu" class:faves-only={favesOnly}>
-        {#each DRINKS as d (d.name)}
-          {@const on = pourable(d.name)}
-          <!-- Order is never re-sorted on the availability response: drinks
-               visibly jumping around a second after load reads as a glitch. -->
-          <article class="cocktail" class:is-fav={favourites.has(d.name)} class:is-out={!on}>
+      {#if door === 'walk'}
+        <ChooseADrink
+          {stock}
+          onpick={(r) => {
+            addLine(r.name);
+            door = 'featured';
+          }}
+          onclose={() => (door = 'featured')}
+        />
+      {:else}
+        <div class="menubar">
+          {#if favourites.size}
             <button
               type="button"
-              class="fav"
-              aria-pressed={favourites.has(d.name)}
-              onclick={() => toggleFav(d.name)}
-              aria-label="Toggle favourite"
+              class="chip chip-fav"
+              aria-pressed={favesOnly}
+              onclick={() => (view.favesOnly = !favesOnly)}>⭐ Faves</button
             >
-              {favourites.has(d.name) ? '⭐' : '☆'}
-            </button>
-            <h3><span class="emoji">{d.emoji}</span> {d.name}</h3>
-            <button type="button" class="order" disabled={!on} onclick={() => (selected = d)}>
-              {on ? 'Add to order' : 'Not tonight'}
-            </button>
-          </article>
-        {/each}
-      </div>
+          {/if}
+          <button
+            type="button"
+            class="chip"
+            aria-pressed={door === 'all'}
+            onclick={() => (door = door === 'all' ? 'featured' : 'all')}
+          >
+            {door === 'all' ? '← Back' : '📖 Everything'}
+          </button>
+          <button type="button" class="chip" onclick={() => (door = 'walk')}>🤔 Help me choose</button>
+          <button type="button" class="chip chip-surprise" onclick={surprise}>🎲 Surprise</button>
+          <InstallButton />
+        </div>
+
+        {#if door === 'all'}
+          <input
+            class="askbar-input menu-search"
+            type="search"
+            placeholder="Search {items.length} drinks…"
+            bind:value={query}
+            aria-label="Search the menu"
+          />
+          {#each grouped as group (group.base)}
+            <h2 class="menu-heading">{group.base}</h2>
+            <!-- Filtering is neo.css's job (.menu.faves-only hides non-favourites),
+                 so the class drives it rather than a filtered list. -->
+            <div class="menu" class:faves-only={favesOnly}>
+              {#each group.list as item (item.id)}
+                {@render card(item)}
+              {/each}
+            </div>
+          {/each}
+          {#if grouped.length === 0}
+            <p class="menu-empty">Nothing matches “{query}”.</p>
+          {/if}
+        {:else}
+          <div class="menu" class:faves-only={favesOnly}>
+            {#each featured as item (item.id)}
+              {@render card(item)}
+            {/each}
+          </div>
+          {#if featured.length === 0}
+            <p class="menu-empty">
+              The bar hasn't got anything on tonight — ask whoever's pouring.
+            </p>
+          {/if}
+        {/if}
+      {/if}
     </section>
   </main>
 
@@ -221,6 +349,24 @@
     </button>
   </nav>
 </div>
+
+{#snippet card(item: MenuItem)}
+  <!-- Nothing is drawn as unavailable any more: the list *is* what's pourable, so a
+       greyed-out card would be a drink the host can't make and never claimed to. -->
+  <article class="cocktail" class:is-fav={favourites.has(item.name)}>
+    <button
+      type="button"
+      class="fav"
+      aria-pressed={favourites.has(item.name)}
+      onclick={() => toggleFav(item.name)}
+      aria-label="Toggle favourite"
+    >
+      {favourites.has(item.name) ? '⭐' : '☆'}
+    </button>
+    <h3><span class="emoji">{emojiFor(item)}</span> {item.name}</h3>
+    <button type="button" class="order" onclick={() => choose(item)}>Add to order</button>
+  </article>
+{/snippet}
 
 <OrderRail
   open={orderOpen}

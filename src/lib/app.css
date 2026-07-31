@@ -1359,3 +1359,100 @@ button.row:hover {
   background: var(--card2);
   color: var(--text);
 }
+
+/* ---- the guest menu's second door ------------------------------------------ */
+
+/* `Show everything` is 200-odd drinks. Grouped by base spirit with a search box on
+   top, because a flat scroll of that length is a list nobody reads. These extend
+   neo.css's menu rather than replacing it — the cards are still `.cocktail`. */
+
+.menu-search {
+  width: 100%;
+  margin: 0 0 18px;
+}
+
+/* Sits between grids, so it needs air above and almost none below — the heading
+   belongs to the drinks under it, not the ones before. */
+.menu-heading {
+  font-family: var(--font-display);
+  text-transform: var(--ttu);
+  letter-spacing: var(--ls-head);
+  font-size: 0.95rem;
+  color: var(--h2-color);
+  margin: 22px 0 10px;
+}
+.menu-heading:first-of-type {
+  margin-top: 0;
+}
+
+.menu-empty {
+  margin: 0;
+  padding: 24px 0;
+  text-align: center;
+  color: var(--text-soft);
+}
+
+/* ---- what the generated menu exposed on the cards --------------------------- */
+
+/* Three doors plus Surprise is four chips, and they do not fit a phone in one row.
+   `.menubar` is `display:flex` with no wrap, so the last one ran off the right edge
+   with nothing to scroll it back.
+
+   Scoped to the guest menu rather than claiming `.menubar` outright: neo.css owns
+   that component, and `styles.test.ts` is right to refuse a bare redefinition even
+   when — as here — the change only adds a property. */
+.view-menu .menubar {
+  flex-wrap: wrap;
+  row-gap: 8px;
+}
+
+/* The curated six were "Mojito", "Wine", "Margarita". The generated 270 are
+   "Cosmopolitan", "Boulevardier", "Bacardí Cocktail" — and the card title reserved a
+   44px gutter for the favourite star on *every* line, which at two columns on a
+   phone leaves about 90px for the word. Long names overflowed their box and ran
+   underneath the star.
+
+   Two changes, and both are needed:
+
+   The star only occupies the first line's worth of height, so the gutter is reserved
+   *there* rather than down the whole title. A float does that and a flex row cannot,
+   which is why the display changes with it.
+
+   And the size comes from the card rather than the viewport. `4.6vw` is the same
+   17px whether a name sits in a half-width phone card or a quarter-width desktop
+   one, so a long name had no way to fit and broke mid-word — "MARGA / RITA", which
+   looks like a rendering fault rather than a wrap. `cqi` is a percentage of the
+   card, so the title shrinks exactly when the card is what's short.
+
+   The emoji takes the star's line. Without that, the float still clipped the *second*
+   line — the star is 36px tall and a title line is 16px — and "MARGARITA" missed the
+   remaining 92px by two pixels, which is a hair's-breadth away from looking fine and
+   was not. Given the whole first line, the longest name in the set
+   ("Chrysanthemum", 129px) clears 138px of card. */
+.menu .cocktail {
+  container-type: inline-size;
+}
+.menu .cocktail h3 {
+  display: block;
+  padding-right: 0;
+  font-size: clamp(0.92rem, 11cqi, 1.6rem);
+  /* Last resort only: a name with no space in it that still doesn't fit a full line
+     has to break somewhere, and running off the card is worse. */
+  overflow-wrap: break-word;
+}
+.menu .cocktail h3::before {
+  content: '';
+  float: right;
+  width: 46px;
+  height: 34px;
+}
+.menu .cocktail h3 .emoji {
+  display: block;
+  height: 34px;
+  line-height: 34px;
+  /* Its own size, not the title's. The title now shrinks with the card, and the
+     emoji inheriting that shrank a 25px glyph to 15px — small enough to read as a
+     smudge rather than a drink. It has a whole line to itself; it can have a size of
+     its own too. */
+  font-size: 1.35rem;
+}

@@ -100,6 +100,9 @@ const GOVERNED: Record<string, Requirement> = {
   'POST /api/events/[id]/bar': 'orders:advance',
   // A menu is what's on the kitchen table under the QR code — not a secret.
   'GET /api/events/[id]/menu': 'public',
+  // Reading it is public; *choosing* it is the host's or Dan's. Pointedly not the
+  // bar's — a helper pours what the party serves, they don't decide it.
+  'PUT /api/events/[id]/menu': 'menu:curate',
 
   // Better Auth's catch-all: these are how someone *becomes* authenticated, so a
   // capability gate would be circular. Its own guards are inside the library — and

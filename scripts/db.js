@@ -111,6 +111,44 @@ const SCENARIOS = {
     console.log(`🍸 ${rows.length} orders across every status (Tom bumped, Priya part-poured)`);
   },
 
+  /**
+   * A host with a bar somebody would actually throw a party from.
+   *
+   * The generated menu is only worth looking at with a real cupboard behind it — a
+   * host with four bottles gets five drinks, which proves the plumbing and tells you
+   * nothing about whether the screen works. This is roughly what a well-stocked
+   * kitchen has in: five spirits, the mixers, the citrus and the sweeteners.
+   *
+   * Ticks it for **every** host, because which one you happen to be signed in as is
+   * not the thing being tested.
+   */
+  stocked(db) {
+    const bottles = [
+      // spirits
+      'Gin', 'Vodka', 'White Rum', 'Dark Rum', 'Tequila', 'Bourbon',
+      // fortified & liqueurs
+      'Sweet Vermouth', 'Dry Vermouth', 'Campari', 'Aperol', 'Triple Sec', 'Coffee Liqueur',
+      // citrus & juice
+      'Lime Juice', 'Lemon Juice', 'Orange Juice', 'Cranberry Juice', 'Pineapple Juice',
+      // mixers
+      'Soda Water', 'Tonic Water', 'Ginger Beer', 'Cola', 'Prosecco',
+      // sweeteners & the rest
+      'Simple Syrup', 'Agave Syrup', 'Honey Syrup', 'Grenadine',
+      'Angostura Bitters', 'Mint', 'Egg White', 'Espresso',
+    ];
+    const users = db.prepare(`SELECT id, name FROM user`).all();
+    if (users.length === 0) {
+      console.error('no hosts yet — start the server once, or register somebody');
+      return;
+    }
+    const tick = db.prepare(
+      `INSERT INTO stock (user_id, ingredient, in_stock) VALUES (?, ?, 1)
+         ON CONFLICT (user_id, ingredient) DO UPDATE SET in_stock = 1`,
+    );
+    for (const u of users) for (const b of bottles) tick.run(u.id, b);
+    console.log(`🥃 ${bottles.length} bottles in for ${users.map((u) => u.name).join(', ')}`);
+  },
+
   /** Someone waiting on the host, so the approval flow has something to answer. */
   helper(db) {
     db.prepare(
@@ -124,12 +162,35 @@ const SCENARIOS = {
 
 function show(db) {
   const count = (t) => db.prepare(`SELECT COUNT(*) AS n FROM ${t}`).get().n;
+  console.log(`   hosts         ${count('user')}`);
+  console.log(`   parties       ${count('event')}`);
   console.log(`   orders        ${count('orders')}`);
   console.log(`   staff         ${count('staff')}`);
   console.log(`   subscriptions ${count('subscriptions')}`);
   console.log(`   join_codes    ${count('join_codes')}`);
-  for (const s of db.prepare(`SELECT display_name, role, status FROM staff`).all()) {
-    console.log(`     · ${s.display_name} (${s.role}/${s.status})`);
+  // A host's cupboard and a party's short list, because both are now the difference
+  // between a menu worth looking at and an empty screen.
+  for (const u of db
+    .prepare(
+      `SELECT u.name, u.email,
+              (SELECT COUNT(*) FROM stock s WHERE s.user_id = u.id AND s.in_stock) AS bottles
+         FROM user u ORDER BY u.name`,
+    )
+    .all()) {
+    console.log(`     · ${u.name} <${u.email}> — ${u.bottles} bottles in`);
+  }
+  for (const e of db
+    .prepare(
+      `SELECT e.name, e.status,
+              (SELECT COUNT(*) FROM event_menu m WHERE m.event_id = e.id) AS featured
+         FROM event e ORDER BY e.name`,
+    )
+    .all()) {
+    console.log(`     · ${e.name} (${e.status}) — ${e.featured || 'nothing'} featured`);
+  }
+  // `role` moved off this table when staff became per-party; reading it threw.
+  for (const s of db.prepare(`SELECT display_name, status, joined_via FROM staff`).all()) {
+    console.log(`     · ${s.display_name} (${s.joined_via}/${s.status})`);
   }
 }
 

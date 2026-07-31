@@ -19,6 +19,14 @@ new feature got built wherever that credential already worked, rather than where
 belonged. The host's stock screen ended up inside the bartender's screen. That is a
 symptom; the missing axis is the cause, and §8 phase 0 fixes the cause first.
 
+**Phases 0, 2, 3, 4 and 5 are done.** The app now does what §1 has always said it
+does: a host records what they have in, and their guests get a menu generated from
+it — 60 drinks from 30 bottles rather than six curated ones filtered down. What
+remains is phase 6 (Playwright), and phases 7 and 8, both deferred by Dan.
+
+**Phase 1 was withdrawn, not skipped.** Its premise — that the look was broken — was
+a claim in a document rather than an observed fact, and it was false.
+
 **The wipe permission still holds, and it is the reason this is affordable.** The
 live database on the Mac holds one unverified test account (`bar@meridew.com`, mine),
 one boot-seeded event, and nothing else:
@@ -665,7 +673,7 @@ admin-on-a-cookie case are in `host-loop.test.ts`.
   permission blocked, so the push never left. The code path runs; that it arrives is
   untested here and wants a real device.
 
-### Phase 5 — the generated menu
+### ~~Phase 5 — the generated menu~~ ✅ done, 31 Jul 2026
 
 The promise §1 has made since the beginning.
 
@@ -681,6 +689,33 @@ The promise §1 has made since the beginning.
 _Gate: a host with a real cupboard yields a menu a person would actually order from,
 checked by eye; a host with an empty cupboard still gets a working party (§13); and
 the walk reaches a drink the browse list also offers._
+
+**Gate met.** 30 bottles yields 60 drinks across six base spirits; walked on a phone
+viewport and looked at. An unrecorded cupboard still serves the house six. The walk
+Gin → Sweet Vermouth → Campari lands on the Negroni, which the browse list also
+offers under Gin.
+
+**What it cost, and what it changed:**
+
+- `ChooseADrink.svelte` does **not** use the engine's `exactMatch()`. That function
+  asks whether the picks *are* the ingredient list, and an ingredient list includes
+  the `method` — which the walk deliberately never asks about, because nobody chooses
+  whether their drink is shaken. Against a Negroni it compared two picks to three
+  ingredients, decided the walk wasn't finished, and offered "any of these: Negroni".
+  The walk is finished when nothing is left to ask and one drink is left standing.
+- **Two card defects that only 270 names could expose.** The title reserved a 44px
+  gutter for the favourite star on *every* line, and sized itself off the viewport —
+  so "Cosmopolitan" in a half-width phone card had ~90px and ran under the star. The
+  gutter is now the star's own line and the size comes from the card (`cqi`). Four
+  chips also don't fit a phone in one row; `.menubar` wraps on the guest menu.
+- `scripts/db.js` grew a **`stocked`** scenario, because the menu is only worth
+  looking at with a real cupboard behind it, and `show` was reading a `staff.role`
+  column that the phase-0 restructure removed — it threw on every invocation.
+
+**Said out loud, as §13 requires:** phase 5 has shipped before phase 8, so a
+generated menu currently offers a non-drinker nothing. Every one of the 270 is a
+cocktail. A host with a well-stocked bar and a pregnant guest has a problem the app
+does not know about.
 
 ### Phase 6 — end to end
 
@@ -835,9 +870,14 @@ Written down so nobody has to discover them, and so nobody "fixes" one by accide
   cupboard gets a menu offering everything, not a menu offering nothing. Same rule for
   an uncurated short list. Absence of an answer is not a "no", and the `false` rows
   written on unticking are what make the distinction real.
-- **A drink we know nothing about is available.** A curated name with no matching
-  recipe reports pourable. Hiding wine because the ingredient table doesn't model wine
-  punishes a guest for a gap in our data.
+- **A drink we know nothing about is now off the menu.** ⚠️ _Changed by phase 5._ This
+  used to say the opposite: a curated name with no matching recipe reported pourable,
+  so wine stayed on. A generated list starts from the recipes, so a drink with no
+  recipe cannot be generated — Wine and Pom & Elderflower survive only on the **house
+  list**, which is what an unrecorded cupboard falls back to. The moment a host ticks
+  one bottle, they lose the ability to offer a glass of wine. Nobody has asked for it
+  back yet; when they do, the answer is probably a recipe-less "always on" entry
+  rather than undoing the generation.
 - **Six margaritas.** Until phase 7 the generated list shows recipe families as
   separate drinks. Known, ugly, temporary.
 - **The `staff` table is `event_member`.** The old plan named a separate membership

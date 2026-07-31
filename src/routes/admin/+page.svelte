@@ -29,6 +29,7 @@
   import { adoptApprovedSession, refreshActor, session } from '$lib/stores/session.svelte';
   import { rememberEvent } from '$lib/party';
   import Cupboard from '$lib/components/Cupboard.svelte';
+  import ShortList from '$lib/components/ShortList.svelte';
 
   let hosts = $state<Host[]>([]);
   let parties = $state<Party[]>([]);
@@ -42,6 +43,8 @@
   let openHost = $state<Host | null>(null);
   /** Whether the cupboard panel is expanded for the open host. */
   let showCupboard = $state(false);
+  /** Which party's menu is being curated, if any. One at a time — it's a long list. */
+  let curating = $state<string | null>(null);
 
   let newPartyName = $state('');
   let newPartyDate = $state('');
@@ -96,6 +99,7 @@
   function open(host: Host): void {
     openHost = host;
     showCupboard = false;
+    curating = null;
   }
 
   const partiesFor = (host: Host) => parties.filter((p) => p.hostUserId === host.id);
@@ -276,6 +280,14 @@
                   Work it
                 </button>
               {/if}
+              <button
+                class="btn"
+                type="button"
+                aria-pressed={curating === party.id}
+                onclick={() => (curating = curating === party.id ? null : party.id)}
+              >
+                Menu
+              </button>
               <button class="btn" type="button" onclick={() => copyLink(party)}>Link</button>
               <button
                 class="btn btn-danger"
@@ -286,6 +298,12 @@
               >
             </span>
           </div>
+          {#if curating === party.id}
+            <!-- Same board the host gets on their own screen. Dan curates for a host
+                 who'd rather not, which is the same "do the chore for them" case as
+                 the cupboard above. -->
+            <ShortList eventId={party.id} />
+          {/if}
         {:else}
           <p class="empty">No parties yet.</p>
         {/each}

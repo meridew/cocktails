@@ -274,13 +274,36 @@ export const saveStock = (userId: string, stock: string[]) =>
  * Not routed through `req`'s auth at all in spirit: guests are anonymous, and the
  * endpoint ignores the header if one happens to be attached.
  */
-export const eventMenu = (eventId: string) =>
-  req<{
-    ok: true;
-    event: { id: string; name: string };
-    available: Record<string, boolean>;
-    makeable: Pourable[];
-  }>(`/events/${eventId}/menu`);
+export interface MenuItem {
+  id: string;
+  name: string;
+  base: string;
+  blurb?: string;
+  glass?: string;
+  garnish?: string;
+}
+
+export interface EventMenu {
+  ok: true;
+  event: { id: string; name: string };
+  /** `cupboard` when generated from what the host has in; `house` when they never said. */
+  source: 'cupboard' | 'house';
+  recorded: boolean;
+  items: MenuItem[];
+  /** Recipe ids to lead with. Empty means show everything. */
+  shortList: string[];
+  /** The host's ingredients, so "help me choose" can run without a round trip. */
+  stock: string[];
+}
+
+export const eventMenu = (eventId: string) => req<EventMenu>(`/events/${eventId}/menu`);
+
+/** Choose what a party leads with. An empty list is a real answer: feature nothing. */
+export const setShortList = (eventId: string, recipes: string[]) =>
+  req<{ ok: true; shortList: string[] }>(`/events/${eventId}/menu`, {
+    method: 'PUT',
+    body: JSON.stringify({ recipes }),
+  });
 
 // ---- admin: the people and their parties ----
 

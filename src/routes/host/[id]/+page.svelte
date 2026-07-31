@@ -19,6 +19,7 @@
   import { listOrders, myParties, NotFound, Unauthorized, type Party } from '$lib/api';
   import { ORDER_STATUSES, STATUS_META, type Order, type OrderStatus } from '$lib/shared';
   import { refreshActor, session } from '$lib/stores/session.svelte';
+  import ShortList from '$lib/components/ShortList.svelte';
 
   /** How often to look again. The bar polls at 4s; a spectator can be lazier. */
   const POLL_MS = 8000;
@@ -30,6 +31,7 @@
   let loading = $state(true);
   let error = $state('');
   let notice = $state('');
+  let curating = $state(false);
   let timer: ReturnType<typeof setInterval> | undefined;
 
   /** Per-status counts, so the page answers "how is it going" at a glance. */
@@ -117,6 +119,23 @@
           <button class="btn btn-go" type="button" onclick={copyLink}>Copy the link</button>
           <a class="btn" href="/e/{eventId}">See their menu</a>
         </div>
+      </section>
+
+      <!-- Curating *is* changing something, so it sits oddly next to "not a single
+           control that changes anything". It belongs here anyway: the restraint is
+           about not letting a host reach into the bar's work — advancing drinks,
+           clearing queues, managing helpers — and choosing what their own party
+           serves is not that. The capability table already says so: an owner holds
+           `menu:curate` and nothing else beyond reading. -->
+      <section class="panel">
+        <h2>What to lead with</h2>
+        {#if curating}
+          <ShortList {eventId} />
+          <button class="btn" type="button" onclick={() => (curating = false)}>Done</button>
+        {:else}
+          <p>Pick a handful of favourites, or leave it and guests see everything.</p>
+          <button class="btn" type="button" onclick={() => (curating = true)}>Choose drinks</button>
+        {/if}
       </section>
 
       <section class="panel">
