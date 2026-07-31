@@ -16,10 +16,11 @@
   import { onDestroy, onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import { page } from '$app/state';
-  import { listOrders, myParties, NotFound, Unauthorized, type Party } from '$lib/api';
+  import { eventMenu, listOrders, myParties, NotFound, Unauthorized, type Party } from '$lib/api';
   import { ORDER_STATUSES, STATUS_META, type Order, type OrderStatus } from '$lib/shared';
   import { refreshActor, session } from '$lib/stores/session.svelte';
   import ShortList from '$lib/components/ShortList.svelte';
+  import WorkSheet from '$lib/components/WorkSheet.svelte';
 
   /** How often to look again. The bar polls at 4s; a spectator can be lazier. */
   const POLL_MS = 8000;
@@ -33,6 +34,18 @@
   let notice = $state('');
   let curating = $state(false);
   let timer: ReturnType<typeof setInterval> | undefined;
+
+  /** So the card can say what the menu leads with without opening the board. */
+  let menuSummary = $state<{ featured: number; total: number } | null>(null);
+
+  async function countMenu(): Promise<void> {
+    try {
+      const menu = await eventMenu(eventId);
+      menuSummary = { featured: menu.shortList.length, total: menu.items.length };
+    } catch {
+      /* the card falls back to its "couldn't count" copy */
+    }
+  }
 
   /** Per-status counts, so the page answers "how is it going" at a glance. */
   const counts = $derived(
@@ -63,7 +76,7 @@
       return;
     }
     party = (await myParties().catch(() => null))?.events.find((e) => e.id === eventId) ?? null;
-    await fetchOrders();
+    await Promise.all([fetchOrders(), countMenu()]);
     loading = false;
     timer = setInterval(() => void fetchOrders(), POLL_MS);
   });
@@ -129,13 +142,20 @@
            `menu:curate` and nothing else beyond reading. -->
       <section class="panel">
         <h2>What to lead with</h2>
-        {#if curating}
-          <ShortList {eventId} />
-          <button class="btn" type="button" onclick={() => (curating = false)}>Done</button>
-        {:else}
-          <p>Pick a handful of favourites, or leave it and guests see everything.</p>
-          <button class="btn" type="button" onclick={() => (curating = true)}>Choose drinks</button>
-        {/if}
+        <p class="card-stat">
+          {#if !menuSummary}
+            <span class="row-note"
+              >Pick a handful of favourites, or leave it and guests see everything.</span
+            >
+          {:else if menuSummary.featured === 0}
+            <b>{menuSummary.total}</b>
+            <span class="row-note">drinks — guests see them all</span>
+          {:else}
+            <b>{menuSummary.featured}</b>
+            <span class="row-note">featured of {menuSummary.total}</span>
+          {/if}
+        </p>
+        <button class="btn" type="button" onclick={() => (curating = true)}>Choose drinks</button>
       </section>
 
       <section class="panel">
@@ -176,3 +196,16 @@
     {#if notice}<p class="says says-good" role="status">{notice}</p>{/if}
   </main>
 </div>
+
+{#if curating}
+  <WorkSheet
+    title="What to lead with"
+    subtitle={party?.name}
+    onclose={() => {
+      curating = false;
+      void countMenu();
+    }}
+  >
+    <ShortList {eventId} />
+  </WorkSheet>
+{/if}

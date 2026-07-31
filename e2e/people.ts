@@ -135,18 +135,43 @@ export async function signIn(page: Page, email: string): Promise<void> {
  */
 export async function stock(page: Page, bottles: string[]): Promise<void> {
   await page.goto('/host');
+  // The tick list is a full-screen sheet now, not a panel on the page — see
+  // WorkSheet.svelte. The card in front of it says "Fill it in" or "Change it"
+  // depending on whether they have ever recorded anything.
+  await page.getByRole('button', { name: /Fill it in|Change it/ }).click();
   for (const bottle of bottles) {
     await page.getByRole('checkbox', { name: bottle, exact: true }).check();
   }
   await page.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Saved', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Done', exact: true }).click();
+}
+
+/**
+ * Open a host's page on Dan's desk.
+ *
+ * The desk opens on parties now, so reaching a *person* is a deliberate second
+ * step. Anything about a party — open it, close it, work it — can be done from the
+ * front list without going through their owner at all, which is the whole point of
+ * the reordering.
+ */
+export async function openHostDesk(page: Page, hostName: string): Promise<void> {
+  await page.goto('/admin');
+  await page.getByRole('button', { name: /^Hosts/ }).click();
+  await page.getByRole('button', { name: new RegExp(hostName) }).click();
+}
+
+/** Open one party's own page, from wherever its row is showing. */
+export async function openPartyDesk(page: Page, partyName: string): Promise<void> {
+  await page.goto('/admin');
+  await page.locator('.row', { hasText: partyName }).locator('.row-open').click();
+  await expect(page.getByRole('heading', { name: 'The bar' })).toBeVisible();
 }
 
 /** Dan creates a party for a host and opens it, from his own desk. */
 export async function createParty(page: Page, hostName: string, partyName: string): Promise<void> {
-  await page.goto('/admin');
-  await page.getByRole('button', { name: new RegExp(hostName) }).click();
-  await page.getByLabel('New party').fill(partyName);
+  await openHostDesk(page, hostName);
+  await page.getByLabel("What's it called").fill(partyName);
   await page.getByRole('button', { name: 'Create it' }).click();
 
   const row = page.locator('.row', { hasText: partyName });

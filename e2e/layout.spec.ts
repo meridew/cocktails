@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { ADMIN_EMAIL, freshEmail, register, signIn } from './people';
+import { ADMIN_EMAIL, createParty, freshEmail, openPartyDesk, register, signIn } from './people';
 
 /**
  * The working screens, on a screen bigger than the one they were checked on.
@@ -72,3 +72,73 @@ for (const [name, open] of [
     expect(left).toBeGreaterThan(100);
   });
 }
+
+/**
+ * A row's name is never squeezed out by its own buttons.
+ *
+ * **This exists because it happened, on the admin party row.** `.row-main` carried
+ * `min-width: 0` and `.row-acts` carried `flex: none`, so the actions took every
+ * pixel they wanted from the only column that would yield. Measured at the time:
+ * five buttons wanting 438px in a 427px row left the name **exactly 0px** wide and
+ * overflowed by 23px anyway, so a party's name and status painted underneath its
+ * own buttons. Reported as "confusion as to what is what".
+ *
+ * Narrow on purpose. At 1600px there is room for everything and this proves nothing
+ * — which is precisely why it went unnoticed.
+ */
+test.describe('a row under pressure', () => {
+  test.use({ viewport: { width: 380, height: 900 } });
+
+  test('keeps the name readable rather than giving its width to the buttons', async ({
+    browser,
+    page,
+  }) => {
+    const tag = Date.now().toString(36);
+    const hostName = `Rowhost ${tag}`;
+
+    // The host registers in their own context. Registering and then signing in as
+    // somebody else on one page races the app bar's own re-render, which fails as a
+    // detached-element click and points nowhere near this test's subject.
+    const theirs = await browser.newContext().then((c) => c.newPage());
+    await register(theirs, freshEmail('layout-row'), hostName);
+    await theirs.close();
+
+    await signIn(page, ADMIN_EMAIL);
+    await createParty(page, hostName, `A Party With A Rather Long Name ${tag}`);
+    await openPartyDesk(page, `A Party With A Rather Long Name ${tag}`);
+
+    /*
+     * Put the row back under the pressure that broke it.
+     *
+     * The redesign cut that row to a name and one button, which fits at any width —
+     * so measuring it as-is passes on the old CSS too and proves nothing. The rule
+     * being tested is not "this row is fine", it is "`.row-main` keeps a floor when
+     * `.row-acts` wants more than there is", and that needs a row with more actions
+     * than fit. Four extra buttons is roughly the five the old party row carried.
+     */
+    const measured = await page.evaluate(() => {
+      const row = [...document.querySelectorAll('.row')].find(
+        (r) => r.querySelector('.row-main') && r.querySelector('.row-acts'),
+      )!;
+      const acts = row.querySelector('.row-acts')!;
+      for (const label of ['Close', 'Work it', 'Menu', 'Delete']) {
+        const b = document.createElement('button');
+        b.className = 'btn';
+        b.textContent = label;
+        acts.appendChild(b);
+      }
+      const main = row.querySelector('.row-main')!;
+      const r = row.getBoundingClientRect();
+      return {
+        nameWidth: Math.round(main.getBoundingClientRect().width),
+        overflow: Math.round(acts.getBoundingClientRect().right - r.right),
+      };
+    });
+
+    // A floor, not a specific number: the point is that the column still exists.
+    // It measured exactly 0 when this was broken.
+    expect(measured.nameWidth).toBeGreaterThan(80);
+    // Nothing hangs out of the row, so nothing can paint over the text.
+    expect(measured.overflow).toBeLessThanOrEqual(1);
+  });
+});

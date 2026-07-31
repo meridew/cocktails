@@ -20,7 +20,13 @@
   import { onMount } from 'svelte';
   import { SvelteSet } from 'svelte/reactivity';
   import { getStock, saveStock, Unauthorized } from '$lib/api';
-  import { makeable, suggestions, OPTIONAL_CATEGORIES, STOCK_GROUPS } from '$lib/shared';
+  import {
+    makeable,
+    suggestions,
+    OPTIONAL_CATEGORIES,
+    STOCK_GROUPS,
+    type Category,
+  } from '$lib/shared';
 
   let {
     userId,
@@ -63,14 +69,29 @@
 
   const dirty = $derived(ticked.size !== saved.length || saved.some((i) => !ticked.has(i)));
 
+  /**
+   * Which shelf is open. `all` is the whole cupboard, and stays the default —
+   * unticking something you cannot find is a worse failure than scrolling.
+   */
+  let shelf = $state<'all' | Category>('all');
+
+  /** Ticked-of-total per shelf, so the tabs double as "how far have I got". */
+  const shelfCounts = $derived(
+    new Map(STOCK_GROUPS.map((g) => [g.category, g.items.filter((i) => ticked.has(i)).length])),
+  );
+
   /** Groups narrowed by the search box, empty ones dropped so no heading dangles. */
   const groups = $derived.by(() => {
     const q = filter.trim().toLowerCase();
-    if (!q) return STOCK_GROUPS;
-    return STOCK_GROUPS.map((g) => ({
-      ...g,
-      items: g.items.filter((i) => i.toLowerCase().includes(q)),
-    })).filter((g) => g.items.length > 0);
+    // Searching crosses shelves on purpose: you type "lime" to find lime, not to
+    // find lime on whichever shelf you happen to be standing at.
+    if (q) {
+      return STOCK_GROUPS.map((g) => ({
+        ...g,
+        items: g.items.filter((i) => i.toLowerCase().includes(q)),
+      })).filter((g) => g.items.length > 0);
+    }
+    return shelf === 'all' ? STOCK_GROUPS : STOCK_GROUPS.filter((g) => g.category === shelf);
   });
 
   function adopt(list: string[]): void {
@@ -185,6 +206,34 @@
           autocomplete="off"
         />
       </label>
+
+      <!-- One shelf at a time, with the count on the tab — the same trick the bar
+           screen's filter tabs pull, and for the same reason: the number *is* the
+           overview, so there's nothing else to render to answer "how far have I
+           got". Hidden while searching, when the shelves aren't what you're
+           navigating by. -->
+      {#if !filter.trim()}
+        <nav class="shelf-tabs" aria-label="Shelves">
+          <button
+            type="button"
+            class="bar-tab"
+            aria-current={shelf === 'all'}
+            onclick={() => (shelf = 'all')}
+          >
+            Everything <b>{ticked.size}</b>
+          </button>
+          {#each STOCK_GROUPS as group (group.category)}
+            <button
+              type="button"
+              class="bar-tab"
+              aria-current={shelf === group.category}
+              onclick={() => (shelf = group.category)}
+            >
+              {group.label} <b>{shelfCounts.get(group.category)}/{group.items.length}</b>
+            </button>
+          {/each}
+        </nav>
+      {/if}
 
       {#each groups as group (group.category)}
         <h2>{group.label}</h2>

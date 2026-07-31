@@ -99,8 +99,9 @@ test('a host stocks up, Dan opens the bar, a guest orders and a helper pours it'
   await expect(guest.getByRole('heading', { name: /Cheers/ })).toBeVisible();
 
   // ---- Dan: behind the bar ------------------------------------------------
+  // Straight off the front list: the desk opens on parties, so getting behind a bar
+  // no longer means remembering whose party it is first.
   await dan.goto('/admin');
-  await dan.getByRole('button', { name: new RegExp(hostName) }).click();
   await dan
     .locator('.row', { hasText: partyName })
     .getByRole('button', { name: 'Work it' })

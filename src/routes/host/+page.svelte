@@ -17,23 +17,39 @@
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import { page } from '$app/state';
-  import { myParties, signOutOfAccount, type Party } from '$lib/api';
+  import { getStock, myParties, signOutOfAccount, type Party } from '$lib/api';
+  import { makeable, OPTIONAL_CATEGORIES } from '$lib/shared';
   import { refreshActor, session } from '$lib/stores/session.svelte';
   import Cupboard from '$lib/components/Cupboard.svelte';
+  import WorkSheet from '$lib/components/WorkSheet.svelte';
 
   let parties = $state<Party[]>([]);
   let loading = $state(true);
   let notice = $state('');
 
+  /** The tick list is a screen of its own now, not a panel on this one. */
+  let cupboardOpen = $state(false);
+  /** What they've got in, so the card can say it without opening anything. */
+  let stock = $state<string[] | null>(null);
+  const pourable = $derived(stock ? makeable(stock, { ignore: OPTIONAL_CATEGORIES }).length : 0);
+
   const me = $derived(session.actor.account);
+
+  const countStock = async (userId: string): Promise<void> => {
+    stock = await getStock(userId)
+      .then((r) => r.stock)
+      .catch(() => null);
+  };
 
   onMount(async () => {
     await refreshActor();
-    if (!session.actor.account) {
+    const account = session.actor.account;
+    if (!account) {
       await goto('/', { replaceState: true });
       return;
     }
     parties = (await myParties().catch(() => null))?.events ?? [];
+    await countStock(account.id);
     loading = false;
   });
 
@@ -70,17 +86,33 @@
     {#if loading}
       <p class="empty">One moment…</p>
     {:else}
+      <!-- A card that states the number and opens the tick list, rather than *being*
+           the tick list. Inline, the cupboard measured 7,859px and pushed "Your
+           parties" some nine screens below the fold. -->
       <section class="panel">
         <h2>What you've got in</h2>
-        <p>
-          Tick what's actually in the house and we'll work out what the bar can pour. It's optional
-          — leave it and your guests just see everything.
-        </p>
+        {#if stock === null}
+          <p>
+            Tick what's actually in the house and we'll work out what the bar can pour. It's
+            optional — leave it and your guests just see everything.
+          </p>
+        {:else if stock.length === 0}
+          <p class="card-stat">
+            <span class="row-note">Nothing recorded yet — your guests see the house six.</span>
+          </p>
+        {:else}
+          <p class="card-stat">
+            <b>{stock.length}</b>
+            <span class="row-note">
+              {stock.length === 1 ? 'bottle' : 'bottles'} in · pours <b>{pourable}</b>
+              {pourable === 1 ? 'drink' : 'drinks'}
+            </span>
+          </p>
+        {/if}
+        <button class="btn btn-go" type="button" onclick={() => (cupboardOpen = true)}>
+          {stock && stock.length > 0 ? 'Change it' : 'Fill it in'}
+        </button>
       </section>
-
-      {#if me}
-        <Cupboard userId={me.id} onsaved={() => (notice = 'Saved.')} />
-      {/if}
 
       <section class="panel">
         <h2>Your parties</h2>
@@ -113,3 +145,15 @@
     {#if notice}<p class="says says-good" role="status">{notice}</p>{/if}
   </main>
 </div>
+
+{#if cupboardOpen && me}
+  <WorkSheet title="What you've got in" onclose={() => (cupboardOpen = false)}>
+    <Cupboard
+      userId={me.id}
+      onsaved={(saved) => {
+        stock = saved;
+        notice = 'Saved.';
+      }}
+    />
+  </WorkSheet>
+{/if}

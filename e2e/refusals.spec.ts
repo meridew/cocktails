@@ -7,6 +7,8 @@ import {
   barAuth,
   createParty,
   freshEmail,
+  openHostDesk,
+  openPartyDesk,
   openSignIn,
   partyId,
   register,
@@ -135,8 +137,7 @@ test('a suspended host is out, including from the tab they already had open', as
   await host.goto('/host');
   await expect(host.getByRole('heading', { name: 'Your parties' })).toBeVisible();
 
-  await dan.goto('/admin');
-  await dan.getByRole('button', { name: new RegExp(hostName) }).click();
+  await openHostDesk(dan, hostName);
   // Suspending asks why — the reason is for Dan's records, not the host's eyes.
   dan.once('dialog', (d) => void d.accept('e2e'));
   await dan.getByRole('button', { name: 'Suspend', exact: true }).click();
@@ -164,7 +165,6 @@ test('a helper pours, but does not decide what is on the menu', async ({ browser
   const { dan, host, id, hostName, partyName } = await aParty(browser, 'helper-limits');
 
   await dan.goto('/admin');
-  await dan.getByRole('button', { name: new RegExp(hostName) }).click();
   await dan
     .locator('.row', { hasText: partyName })
     .getByRole('button', { name: 'Work it' })
@@ -204,10 +204,10 @@ test('a closed bar says so before anyone builds a round', async ({ browser }) =>
   const gt = guest.locator('.cocktail', { hasText: 'Gin & Tonic' }).first();
   await expect(gt.getByRole('button', { name: 'Add to order' })).toBeEnabled();
 
-  // Dan calls last orders.
-  await dan.goto('/admin');
-  await dan.getByRole('button', { name: new RegExp(hostName) }).click();
-  await dan.locator('.row', { hasText: partyName }).getByRole('button', { name: 'Close' }).click();
+  // Dan calls last orders. Closing lives on the party's own page rather than as a
+  // fifth pill on its row — see the admin page's header comment.
+  await openPartyDesk(dan, partyName);
+  await dan.getByRole('button', { name: 'Close the bar' }).click();
 
   await guest.reload();
   await expect(guest.getByText(/The bar has closed/)).toBeVisible();

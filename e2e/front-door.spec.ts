@@ -15,8 +15,14 @@ test('a new host registers, verifies, and lands on their own bar', async ({ page
 
   await expect(page).toHaveURL(/\/host$/);
   await expect(page.getByRole('heading', { name: "What you've got in" })).toBeVisible();
-  // The cupboard is the screen, not a thing behind a button — a host who has just
-  // registered should be one tap from ticking a bottle.
+
+  // This used to assert the tick list itself was on the page, on the grounds that a
+  // host who has just registered should be one tap from ticking a bottle. That is
+  // still the requirement, and it is still met — but the list is now a full-screen
+  // sheet, because inline it measured 7,859px and pushed "Your parties" some nine
+  // screens below the fold. So: one tap, on a primary button, above the fold.
+  await expect(page.getByRole('heading', { name: 'Your parties' })).toBeVisible();
+  await page.getByRole('button', { name: 'Fill it in' }).click();
   await expect(page.getByRole('checkbox', { name: 'Gin', exact: true })).toBeVisible();
 });
 
@@ -57,7 +63,10 @@ test('ADMIN_EMAILS outranks the database — Dan lands on the admin desk', async
   // so no edit made inside the app can lock the operator out of their own service.
   await signIn(page, ADMIN_EMAIL);
   await expect(page).toHaveURL(/\/admin$/);
-  await expect(page.getByRole('heading', { name: 'Hosts' })).toBeVisible();
+  // The desk opens on parties, not on people — the work is a party, and finding one
+  // used to mean remembering whose it was. Hosts are a tab away.
+  await expect(page.getByRole('button', { name: /^Parties/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /^Hosts/ })).toBeVisible();
 });
 
 test('an ordinary host cannot reach the admin desk', async ({ page }) => {

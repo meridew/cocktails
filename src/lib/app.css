@@ -1180,6 +1180,7 @@ a.bt-gate-alt {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 12px;
   width: 100%;
   text-align: left;
@@ -1201,11 +1202,27 @@ button.row {
 button.row:hover {
   background: rgba(10, 10, 18, 0.04);
 }
+/*
+ * The name column gets a floor, and the actions get permission to wrap.
+ *
+ * `min-width: 0` with `.row-acts { flex: none }` is a vice: the actions refuse to
+ * shrink, so everything they need is taken from the only column that will give.
+ * Measured on the admin party row, five buttons wanting 438px in a 427px row
+ * squeezed the name to **exactly 0px** and then overflowed by 23px anyway — so a
+ * party's name and status rendered underneath its own buttons, which is precisely
+ * the "which of these is which" complaint.
+ *
+ * `min-width: 0` was there so long words could ellipsis rather than push the row
+ * wide; `12ch` keeps that while refusing to disappear. Wrapping is what actually
+ * fixes it: below the breakpoint the actions take their own line instead of
+ * bidding against the text for space they were never going to win.
+ */
 .row-main {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  min-width: 0;
+  flex: 1 1 auto;
+  min-width: 12ch;
 }
 .row-name {
   font-family: var(--font-display);
@@ -1221,7 +1238,18 @@ button.row:hover {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
-  flex: none;
+  /*
+   * Shrinkable, which `flex: none` was not.
+   *
+   * This is the other half of the crushed row. Letting `.row` wrap is not enough on
+   * its own: the actions drop to their own line and are still wider than it, so they
+   * overflow anyway — measured at 128px past the edge. `0 1 auto` lets this box
+   * narrow, and its own `flex-wrap` then stacks the buttons instead of running them
+   * off the side. `justify-content: flex-end` keeps them with the row's right edge
+   * rather than drifting left as they stack.
+   */
+  flex: 0 1 auto;
+  justify-content: flex-end;
 }
 
 /* Buttons. `btn` is the quiet one; the modifiers are the loud ones. */
@@ -1731,4 +1759,212 @@ button.row:hover {
 /* The count sits with the controls it explains, so it loses its own margins. */
 .panel-acts .stat {
   margin: 0 auto 0 0;
+}
+
+/* ---------------- WORK SHEET ----------------
+ *
+ * The full-screen surface a long job moves onto. See WorkSheet.svelte for why it
+ * exists; in short, the cupboard rendered inline measured 7,859px and buried two
+ * other sections nine screens down.
+ *
+ * Not `.sheet` from neo.css, which is a bottom sheet capped at 520px and sized to
+ * its content — right for the drink configurator, wrong for 175 checkboxes. This
+ * takes the whole viewport and scrolls its body, so the header stays put.
+ */
+.worksheet {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  display: flex;
+  justify-content: center;
+  background: rgba(6, 6, 8, 0.86);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+  animation: worksheet-in 0.22s ease both;
+}
+@keyframes worksheet-in {
+  from {
+    opacity: 0;
+  }
+}
+.worksheet-card {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 720px;
+  max-height: 100dvh;
+  background: var(--bg);
+  color: var(--text);
+}
+@media (min-width: 760px) {
+  .worksheet {
+    padding: 24px;
+  }
+  .worksheet-card {
+    max-height: calc(100dvh - 48px);
+    border: var(--border) solid var(--line-2);
+    border-radius: calc(var(--radius) + 8px);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+}
+
+/* Sticky rather than scrolling away: the way out of a 175-tick list should never
+   be somewhere you have to scroll back to find. */
+.worksheet-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: none;
+  padding: 14px 16px calc(14px + env(safe-area-inset-top));
+  padding-top: 14px;
+  background: var(--panel-bg);
+  color: var(--panel-text);
+}
+.worksheet-title {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.worksheet-head h2 {
+  font-family: var(--font-display);
+  text-transform: var(--ttu);
+  letter-spacing: var(--ls-head);
+  font-size: 1.05rem;
+  margin: 0;
+  color: #fff;
+}
+.worksheet-head .row-note {
+  color: rgba(255, 255, 255, 0.65);
+}
+.worksheet-done {
+  flex: none;
+}
+.worksheet-body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  /* Stop a flick that runs out of sheet from carrying on into `.deck` behind it.
+     This is the whole of the scroll containment — the shell is already unscrollable
+     via `body { overflow: hidden }`, so there is nothing to lock on open. */
+  overscroll-behavior: contain;
+  padding: 16px 16px calc(24px + env(safe-area-inset-bottom));
+}
+/* Inside the sheet the last card shouldn't add to the scroll length. */
+.worksheet-body > :last-child {
+  margin-bottom: 0;
+}
+
+/* Shelf tabs in the cupboard. Same pills as the bar's filter tabs, on a light
+   surface — hence the darker idle border, which is invisible on the yellow. */
+.shelf-tabs {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  margin: 0 0 14px;
+  padding: 2px 0;
+  /* `.deck` is a column flex container, so a default `flex-shrink: 1` lets a long
+     page squash this to nothing — measured at 6px tall with 40px buttons spilling
+     out of it, which read as the tabs being clipped by the app bar. */
+  flex: none;
+}
+.shelf-tabs::-webkit-scrollbar {
+  display: none;
+}
+.shelf-tabs .bar-tab {
+  border-color: rgba(10, 10, 18, 0.25);
+  font-size: 0.58rem;
+}
+.shelf-tabs .bar-tab[aria-current='true'] {
+  background: var(--panel-bg);
+  color: var(--panel-text);
+  border-color: var(--panel-bg);
+}
+
+/* ---------------- STATUS CARDS ----------------
+ *
+ * A panel that states what it knows and offers a way in, rather than expanding
+ * into the thing it describes. The line under the heading is the whole point: it
+ * carries more than the old copy did ("30 bottles in · 33 drinks" beats "They have
+ * recorded what they have in") in less space, and it is readable without tapping.
+ */
+.card-stat {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 0 0 12px;
+  font-family: var(--font-accent);
+  font-size: 0.78rem;
+  letter-spacing: var(--ls-accent);
+  text-transform: var(--ttu);
+  color: var(--text);
+}
+.card-stat b {
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+  color: var(--h2-color);
+}
+.card-stat .row-note {
+  text-transform: none;
+  letter-spacing: 0;
+  font-family: var(--font-body);
+}
+
+/* A status word that has to read as a state rather than as a label. */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-family: var(--font-accent);
+  font-size: 0.6rem;
+  letter-spacing: var(--ls-accent);
+  text-transform: uppercase;
+  border: 2px solid var(--line);
+  color: var(--text);
+}
+.pill-live {
+  background: var(--accent);
+  color: var(--accent-text);
+  border-color: var(--accent);
+}
+.pill-done {
+  background: var(--panel-bg);
+  color: var(--panel-text);
+  border-color: var(--panel-bg);
+}
+
+/*
+ * A row you can open, with one action beside it.
+ *
+ * `<button class="row">` wrapping another button is invalid HTML, and it was also
+ * the wrong shape: five equal pills with no primary among them. The row body opens
+ * the thing; exactly one action stays outside because it is the one you came for.
+ */
+.row-open {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  flex: 1 1 auto;
+  min-width: 12ch;
+  padding: 4px 0;
+  background: none;
+  border: 0;
+  text-align: left;
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+.row-open:hover .row-name {
+  text-decoration: underline;
+}
+
+/* Destructive things live together, below a line, and say what they cost. */
+.danger-zone {
+  border-top: 2px solid rgba(10, 10, 18, 0.12);
+  margin-top: 4px;
+  padding-top: 14px;
 }
