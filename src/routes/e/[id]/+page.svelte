@@ -31,6 +31,8 @@
   import { DRINKS, type Drink } from '$lib/data';
   import { eventMenu, joinParty, type EventMenu, type MenuItem } from '$lib/api';
   import { emojiFor, groupByBase } from '$lib/menu';
+  import { can, party as partyScope } from '$lib/shared';
+  import { hydrateSession, session } from '$lib/stores/session.svelte';
   import { getDeviceId, getSavedName, saveName } from '$lib/device';
 
   import { addLine, basketCount, rebaseTo } from '$lib/stores/basket.svelte';
@@ -166,6 +168,21 @@
   let query = $state('');
 
   /**
+   * Where "up" goes for somebody who did not arrive by QR code.
+   *
+   * Null for a guest, which is nearly everybody — they came from a link and there is
+   * nothing above them. Non-null for the people this screen is linked *to* from, who
+   * previously had no way back at all.
+   */
+  const upFromMenu = $derived.by(() => {
+    if (can(session.actor, 'party:edit', partyScope(data.eventId))) {
+      return { href: `/admin/p/${data.eventId}`, label: 'The party' };
+    }
+    if (session.actor.account) return { href: '/host', label: 'Your bar' };
+    return null;
+  });
+
+  /**
    * Grouped by base spirit and searchable — worth it once a party offers more than a
    * screenful, and harmless when it doesn't.
    */
@@ -180,6 +197,11 @@
       return;
     }
     applyDeepLink(location.search);
+
+    // Who we are decides whether this screen has an "up" — a guest has nothing above
+    // them, a host or admin came from somewhere. Never blocks the menu: it resolves
+    // to "nobody" for the overwhelming majority and the header simply shows the brand.
+    void hydrateSession();
 
     // A round belongs to the bar it was built for. Walking from one party's menu to
     // another used to carry the basket across — a Gimlet from Ana's birthday turning
@@ -298,15 +320,26 @@
 
 <div class="app">
   <!--
-    A guest arrived here from a QR code on a table, so there is nothing above this to
-    go up to — the brand takes the left slot, and the corner is Settings, as
-    everywhere else.
+    **This screen is a root for a guest and not for anybody else**, which is exactly
+    the hole the first pass left. A guest arrives from a QR code on a table and has
+    nothing above them, so the brand takes the left slot. But `/admin/p/<id>` and
+    `/host/<id>` both link *into* here — "Open the menu" — and for those people the
+    menu was a room whose only door was the browser's own Back button.
 
-    The cocktail glass that used to live here is at the foot of the menu now. It was
-    an unlabelled emoji leading to a staff sign-up flow: permanent for the ~95% who
-    will never want it, and unrecognisable as "the way in" to the few who do.
+    A host's up is their own area rather than that party's page: whether this party
+    is theirs is a question only the server can answer (`whoami` leaves the party half
+    of an account-holder's actor null on purpose), and `/host` is right for every
+    account without asking anything.
+
+    The cocktail glass that used to live in the corner is at the foot of the menu now.
+    It was an unlabelled emoji leading to a staff sign-up flow: permanent for the ~95%
+    who will never want it, and unrecognisable as "the way in" to the few who do.
   -->
-  <AppBar brand />
+  {#if upFromMenu}
+    <AppBar up={upFromMenu} title={menu?.event.name ?? 'Menu'} />
+  {:else}
+    <AppBar brand />
+  {/if}
 
   <main class="stage">
     <section class="view view-menu" aria-label="Menu">
