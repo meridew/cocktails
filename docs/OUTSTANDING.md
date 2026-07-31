@@ -2,6 +2,119 @@
 
 Things deliberately deferred — revisit before they block a phase.
 
+## 📍 Where the session of 31 Jul 2026 (evening) left things
+
+Written for whoever picks this up next, because none of it is discoverable from the
+code.
+
+### Deployed vs. on `main` — they differ
+
+**Live is `4f2210c`. `main` is `f7271fb`.** Four commits are built and pushed but
+**not deployed**, and one of them matters:
+
+|           |                                                                              |
+| --------- | ---------------------------------------------------------------------------- |
+| `6b30865` | corrects what `updateViaCache` actually fixes (comment only)                 |
+| `d6cde8d` | records the Cloudflare Cache Rule; adds a deploy-time assertion for it       |
+| `b16deb9` | **`Cache-Control: no-cache` on HTML** — the third of three caches, see below |
+| `f7271fb` | three invisible/crooked things on the guest menu; tests out of the CI gate   |
+
+Deploying is still manual and on Dan's say-so:
+
+```bash
+gh workflow run "gate + deploy (Mac)" --ref main -f deploy=true
+```
+
+### The stale-version bug had three causes, not one
+
+Reported as "I refresh and still get the old version", on Android, in both the
+installed PWA and Chrome. Worth keeping together because each was invisible from
+the others and only the third is fixed in code:
+
+1. **Nothing had been deployed for hours.** The live site sat on `5e32e82` while
+   `main` ran seventeen commits ahead. Pushing gates; it does not deploy.
+2. **Cloudflare was edge-caching `/service-worker.js` for four hours.** It caches by
+   file extension and `.js` is on the default list, so a fresh registration could be
+   handed the _previous_ worker — which deletes the current cache on `activate` and
+   then serves its own, origin-wide. Fixed by a **Cache Rule in the dashboard**, not
+   in this repo — see `PLATFORM-PLAN.md` §9, and the deploy job asserts it survives.
+   `updateViaCache: 'none'` in `svelte.config.js` is the browser half and measured
+   _not_ sufficient on its own: Cloudflare honours those directives on an origin
+   response, not on a request.
+3. **Rendered HTML went out with no caching directives at all** — no
+   `Cache-Control`, no `ETag`, no `Last-Modified`. Browsers may then reuse it
+   heuristically, and the service worker's network-first `fetch()` reads that same
+   HTTP cache, so a stale document came back looking like a fresh one and was written
+   into Cache Storage as current. Fixed in `hooks.server.ts` (`b16deb9`).
+
+**Still open, and the better question:** the service worker does two jobs — precache
+the shell, and receive Web Push. Push needs it. Precaching does not, and precaching
+caused every failure above. Everything the app does needs the API, so an offline
+shell renders a UI that cannot do anything. Chrome dropped the fetch-handler
+requirement for installability in 108/112, so **stripping the worker back to push-only
+is available and would delete more code than it adds.** Proposed, not decided.
+
+### Tests are on disk but out of the gate — Dan's call, 31 Jul 2026
+
+`npm test` and `npm run test:e2e` no longer run in CI; two commented lines in
+`.github/workflows/deploy.yml` turn them back on. `npm run build` was added as an
+explicit step because `test:e2e` used to build as its first act, and removing it
+removed the only proof in CI that the app compiles.
+
+**What that costs:** `tests/capabilities.test.ts` and `tests/tenancy.test.ts` were
+what stood between a change and one party's guest seeing another party's queue.
+Nothing watches for that now.
+
+**Also standing: do not write or run tests until Dan says otherwise.** Verify in a
+browser instead — screenshots and DOM measurement caught every bug worth finding
+that evening, and cost nothing.
+
+### Next up: navigation
+
+Dan's framing, verbatim in substance: getting to and from places is broken across
+**admin / host / guest / staff** and the views within them. He expects it may need a
+significant refactor, a site map, possibly tooling, and definitely an audit first.
+Nothing has been done on it yet.
+
+### Live data, so nobody is surprised by it
+
+- **Owain's Big Bash** (`7a0f0cd2bec1`) is hosted by **Owain**, not Dan — the
+  cupboard hangs off the host, so that is whose 29 ticks were filled from photos.
+  Still `draft`, with no short list. It needs **Open** tapping before it takes orders.
+- **Today** (`3d4ecfa7627f`, Dan's) is also `draft` with a 3-bottle cupboard.
+- A `.bak-before-cupboard` copy of the live database sits beside it on the Mac.
+
+### The local dev database is dirty
+
+Not production, but it will confuse: it holds a throwaway admin `audit@local.test`,
+Owain's cupboard mirrored onto _Ana's birthday_, three overlapping runs of
+`npm run db:seed busy`, and a hand-inserted nine-drink order for "Rosalind" used to
+measure card heights. `npm run db:seed reset` clears it.
+
+### Parked with enough context to resume
+
+- **Drink options / the variant model** (the old phase 7). Investigated in full, not
+  built. The findings: option axes — Boozy/Boring, Single/Double, Spicy, ice, garnish
+  — exist for **6 drinks out of 286**, in `src/lib/data.ts`. They **never consult the
+  cupboard**, and could not: six of the seven `adds` values are free text
+  (`Extra shot`, `Watermelon`, `1 ice cube`) rather than catalogue ingredients. Worse,
+  the configurator opens on **exact name equality**, so on a generated menu they
+  mostly vanish — Owain's 33 drinks contain exactly one configurable drink, and his
+  margarita is _Tommy's Margarita_, which does not match. Meanwhile the matrix
+  encodes the same ideas as separate recipes (Margarita, Tommy's, Spicy, Cadillac,
+  Strawberry, Mezcal). The fork to decide first: do duplicate variant recipes collapse
+  into axes, or stay as rows? Note also that axes split cleanly into ones with an
+  ingredient implication (Boring, Spicy) which _should_ be cupboard-gated, and ones
+  without (strength, ice, glass) which could apply to all 286 tomorrow.
+- **The 3D menu** at `/e/[id]/3d` works, but `src/lib/three/rack.ts` and
+  `glassware.ts` are **unrouted and dead** since the grid replaced them. Kept
+  deliberately; delete if that idea is not revisited.
+- **Frameworks** were considered and declined, 31 Jul 2026. SvelteKit stays; a styled
+  component library would fight `neo.css`, which is frozen and is the product's
+  personality. Headless primitives (Melt/Bits) are the only real candidate and would
+  mostly duplicate `src/lib/dialog.ts`, which is good. The real finding was that a new
+  overlay had skipped that existing action — `tests/overlays.test.ts` now guards it.
+
 ## ~~🩹 Concessions made in phases 0–2~~ — superseded, 31 Jul 2026
 
 **This section listed six concessions. Five described code that no longer exists**,
