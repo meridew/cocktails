@@ -18,10 +18,12 @@ const BASE_EMOJI: Record<string, string> = {
   Rum: '🏝️',
   'White Rum': '🏝️',
   'Dark Rum': '🥥',
+  'Aged Rum': '🛢️',
   Tequila: '🌵',
   Mezcal: '🔥',
   Whiskey: '🥃',
   Whisky: '🥃',
+  'Irish Whiskey': '☘️',
   Bourbon: '🥃',
   Rye: '🥃',
   Scotch: '🥃',
@@ -35,8 +37,17 @@ const BASE_EMOJI: Record<string, string> = {
   Pisco: '🍋',
   Absinthe: '🧚',
   Aperol: '🧡',
+  Aperitivo: '🍊',
   Campari: '❤️',
   Vermouth: '🍸',
+  'Apple Brandy': '🍎',
+  Aquavit: '⚓',
+  Genever: '🇳🇱',
+  Port: '🇵🇹',
+  Sake: '🍶',
+  Sherry: '🇪🇸',
+  /** Seedlip and the rest. 17 drinks, and the one shelf a generic glass serves worst. */
+  'Alcohol-Free': '🌱',
 };
 
 export const emojiFor = (item: MenuItem): string =>

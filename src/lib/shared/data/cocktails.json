@@ -193,7 +193,9 @@
     "Apricot Liqueur": "liquor",
     "Apple Liqueur": "liquor",
     "Ginger Wine": "liquor",
-    "Cane Syrup": "sweetener"
+    "Cane Syrup": "sweetener",
+    "Lime Cordial": "sweetener",
+    "Elderflower Cordial": "sweetener"
   },
   "cocktails": [
     {
@@ -3297,6 +3299,182 @@
       "glass": "Rocks",
       "blurb": "Muddled berries and mint, no spirit required.",
       "method": "Muddled"
+    },
+    {
+      "id": "navy-gimlet",
+      "name": "Navy Gimlet",
+      "base": "Gin",
+      "ingredients": ["Lime Cordial", "Stirred"],
+      "garnish": "Lime wheel",
+      "ice": "Stirred, served up",
+      "glass": "Coupe",
+      "blurb": "The original: gin and lime cordial, half and half, no fresh citrus.",
+      "method": "Stirred"
+    },
+    {
+      "id": "vodka-lime-soda",
+      "name": "Vodka, Lime & Soda",
+      "base": "Vodka",
+      "ingredients": ["Lime Cordial", "Soda Water", "Built"],
+      "garnish": "Lime wedge",
+      "ice": "Cubes, plenty",
+      "glass": "Highball",
+      "blurb": "The order that keeps a party going. Long, dry and barely there.",
+      "method": "Built"
+    },
+    {
+      "id": "lime-soda-na",
+      "name": "Lime & Soda",
+      "base": "Alcohol-Free",
+      "ingredients": ["Lime Cordial", "Soda Water", "Built"],
+      "garnish": "Lime wedge",
+      "ice": "Cubes, plenty",
+      "glass": "Highball",
+      "blurb": "The one everybody forgets is on offer, and half the room wants.",
+      "method": "Built"
+    },
+    {
+      "id": "elderflower-tonic",
+      "name": "Elderflower & Tonic",
+      "base": "Gin",
+      "ingredients": ["Elderflower Cordial", "Tonic Water", "Built"],
+      "garnish": "Lemon slice",
+      "ice": "Cubes, plenty",
+      "glass": "Highball / copa",
+      "blurb": "A G&T with the hedgerow turned up. Floral, cold, easy.",
+      "method": "Built"
+    },
+    {
+      "id": "elderflower-fizz",
+      "name": "Elderflower Fizz",
+      "base": "Vodka",
+      "ingredients": ["Elderflower Cordial", "Lemon Juice", "Soda Water", "Shaken"],
+      "garnish": "Lemon twist",
+      "ice": "Cubes",
+      "glass": "Highball",
+      "blurb": "Elderflower and lemon, lengthened with soda. Summer, bottled.",
+      "method": "Shaken"
+    },
+    {
+      "id": "elderflower-spritz-na",
+      "name": "Elderflower Spritz",
+      "base": "Alcohol-Free",
+      "ingredients": ["Elderflower Cordial", "Lemon Juice", "Soda Water", "Built"],
+      "garnish": "Lemon & mint",
+      "ice": "Cubes, plenty",
+      "glass": "Wine glass",
+      "blurb": "Looks like everyone else's drink, which is most of the point.",
+      "method": "Built"
+    },
+    {
+      "id": "garden-tonic",
+      "name": "Garden & Tonic",
+      "base": "Alcohol-Free",
+      "ingredients": ["Tonic Water", "Built"],
+      "garnish": "Whatever the bottle suggests",
+      "ice": "Cubes, plenty",
+      "glass": "Highball / copa",
+      "blurb": "A distilled non-alcoholic spirit, served exactly like the real thing.",
+      "method": "Built"
+    },
+    {
+      "id": "espresso-tonic",
+      "name": "Espresso & Tonic",
+      "base": "Alcohol-Free",
+      "ingredients": ["Espresso", "Tonic Water", "Built"],
+      "garnish": "Orange peel",
+      "ice": "Cubes, plenty",
+      "glass": "Highball",
+      "blurb": "Tonic first, then the shot poured over. Bitter, bright, wide awake.",
+      "method": "Built"
+    },
+    {
+      "id": "scotch-soda",
+      "name": "Scotch & Soda",
+      "base": "Scotch",
+      "ingredients": ["Soda Water", "Built"],
+      "garnish": "Lemon twist",
+      "ice": "Cubes, plenty",
+      "glass": "Highball",
+      "blurb": "Cold, tall and stirred once. The whisky has nowhere to hide.",
+      "method": "Built"
+    },
+    {
+      "id": "tequila-tonic",
+      "name": "Tequila & Tonic",
+      "base": "Tequila",
+      "ingredients": ["Tonic Water", "Built"],
+      "garnish": "Lime wedge",
+      "ice": "Cubes, plenty",
+      "glass": "Highball",
+      "blurb": "Sharper and greener than a G&T. Worth ordering once.",
+      "method": "Built"
+    },
+    {
+      "id": "vodka-lemonade",
+      "name": "Vodka & Lemonade",
+      "base": "Vodka",
+      "ingredients": ["Lemonade", "Built"],
+      "garnish": "Lemon slice",
+      "ice": "Cubes, plenty",
+      "glass": "Highball",
+      "blurb": "No notes, no fuss. Sometimes this is the correct answer.",
+      "method": "Built"
+    },
+    {
+      "id": "whisky-lemonade",
+      "name": "Whisky & Lemonade",
+      "base": "Scotch",
+      "ingredients": ["Lemonade", "Built"],
+      "garnish": "Lemon slice",
+      "ice": "Cubes, plenty",
+      "glass": "Highball",
+      "blurb": "Long, sweet and unbothered by what the whisky cost.",
+      "method": "Built"
+    },
+    {
+      "id": "rum-lemonade",
+      "name": "Rum & Lemonade",
+      "base": "White Rum",
+      "ingredients": ["Lemonade", "Built"],
+      "garnish": "Lime wedge",
+      "ice": "Cubes, plenty",
+      "glass": "Highball",
+      "blurb": "Cuba Libre's paler cousin. Goes down alarmingly fast.",
+      "method": "Built"
+    },
+    {
+      "id": "ginger-rickey",
+      "name": "Ginger Rickey",
+      "base": "Gin",
+      "ingredients": ["Ginger Syrup", "Lime Juice", "Soda Water", "Built"],
+      "garnish": "Lime wedge",
+      "ice": "Cubes",
+      "glass": "Highball",
+      "blurb": "A Rickey with heat in it. Ginger cordial does the work.",
+      "method": "Built"
+    },
+    {
+      "id": "raspberry-collins",
+      "name": "Raspberry Collins",
+      "base": "Gin",
+      "ingredients": ["Raspberry Syrup", "Lemon Juice", "Soda Water", "Shaken"],
+      "garnish": "Raspberries & lemon",
+      "ice": "Cubes",
+      "glass": "Collins",
+      "blurb": "A Tom Collins gone pink. Tart, fizzy, dangerously drinkable.",
+      "method": "Shaken"
+    },
+    {
+      "id": "chambord-lemonade",
+      "name": "Chambord & Lemonade",
+      "base": "Vodka",
+      "ingredients": ["Chambord", "Lemonade", "Built"],
+      "garnish": "Raspberries",
+      "ice": "Cubes, plenty",
+      "glass": "Highball",
+      "blurb": "Deep purple, sweet and unserious. The bottle earns its keep.",
+      "method": "Built"
     }
   ]
 }

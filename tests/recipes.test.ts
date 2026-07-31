@@ -36,8 +36,11 @@ import {
 const NEGRONI = { base: 'Gin', needs: ['Campari', 'Sweet Vermouth'], method: 'Stirred' };
 
 describe('the data itself', () => {
-  test('270 recipes and the eleven-step category order survived the port', () => {
-    assert.equal(RECIPES.length, 270);
+  test('286 recipes and the eleven-step category order survived the port', () => {
+    // 270 came over from the legacy app; the other 16 are the long drinks a real
+    // party cupboard implies, which the ported set almost entirely lacked — see
+    // the block at the end of cocktails.json.
+    assert.equal(RECIPES.length, 286);
     assert.deepEqual(CATEGORY_ORDER, [
       'liquor',
       'citrus',
