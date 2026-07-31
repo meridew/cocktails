@@ -100,6 +100,33 @@ export const handle: Handle = async ({ event, resolve }) => {
     console.log(`${event.request.method} ${pathname} ${response.status} ${Date.now() - started}ms`);
   }
 
+  /*
+   * The document must be revalidated, every time.
+   *
+   * Rendered HTML went out with **no caching directives whatsoever** — no
+   * `Cache-Control`, no `ETag`, no `Last-Modified`. That does not mean "do not
+   * cache"; it means "decide for yourself", and a browser is then entitled to reuse
+   * the response heuristically with nothing to revalidate against.
+   *
+   * It matters more here than on an ordinary site because of the service worker. Its
+   * fetch handler is network-first for the document, and `fetch()` reads the
+   * browser's HTTP cache — so a stale document is returned as though it came from the
+   * network, and then written into Cache Storage as the current one. Reported as a
+   * phone that kept showing the old version however many times it was refreshed,
+   * after the edge and the worker had both been fixed.
+   *
+   * `no-cache` rather than `no-store`: revalidate before use, but a 304 is still
+   * allowed, so this costs a conditional request rather than a full download. The
+   * HTML is small and names the hashed bundles; those stay immutable for a year and
+   * are what actually costs bytes.
+   *
+   * Scoped to HTML. Everything under `/api` is dynamic already, and `/_app/immutable`
+   * is served by sirv, which this hook never sees.
+   */
+  if (response.headers.get('content-type')?.includes('text/html')) {
+    response.headers.set('cache-control', 'no-cache');
+  }
+
   // Defence in depth on our own responses. Caddy used to add these; it's gone now,
   // so they belong here — this process is the only thing in front of the app.
   response.headers.set('x-content-type-options', 'nosniff');
