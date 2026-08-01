@@ -164,6 +164,17 @@ describe('one cupboard, every party the host has', () => {
 });
 
 describe('the menu is generated, not filtered', () => {
+  test('stocked red, white and rosé wines share one Wine menu category', async () => {
+    const host = await person('stock-wine-list');
+    const party = partyFor(host.id, 'Wine party');
+    const wines = ['Red Wine', 'White Wine', 'Rosé Wine'];
+
+    assert.equal((await putStock(host.id, wines, asAccount(host))).status, 200);
+    const menu = await readMenu(party);
+    const wineItems = menu.items.filter((item) => item.base === 'Wine');
+    assert.deepEqual(wineItems.map((item) => item.name).sort(), [...wines].sort());
+  });
+
   test('a stocked Strawberry Daiquiri reaches the guest menu', async () => {
     const host = await person('stock-strawberry-daiquiri');
     const party = partyFor(host.id, 'Strawberry party');

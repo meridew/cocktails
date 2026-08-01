@@ -2,6 +2,7 @@
   "_about": "Data for the 'Make a Drink' discovery flow. Each cocktail is written ONCE as a base spirit + an unordered SET of ingredients. The app derives the whole decision tree from this: after the base it walks the category order below (defining → finishing), only ever offering choices that keep a real recipe reachable, auto-folds any forced single step, and reveals what you've made so you can add it to your order. Add a cocktail = add one entry here. Variants (Gibson, Dirty Martini, Tommy's…) are just real recipes that differ by an ingredient or finish.",
   "categoryOrder": [
     "liquor",
+    "wine",
     "citrus",
     "juice",
     "sweetener",
@@ -15,6 +16,7 @@
   ],
   "categoryLabels": {
     "liquor": "Add another spirit or liqueur?",
+    "wine": "A wine?",
     "citrus": "A squeeze of citrus?",
     "juice": "A fruit juice?",
     "sweetener": "Something sweet?",
@@ -58,7 +60,9 @@
     "Vodka": "liquor",
     "Light Rum": "liquor",
     "Cognac": "liquor",
-    "Red Wine": "liquor",
+    "Red Wine": "wine",
+    "White Wine": "wine",
+    "Rosé Wine": "wine",
     "Lime Juice": "citrus",
     "Lemon Juice": "citrus",
     "Grapefruit Juice": "citrus",
@@ -180,6 +184,7 @@
     "Shaken": "method",
     "Stirred": "method",
     "Built": "method",
+    "Poured": "method",
     "Blended": "method",
     "Swizzled": "method",
     "Muddled": "method",
@@ -251,6 +256,42 @@
         ],
         "source": { "label": "House specification" }
       }
+    },
+    {
+      "id": "red-wine",
+      "name": "Red Wine",
+      "base": "Red Wine",
+      "menuBase": "Wine",
+      "ingredients": ["Poured"],
+      "garnish": "None",
+      "ice": "None",
+      "glass": "Wine glass",
+      "blurb": "A glass of house red, ready to pour.",
+      "method": "Poured"
+    },
+    {
+      "id": "white-wine",
+      "name": "White Wine",
+      "base": "White Wine",
+      "menuBase": "Wine",
+      "ingredients": ["Poured"],
+      "garnish": "None",
+      "ice": "None",
+      "glass": "Wine glass",
+      "blurb": "A chilled glass of house white.",
+      "method": "Poured"
+    },
+    {
+      "id": "rose-wine",
+      "name": "Rosé Wine",
+      "base": "Rosé Wine",
+      "menuBase": "Wine",
+      "ingredients": ["Poured"],
+      "garnish": "None",
+      "ice": "None",
+      "glass": "Wine glass",
+      "blurb": "A chilled glass of house rosé.",
+      "method": "Poured"
     },
     {
       "id": "negroni",

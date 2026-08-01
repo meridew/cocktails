@@ -19,7 +19,7 @@ const MAX_SHORT_LIST = 60;
  *
  * This used to answer "which of Dan's six curated drinks can we pour", which meant a
  * host with a well-stocked bar still saw six drinks. It now answers "what can this
- * cupboard make", from the 270 recipes. That is the promise §1 has been making since
+ * cupboard make", from the full catalogue. That is the promise §1 has been making since
  * its first paragraph.
  *
  * ## Where the list comes from when there is no cupboard

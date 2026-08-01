@@ -36,7 +36,7 @@ export function generatedMenu(found: Pick<EventRow, 'id' | 'hostUserId'>): {
 const describeRecipe = (recipe: Recipe): GeneratedMenuItem => ({
   id: recipe.id,
   name: recipe.name,
-  base: recipe.base,
+  base: recipe.menuBase ?? recipe.base,
   blurb: recipe.blurb,
   glass: recipe.glass,
   garnish: recipe.garnish,

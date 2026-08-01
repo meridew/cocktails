@@ -28,6 +28,14 @@ describe('bartender recipe guides', () => {
     assert.equal(guide.steps.length, 3);
   });
 
+  test('a direct wine serve tells the bar what to pour and where', () => {
+    const guide = recipeGuideForOrderLine('Rosé Wine');
+    assert.ok(guide);
+    assert.deepEqual(guide.ingredients, [{ name: 'Rosé Wine' }]);
+    assert.equal(guide.method, 'Poured');
+    assert.equal(guide.glass, 'Wine glass');
+  });
+
   test('a configured house variant carries the ingredients its choices added', () => {
     const margarita = DRINKS.find((drink) => drink.name === 'Margarita');
     assert.ok(margarita);

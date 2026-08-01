@@ -36,12 +36,13 @@ import {
 const NEGRONI = { base: 'Gin', needs: ['Campari', 'Sweet Vermouth'], method: 'Stirred' };
 
 describe('the data itself', () => {
-  test('288 recipes and the eleven-step category order survived the port', () => {
-    // 270 came over from the legacy app; the other 18 are later additions for
+  test('291 recipes and the twelve-step category order survived the port', () => {
+    // 270 came over from the legacy app; the other 21 are later additions for
     // drinks a real party cupboard implies, which the ported set lacked.
-    assert.equal(RECIPES.length, 288);
+    assert.equal(RECIPES.length, 291);
     assert.deepEqual(CATEGORY_ORDER, [
       'liquor',
+      'wine',
       'citrus',
       'juice',
       'sweetener',
@@ -76,7 +77,7 @@ describe('the data itself', () => {
   });
 
   test('build methods are not stockable', () => {
-    for (const method of ['Shaken', 'Stirred', 'Built']) {
+    for (const method of ['Shaken', 'Stirred', 'Built', 'Poured']) {
       assert.equal(categoryOf(method), 'method');
       assert.ok(!STOCKABLE.includes(method), `${method} is a technique, not a bottle`);
     }
@@ -85,6 +86,18 @@ describe('the data itself', () => {
   test('Monster Ultra is a stockable mixer', () => {
     assert.equal(categoryOf('Monster Ultra (Zero Sugar)'), 'top');
     assert.ok(STOCKABLE.includes('Monster Ultra (Zero Sugar)'));
+  });
+
+  test('wine bottles have their own cupboard shelf', () => {
+    for (const wine of ['Red Wine', 'White Wine', 'Rosé Wine']) {
+      assert.equal(categoryOf(wine), 'wine');
+      assert.ok(STOCKABLE.includes(wine));
+    }
+    assert.deepEqual(STOCK_GROUPS.find((group) => group.category === 'wine')?.items, [
+      'Red Wine',
+      'Rosé Wine',
+      'White Wine',
+    ]);
   });
 });
 
@@ -164,6 +177,16 @@ describe('reachable — the interactive walk', () => {
 });
 
 describe('makeable — the host’s cupboard', () => {
+  test('each stocked wine produces exactly its own direct serve', () => {
+    for (const wine of ['Red Wine', 'White Wine', 'Rosé Wine']) {
+      const pours = makeable([wine]).filter((recipe) => recipe.menuBase === 'Wine');
+      assert.deepEqual(
+        pours.map((recipe) => recipe.name),
+        [wine],
+      );
+    }
+  });
+
   test('the Strawberry Daiquiri is unlocked by its four cupboard ingredients', () => {
     const stock = ['White Rum', 'Lime Juice', 'Simple Syrup', 'Strawberry Purée'];
     assert.ok(makeable(stock).some((r) => r.name === 'Strawberry Daiquiri'));
@@ -314,9 +337,8 @@ describe('availability — gating the curated menu', () => {
   });
 
   test('a drink with no recipe at all stays available', () => {
-    // Wine and Pom & Elderflower are on the curated menu and in no recipe. Hiding
-    // them would mean telling a guest they can't have wine because our ingredient
-    // table doesn't model wine — punishing them for a gap in our data.
+    // The legacy generic Wine card and Pom & Elderflower remain on the untouched
+    // house list without catalogue recipes. Recorded cupboards use specific wines.
     const out = availability([], ['Wine', 'Pom & Elderflower']);
     assert.equal(out['Wine'], true);
     assert.equal(out['Pom & Elderflower'], true);

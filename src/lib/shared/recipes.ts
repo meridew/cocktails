@@ -18,6 +18,7 @@ import data from './data/cocktails.json';
 
 export type Category =
   | 'liquor'
+  | 'wine'
   | 'citrus'
   | 'juice'
   | 'sweetener'
@@ -34,6 +35,8 @@ export interface Recipe {
   name: string;
   /** The spirit it's built on. Not necessarily present in `INGREDIENTS` — see BASES. */
   base: string;
+  /** Optional guest-menu heading when the stocked base is more specific. */
+  menuBase?: string;
   /** Everything else, including the build method as a pseudo-ingredient. */
   ingredients: string[];
   garnish?: string;
@@ -98,6 +101,7 @@ export const categoryOf = (ingredient: string): Category | undefined => INGREDIE
  */
 export const SHELF_LABELS: Record<Category, string> = {
   liquor: 'Spirits & liqueurs',
+  wine: 'Wine',
   citrus: 'Citrus',
   juice: 'Juices',
   sweetener: 'Sweet',
@@ -227,16 +231,17 @@ export function makeable(stock: Iterable<string>, options: MakeableOptions = {})
 /**
  * Can tonight's stock pour each of these, by name?
  *
- * This is what gates the guest menu. The curated drinks and the 270 recipes are
+ * This is what gates the guest menu. The curated drinks and the catalogue recipes are
  * separate lists that happen to overlap: four of the six match by name, and
- * **Pom & Elderflower and Wine have no recipe at all**.
+ * **Pom & Elderflower and the legacy generic Wine card have no recipe at all**.
  *
  * A drink we know nothing about is reported **available**. Hiding it would mean
- * telling a guest they can't have wine because our ingredient table doesn't model
- * wine — punishing them for a gap in our data. Absence of knowledge is not evidence
- * of absence, and the failure modes are not symmetric: wrongly offering a drink
- * costs someone a "sorry, we're out"; wrongly hiding one costs a drink nobody knew
- * they could have had.
+ * telling a guest with an untouched cupboard that the old house fallback is already
+ * unavailable. Recorded cupboards use the specific Red, White and Rosé Wine recipes;
+ * this permissive path is only for legacy cards the catalogue cannot reason about.
+ * Absence of knowledge is not evidence of absence, and the failure modes are not
+ * symmetric: wrongly offering a drink costs someone a "sorry, we're out"; wrongly
+ * hiding one costs a drink nobody knew they could have had.
  */
 export function availability(
   stock: Iterable<string>,

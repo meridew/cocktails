@@ -10,7 +10,7 @@
    *
    * ## Three doors
    *
-   * The list is now **generated from the host's cupboard** — up to 270 recipes rather
+   * The list is now **generated from the host's cupboard** — the full catalogue rather
    * than a curated six — so "here is the menu, scroll it" stopped being a design. A
    * guest arrives at one of three:
    *

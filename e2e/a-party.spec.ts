@@ -29,7 +29,7 @@ import {
  * §8 phase 4 says the same of it: it wants a real device.
  */
 
-/** Enough for a Margarita and a Daiquiri, and pointedly not enough for a Mojito. */
+/** Enough for cocktails and all three wines, and pointedly not enough for a Mojito. */
 const CUPBOARD = [
   'Tequila',
   'White Rum',
@@ -38,6 +38,9 @@ const CUPBOARD = [
   'Agave Syrup',
   'Simple Syrup',
   'Strawberry Purée',
+  'Red Wine',
+  'White Wine',
+  'Rosé Wine',
 ];
 
 /** A device that has never signed in to anything. */
@@ -104,6 +107,9 @@ test('a host stocks up, Dan opens the bar, a guest orders and a helper pours it'
   const strawberry = guest.locator('.cocktail', { hasText: 'Strawberry Daiquiri' }).first();
   await expect(strawberry).toBeVisible();
   await expect(guest.locator('.cocktail', { hasText: 'Mojito' })).toHaveCount(0);
+  for (const wine of ['Red Wine', 'White Wine', 'Rosé Wine']) {
+    await expect(guest.locator('.cocktail', { hasText: wine })).toBeVisible();
+  }
 
   await margarita.getByRole('button', { name: 'Add to order' }).click();
   // Margarita is one of the six house drinks, so it has options and opens the sheet.
