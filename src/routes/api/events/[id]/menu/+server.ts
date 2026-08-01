@@ -1,5 +1,5 @@
 import { json, type RequestEvent } from '@sveltejs/kit';
-import { makeable, party, OPTIONAL_CATEGORIES, RECIPES } from '$lib/shared';
+import { makeable, party, readSettings, OPTIONAL_CATEGORIES, RECIPES } from '$lib/shared';
 import { DRINKS } from '$lib/data';
 import { eventById, listEventMenu, listStock, setEventMenu } from '$lib/server/db';
 import { body, denied, fail, requireCapability } from '$lib/server/guards';
@@ -73,6 +73,13 @@ export function GET(event: RequestEvent) {
      * optional and its absence must not read as a broken menu.
      */
     shortList: listEventMenu(found.id).filter((id) => items.some((i) => i.id === id)),
+    /**
+     * Which extras the menu offers — see `PUT ./settings`, which has no GET of its
+     * own precisely so that this is the one payload carrying them. It is already
+     * public, already what the guest screen reads, and already re-read every minute,
+     * so a host flipping a switch reaches open menus for free.
+     */
+    settings: readSettings(found.settings),
     /**
      * The cupboard itself, so "help me choose" can run in the browser.
      *

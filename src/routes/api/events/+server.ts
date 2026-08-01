@@ -1,6 +1,7 @@
 import { json, type RequestEvent } from '@sveltejs/kit';
 import { cleanStr, platform } from '$lib/shared';
 import { allEvents, createEvent, eventsForHost, userById } from '$lib/server/db';
+import { onWire } from '$lib/server/party';
 import { body, denied, fail, requireCapability, whoami } from '$lib/server/guards';
 
 /**
@@ -14,7 +15,9 @@ export async function GET(event: RequestEvent) {
   if (!actor.account) return fail(401, 'sign in to do that');
   return json({
     ok: true,
-    events: actor.account.role === 'admin' ? allEvents() : eventsForHost(actor.account.id),
+    events: (actor.account.role === 'admin' ? allEvents() : eventsForHost(actor.account.id)).map(
+      onWire,
+    ),
   });
 }
 
@@ -46,5 +49,5 @@ export async function POST(event: RequestEvent) {
 
   // Born `draft`: a party goes live when Dan says so, on the night. Nothing infers
   // it from the date, because a mistyped date would lock the guests out.
-  return json({ ok: true, event: createEvent({ hostUserId, name, startsAt }) });
+  return json({ ok: true, event: onWire(createEvent({ hostUserId, name, startsAt })) });
 }

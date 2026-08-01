@@ -40,6 +40,7 @@ import * as hostById from '../src/routes/api/hosts/[id]/+server';
 import * as hostStock from '../src/routes/api/hosts/[id]/stock/+server';
 import * as eventById from '../src/routes/api/events/[id]/+server';
 import * as eventMenu from '../src/routes/api/events/[id]/menu/+server';
+import * as eventSettings from '../src/routes/api/events/[id]/settings/+server';
 import * as eventGuests from '../src/routes/api/events/[id]/guests/+server';
 import * as guestPhoto from '../src/routes/api/events/[id]/guests/photo/+server';
 import * as parties from '../src/routes/api/parties/+server';
@@ -74,6 +75,7 @@ export const ROUTES: Record<string, Handlers> = {
   '/api/events/[id]/bar': eventBar,
   '/api/events/[id]': eventById,
   '/api/events/[id]/menu': eventMenu,
+  '/api/events/[id]/settings': eventSettings,
   '/api/events/[id]/guests': eventGuests,
   '/api/events/[id]/guests/photo': guestPhoto,
   '/api/parties': parties,

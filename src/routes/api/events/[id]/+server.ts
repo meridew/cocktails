@@ -1,6 +1,7 @@
 import { json, type RequestEvent } from '@sveltejs/kit';
 import { cleanStr, party } from '$lib/shared';
 import { deleteEvent, eventById, updateEvent } from '$lib/server/db';
+import { onWire } from '$lib/server/party';
 import { body, denied, fail, requireCapability } from '$lib/server/guards';
 
 /** Valid party states. `draft` → `live` → `done`, moved by hand and never inferred. */
@@ -54,7 +55,7 @@ export async function PATCH(event: RequestEvent) {
   if (wants) changes.status = wants;
 
   const updated = updateEvent(eventId, changes);
-  return updated ? json({ ok: true, event: updated }) : fail(404, 'no such party');
+  return updated ? json({ ok: true, event: onWire(updated) }) : fail(404, 'no such party');
 }
 
 /**

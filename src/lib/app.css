@@ -1428,6 +1428,77 @@ button.row:hover {
   opacity: 0.75;
 }
 
+/* Menu extras: one switch per row, in a work sheet. Not `.tick`, because a tick is
+   one of many in a grid and each of these is a decision on its own — so it gets the
+   full width, room for a line saying what it does, and a state word rather than a
+   box. Bordered rather than filled when on: three filled bars would read as an
+   alert, and "on" is the ordinary case. */
+.switches {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.switch-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 14px;
+  min-height: 56px;
+  text-align: left;
+  border: 2px solid var(--line);
+  border-radius: 12px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+/* `--send-bg` is the same yellow as the sheet behind it, so filling the "on" row
+   the way `.tick.is-in` does would draw nothing. The contrast has to come from the
+   row itself: on is solid and black, off recedes — a hairline border and softened
+   text, so a host scanning the sheet sees which ones they've hidden without reading
+   three pips. */
+.switch-row:not(.is-on) {
+  border-color: var(--text-soft);
+  color: var(--text-soft);
+}
+.switch-row:not(.is-on) .switch-name {
+  font-weight: 500;
+}
+.switch-row:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+.switch-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+.switch-name {
+  font-family: var(--font-body);
+  font-weight: 700;
+}
+/* Fixed width so three rows' worth of On/Off don't jitter the names left and right
+   as they flip, and so "…" while saving occupies the same space. */
+.switch-pip {
+  flex: none;
+  min-width: 3.2em;
+  text-align: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 2px solid currentColor;
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.switch-row.is-on .switch-pip {
+  background: var(--line);
+  color: var(--bg);
+}
+
 /* "One more bottle" — the question a tick list can't answer on its own. */
 .suggests {
   display: flex;

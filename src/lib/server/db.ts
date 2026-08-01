@@ -579,12 +579,19 @@ export function createDb(dbPath: string) {
 
     updateEvent(
       id: string,
-      changes: { name?: string; startsAt?: number | null; status?: string },
+      changes: {
+        name?: string;
+        startsAt?: number | null;
+        status?: string;
+        /** Serialised by `writeSettings` — never a raw object. */
+        settings?: string;
+      },
     ): EventRow | null {
       const set: Record<string, unknown> = {};
       if (changes.name !== undefined) set.name = changes.name;
       if (changes.startsAt !== undefined) set.startsAt = changes.startsAt;
       if (changes.status !== undefined) set.status = changes.status;
+      if (changes.settings !== undefined) set.settings = changes.settings;
       if (Object.keys(set).length > 0) db.update(event).set(set).where(eq(event.id, id)).run();
       return db.select().from(event).where(eq(event.id, id)).get() ?? null;
     },

@@ -13,6 +13,7 @@ import type {
   StaffListResponse,
   StaffRequestCreated,
   Staff,
+  PartySettings,
 } from '$lib/shared';
 import { currentEventId } from './party';
 
@@ -276,6 +277,8 @@ export interface Party {
   name: string;
   status: 'draft' | 'live' | 'done';
   startsAt: number | null;
+  /** Parsed by `$lib/server/party`'s `onWire`, never the raw column. */
+  settings: PartySettings;
   createdAt: number;
 }
 
@@ -365,6 +368,8 @@ export interface EventMenu {
   items: MenuItem[];
   /** Recipe ids to lead with. Empty means show everything. */
   shortList: string[];
+  /** Which extras this party offers. Rides here so the menu poll carries changes. */
+  settings: PartySettings;
   /** The host's ingredients, so "help me choose" can run without a round trip. */
   stock: string[];
 }
@@ -376,6 +381,16 @@ export const setShortList = (eventId: string, recipes: string[]) =>
   req<{ ok: true; shortList: string[] }>(`/events/${eventId}/menu`, {
     method: 'PUT',
     body: JSON.stringify({ recipes }),
+  });
+
+/**
+ * Turn a menu extra on or off. Partial by design — send the one that changed and
+ * the server lays it over what's stored, so two open tabs can't undo each other.
+ */
+export const setPartySettings = (eventId: string, settings: Partial<PartySettings>) =>
+  req<{ ok: true; settings: PartySettings }>(`/events/${eventId}/settings`, {
+    method: 'PUT',
+    body: JSON.stringify({ settings }),
   });
 
 // ---- admin: the people and their parties ----

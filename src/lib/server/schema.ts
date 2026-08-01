@@ -51,6 +51,14 @@ export const event = sqliteTable('event', {
    * don't order.
    */
   status: text('status').notNull().default('draft'),
+  /**
+   * What the host has turned on for this party, as JSON — see `$lib/shared/party`
+   * for the shape and for why it is one column rather than a boolean each.
+   *
+   * **Nullable, and null means "everything on".** Every party that predates this
+   * column has one, and none of them should change on deploy.
+   */
+  settings: text('settings'),
   createdAt: integer('created_at').notNull(),
 });
 

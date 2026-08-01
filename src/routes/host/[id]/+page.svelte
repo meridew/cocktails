@@ -17,10 +17,17 @@
   import { goto } from '$app/navigation';
   import { page } from '$app/state';
   import { eventMenu, listOrders, myParties, NotFound, Unauthorized, type Party } from '$lib/api';
-  import { ORDER_STATUSES, STATUS_META, type Order, type OrderStatus } from '$lib/shared';
+  import {
+    MENU_EXTRAS,
+    ORDER_STATUSES,
+    STATUS_META,
+    type Order,
+    type OrderStatus,
+  } from '$lib/shared';
   import { session } from '$lib/stores/session.svelte';
   import AppBar from '$lib/components/AppBar.svelte';
   import Gate from '$lib/components/Gate.svelte';
+  import MenuExtras from '$lib/components/MenuExtras.svelte';
   import ShortList from '$lib/components/ShortList.svelte';
   import WorkSheet from '$lib/components/WorkSheet.svelte';
 
@@ -35,15 +42,24 @@
   let error = $state('');
   let notice = $state('');
   let curating = $state(false);
+  let extras = $state(false);
   let timer: ReturnType<typeof setInterval> | undefined;
 
   /** So the card can say what the menu leads with without opening the board. */
   let menuSummary = $state<{ featured: number; total: number } | null>(null);
+  /** Same idea for the extras: how many are on, and which aren't. */
+  let extrasOn = $state<{ on: number; total: number; off: string[] } | null>(null);
 
   async function countMenu(): Promise<void> {
     try {
       const menu = await eventMenu(eventId);
       menuSummary = { featured: menu.shortList.length, total: menu.items.length };
+      // One request answers both cards — the settings ride on the menu payload.
+      extrasOn = {
+        on: MENU_EXTRAS.filter((x) => menu.settings[x.key]).length,
+        total: MENU_EXTRAS.length,
+        off: MENU_EXTRAS.filter((x) => !menu.settings[x.key]).map((x) => x.label),
+      };
     } catch {
       /* the card falls back to its "couldn't count" copy */
     }
@@ -178,6 +194,25 @@
           <button class="btn" type="button" onclick={() => (curating = true)}>Choose drinks</button>
         </section>
 
+        <!-- Next to the short list because it is the same kind of decision: what this
+             party offers. The short list is which drinks; this is everything else on
+             the menu that isn't one. -->
+        <section class="panel">
+          <h2>Extras on the menu</h2>
+          <p class="card-stat">
+            {#if !extrasOn}
+              <span class="row-note">Loading…</span>
+            {:else}
+              <b>{extrasOn.on}</b>
+              <span class="row-note">
+                of {extrasOn.total} on
+                {#if extrasOn.on < extrasOn.total}· {extrasOn.off.join(', ')} hidden{/if}
+              </span>
+            {/if}
+          </p>
+          <button class="btn" type="button" onclick={() => (extras = true)}>Change them</button>
+        </section>
+
         <section class="panel">
           <h2>What's happening</h2>
           <!-- Watching, not working. Every row here is a statement, not a button. -->
@@ -228,5 +263,18 @@
     }}
   >
     <ShortList {eventId} />
+  </WorkSheet>
+{/if}
+
+{#if extras}
+  <WorkSheet
+    title="Extras on the menu"
+    subtitle={party?.name}
+    onclose={() => {
+      extras = false;
+      void countMenu();
+    }}
+  >
+    <MenuExtras {eventId} />
   </WorkSheet>
 {/if}

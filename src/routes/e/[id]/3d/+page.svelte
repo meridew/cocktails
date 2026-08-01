@@ -17,6 +17,7 @@
    * what was on the menu or what was in your round would be worse than one view.
    */
   import { onDestroy, onMount } from 'svelte';
+  import { goto } from '$app/navigation';
   import { eventMenu, joinParty, type EventMenu, type MenuItem } from '$lib/api';
   import { emojiFor } from '$lib/menu';
   import { createGrid, type Grid } from '$lib/three/grid';
@@ -81,6 +82,23 @@
       status = 'empty';
       return;
     }
+
+    /**
+     * **Hiding the link does not shut the door.** This is a route: still reachable by
+     * URL, by a bookmark, and by Back. A host who turned 3D off would reasonably
+     * expect it gone, and this is a whole WebGL scene to be surprised by.
+     *
+     * `replaceState`, because the entry they came from no longer exists — leaving it
+     * in the history sends Back straight back into this redirect.
+     *
+     * After the fetch and not before, so an offline guest lands on `empty` rather
+     * than being bounced: we only act on an answer we actually got.
+     */
+    if (!menu.settings.threeD) {
+      await goto(`/e/${data.eventId}`, { replaceState: true });
+      return;
+    }
+
     if (onOffer.length === 0) {
       status = 'empty';
       return;

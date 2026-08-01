@@ -118,6 +118,9 @@ const GOVERNED: Record<string, Requirement> = {
   // Reading it is public; *choosing* it is the host's or Dan's. Pointedly not the
   // bar's — a helper pours what the party serves, they don't decide it.
   'PUT /api/events/[id]/menu': 'menu:curate',
+  // Which extras the menu offers. Same capability as the short list on purpose:
+  // both are "what does my party serve", and a host holds it at their own.
+  'PUT /api/events/[id]/settings': 'menu:curate',
 
   // Better Auth's catch-all: these are how someone *becomes* authenticated, so a
   // capability gate would be circular. Its own guards are inside the library — and

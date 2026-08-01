@@ -34,7 +34,7 @@
   import { setArriving } from '$lib/stores/arrival.svelte';
   import PhotoPicker from '$lib/components/PhotoPicker.svelte';
   import { emojiFor, groupByBase } from '$lib/menu';
-  import { can, party as partyScope } from '$lib/shared';
+  import { ALL_ON, can, party as partyScope } from '$lib/shared';
   import { hydrateSession, session } from '$lib/stores/session.svelte';
   import { getDeviceId, getSavedName, saveName } from '$lib/device';
 
@@ -220,6 +220,19 @@
   });
 
   let query = $state('');
+
+  /**
+   * Which extras this party offers — see `$lib/shared/party`.
+   *
+   * **Falls open to all-on when the menu hasn't loaded**, the same way the drinks fall
+   * back to the house six. A guest whose wifi dipped should see the menu they had, not
+   * a stripped one; and hiding a working feature because a request failed would look
+   * exactly like the feature being broken.
+   *
+   * It re-derives on every poll, so a host turning something off reaches phones that
+   * are already open on the menu within the minute rather than at the next reload.
+   */
+  const extras = $derived(menu?.settings ?? ALL_ON);
 
   /**
    * Where "up" goes for somebody who did not arrive by QR code.
@@ -504,10 +517,14 @@
           {/if}
           <!-- A route now, not a `door` flag — so Back leaves it, it can be linked
                to, and it survives a reload. -->
-          <a class="chip" href="/e/{data.eventId}/choose">🤔 Help me choose</a>
-          <button type="button" class="chip chip-surprise" disabled={!!closed} onclick={surprise}>
-            🎲 Surprise
-          </button>
+          {#if extras.chooser}
+            <a class="chip" href="/e/{data.eventId}/choose">🤔 Help me choose</a>
+          {/if}
+          {#if extras.surprise}
+            <button type="button" class="chip chip-surprise" disabled={!!closed} onclick={surprise}>
+              🎲 Surprise
+            </button>
+          {/if}
           <!--
             **The install chip has gone from here.** It sat in this row as though it
             were another way to pick a drink, on every visit forever — nothing recorded
@@ -571,10 +588,12 @@
             typing the URL. It links *out* to this page and always did, which is the
             shape of a door that was fitted the wrong way round.
           -->
-          <a class="menu-staff menu-staff-quiet" href="/e/{data.eventId}/3d">
-            <span class="emoji" aria-hidden="true">🧊</span>
-            See it in 3D
-          </a>
+          {#if extras.threeD}
+            <a class="menu-staff menu-staff-quiet" href="/e/{data.eventId}/3d">
+              <span class="emoji" aria-hidden="true">🧊</span>
+              See it in 3D
+            </a>
+          {/if}
           <a class="menu-staff" href="/bar/{data.eventId}">
             <span class="emoji" aria-hidden="true">🍸</span>
             I'm pouring here

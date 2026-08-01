@@ -19,12 +19,13 @@
     type Host,
     type Party,
   } from '$lib/api';
-  import { party as partyScope } from '$lib/shared';
+  import { MENU_EXTRAS, party as partyScope } from '$lib/shared';
   import { adoptApprovedSession, session } from '$lib/stores/session.svelte';
   import { rememberEvent } from '$lib/party';
   import AppBar from '$lib/components/AppBar.svelte';
   import Cupboard from '$lib/components/Cupboard.svelte';
   import Gate from '$lib/components/Gate.svelte';
+  import MenuExtras from '$lib/components/MenuExtras.svelte';
   import ShortList from '$lib/components/ShortList.svelte';
   import WorkSheet from '$lib/components/WorkSheet.svelte';
 
@@ -37,8 +38,11 @@
   let error = $state('');
   let notice = $state('');
   let curating = $state(false);
+  let extras = $state(false);
   let cupboardOpen = $state(false);
   let menuSummary = $state<{ featured: number; total: number } | null>(null);
+  /** How many extras are on, and which aren't — so the card says it without opening. */
+  let extrasOn = $state<{ on: number; total: number; off: string[] } | null>(null);
   /** What the host has in, so the card can say it without opening the tick list. */
   let stock = $state<string[] | null>(null);
 
@@ -56,6 +60,12 @@
     try {
       const menu = await eventMenu(eventId);
       menuSummary = { featured: menu.shortList.length, total: menu.items.length };
+      // One request answers both cards — the settings ride on the menu payload.
+      extrasOn = {
+        on: MENU_EXTRAS.filter((x) => menu.settings[x.key]).length,
+        total: MENU_EXTRAS.length,
+        off: MENU_EXTRAS.filter((x) => !menu.settings[x.key]).map((x) => x.label),
+      };
     } catch {
       /* the card falls back to its "couldn't count" copy */
     }
@@ -258,6 +268,25 @@
           <button class="btn" type="button" onclick={() => (curating = true)}>Choose drinks</button>
         </section>
 
+        <!-- Next to the short list because it is the same kind of decision: what this
+             party offers. The short list is which drinks; this is everything else on
+             the menu that isn't one. -->
+        <section class="panel">
+          <h2>Extras on the menu</h2>
+          <p class="card-stat">
+            {#if !extrasOn}
+              <span class="row-note">Loading…</span>
+            {:else}
+              <b>{extrasOn.on}</b>
+              <span class="row-note">
+                of {extrasOn.total} on
+                {#if extrasOn.on < extrasOn.total}· {extrasOn.off.join(', ')} hidden{/if}
+              </span>
+            {/if}
+          </p>
+          <button class="btn" type="button" onclick={() => (extras = true)}>Change them</button>
+        </section>
+
         <section class="panel">
           <h2>Their guests' link</h2>
           <p>Put this under a QR code on the table, or send it round.</p>
@@ -309,6 +338,19 @@
     }}
   >
     <ShortList {eventId} />
+  </WorkSheet>
+{/if}
+
+{#if extras && party}
+  <WorkSheet
+    title="Extras on the menu"
+    subtitle={party.name}
+    onclose={() => {
+      extras = false;
+      void countMenu();
+    }}
+  >
+    <MenuExtras {eventId} />
   </WorkSheet>
 {/if}
 

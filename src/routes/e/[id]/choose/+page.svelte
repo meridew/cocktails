@@ -48,7 +48,25 @@
 
   onMount(() => {
     void eventMenu(data.eventId)
-      .then((r) => (menu = r))
+      .then((r) => {
+        /**
+         * **Hiding the chip does not shut the door.** This is a route, so it stays
+         * reachable by typing the URL, by a bookmark, and by Back from a guest who
+         * walked it before the host turned it off. A host who switched it off would
+         * reasonably expect it gone, so honour that here too.
+         *
+         * `replaceState` because the entry they came from no longer exists — leaving
+         * it in the history would send Back straight into this redirect again.
+         *
+         * Only on a *successful* fetch. A failed one leaves them here, which matches
+         * the fallback below: offline, the house list is still worth walking.
+         */
+        if (!r.settings.chooser) {
+          void goto(`/e/${data.eventId}`, { replaceState: true });
+          return;
+        }
+        menu = r;
+      })
       .catch(() => {
         /* offline — the house list is still something to walk through */
       });
