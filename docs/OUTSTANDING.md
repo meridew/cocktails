@@ -2,24 +2,22 @@
 
 Things deliberately deferred — revisit before they block a phase.
 
+> ## ⚠️ Start with [`HANDOFF-2026-08-01.md`](HANDOFF-2026-08-01.md)
+>
+> The 1 Aug session supersedes parts of the 31 Jul section below. Two things there
+> are live hazards this file does not mention: **`EVACUATE` is switched on in the
+> service worker** and must be turned back off, and **"which party?" on the bar is an
+> open bug with the audit half-finished**. Read that first.
+
 ## 📍 Where the session of 31 Jul 2026 (evening) left things
 
 Written for whoever picks this up next, because none of it is discoverable from the
 code.
 
-### Deployed vs. on `main` — they differ
+### ~~Deployed vs. on `main` — they differ~~ — resolved 1 Aug 2026
 
-**Live is `4f2210c`. `main` is `f7271fb`.** Four commits are built and pushed but
-**not deployed**, and one of them matters:
-
-|           |                                                                              |
-| --------- | ---------------------------------------------------------------------------- |
-| `6b30865` | corrects what `updateViaCache` actually fixes (comment only)                 |
-| `d6cde8d` | records the Cloudflare Cache Rule; adds a deploy-time assertion for it       |
-| `b16deb9` | **`Cache-Control: no-cache` on HTML** — the third of three caches, see below |
-| `f7271fb` | three invisible/crooked things on the guest menu; tests out of the CI gate   |
-
-Deploying is still manual and on Dan's say-so:
+All four of those commits deployed long ago. As of `18df8f6`, **live, `main` and
+`origin/main` are the same**. Deploying is still manual and on Dan's say-so:
 
 ```bash
 gh workflow run "gate + deploy (Mac)" --ref main -f deploy=true
@@ -54,6 +52,15 @@ shell renders a UI that cannot do anything. Chrome dropped the fetch-handler
 requirement for installability in 108/112, so **stripping the worker back to push-only
 is available and would delete more code than it adds.** Proposed, not decided.
 
+### ~~Tests are on disk but out of the gate~~ — partly reversed, 1 Aug 2026
+
+`npm test` **is back in the CI gate** ("Format, typecheck and test"), along with an
+explicit build step. `npm run test:e2e` is still **out** of the gate and run by hand;
+it passed 14/14 against a real build at `18df8f6`.
+
+The standing "do not write tests" rule has softened to: **`npm test` gates, e2e is by
+hand, and do not write _new_ tests unless asked.** The original note follows.
+
 ### Tests are on disk but out of the gate — Dan's call, 31 Jul 2026
 
 `npm test` and `npm run test:e2e` no longer run in CI; two commented lines in
@@ -69,19 +76,26 @@ Nothing watches for that now.
 browser instead — screenshots and DOM measurement caught every bug worth finding
 that evening, and cost nothing.
 
-### Next up: navigation
+### ~~Next up: navigation~~ ✅ done, 31 Jul – 1 Aug 2026
 
-Dan's framing, verbatim in substance: getting to and from places is broken across
-**admin / host / guest / staff** and the views within them. He expects it may need a
-significant refactor, a site map, possibly tooling, and definitely an audit first.
-Nothing has been done on it yet.
+Audited and rebuilt: `AppBar` (three-slot grammar), `Gate` (never redirects),
+`SignInSheet`, real routes for `/admin/p/[id]`, `/admin/h/[id]`, `/bar/[id]`,
+`/host/[id]`, `/e/[id]/choose`. Written up in [`NAVIGATION.md`](NAVIGATION.md),
+including the §6.6 journeys table — which exists because reporting progress as
+_components built_ rather than as _things a person still cannot do_ hid a real gap
+from Dan for a whole session. Report journeys.
 
 ### Live data, so nobody is surprised by it
 
+**Updated 1 Aug** — see [`HANDOFF-2026-08-01.md`](HANDOFF-2026-08-01.md) §6 for the
+current state, including a party that pours zero drinks and the fact that outbound
+email is not actually configured on the box.
+
 - **Owain's Big Bash** (`7a0f0cd2bec1`) is hosted by **Owain**, not Dan — the
   cupboard hangs off the host, so that is whose 29 ticks were filled from photos.
-  Still `draft`, with no short list. It needs **Open** tapping before it takes orders.
-- **Today** (`3d4ecfa7627f`, Dan's) is also `draft` with a 3-bottle cupboard.
+  Now `live`, with 12 guests and orders taken.
+- **Today** (`3d4ecfa7627f`, Dan's) is still `draft` with a 3-bottle cupboard —
+  and that cupboard makes **nothing**.
 - A `.bak-before-cupboard` copy of the live database sits beside it on the Mac.
 
 ### The local dev database is dirty
