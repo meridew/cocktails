@@ -163,6 +163,18 @@ describe('one cupboard, every party the host has', () => {
 });
 
 describe('the menu is generated, not filtered', () => {
+  test('a sugar-free Monster tick puts Gin & Monster on the guest menu', async () => {
+    const host = await person('stock-monster');
+    const party = partyFor(host.id, 'Monster party');
+    const mixer = 'Monster Ultra (Zero Sugar)';
+
+    assert.equal((await putStock(host.id, ['Gin', mixer], asAccount(host))).status, 200);
+    const cupboard = await readStock(host.id, asAccount(host));
+    assert.ok(cupboard.stockable.includes(mixer));
+    assert.ok(cupboard.makeable.some((r) => r.name === 'Gin & Monster'));
+    assert.ok(names(await readMenu(party)).includes('Gin & Monster'));
+  });
+
   test('four bottles yield more than the four drinks we happened to curate', async () => {
     // The promise phase 5 exists to keep. This used to answer "which of the six
     // house drinks can we pour", so a host with a real bar still saw six.

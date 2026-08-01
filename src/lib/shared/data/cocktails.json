@@ -90,6 +90,7 @@
     "Espresso": "top",
     "Ginger Ale": "top",
     "Lemonade": "top",
+    "Monster Ultra (Zero Sugar)": "top",
     "Coffee": "top",
     "Mint": "herb",
     "Fresh Chili": "aromatic",
@@ -207,6 +208,17 @@
       "ice": "Cubes, plenty",
       "glass": "Highball / copa",
       "blurb": "The effortless classic — crisp, bitter, endlessly refreshing.",
+      "method": "Built"
+    },
+    {
+      "id": "gin-monster",
+      "name": "Gin & Monster",
+      "base": "Gin",
+      "ingredients": ["Monster Ultra (Zero Sugar)", "Built"],
+      "garnish": "Lime wedge",
+      "ice": "Cubes, plenty",
+      "glass": "Highball",
+      "blurb": "Bracing, citrusy and unapologetically lively.",
       "method": "Built"
     },
     {

@@ -36,11 +36,10 @@ import {
 const NEGRONI = { base: 'Gin', needs: ['Campari', 'Sweet Vermouth'], method: 'Stirred' };
 
 describe('the data itself', () => {
-  test('286 recipes and the eleven-step category order survived the port', () => {
-    // 270 came over from the legacy app; the other 16 are the long drinks a real
-    // party cupboard implies, which the ported set almost entirely lacked — see
-    // the block at the end of cocktails.json.
-    assert.equal(RECIPES.length, 286);
+  test('287 recipes and the eleven-step category order survived the port', () => {
+    // 270 came over from the legacy app; the other 17 are later additions for
+    // drinks a real party cupboard implies, which the ported set lacked.
+    assert.equal(RECIPES.length, 287);
     assert.deepEqual(CATEGORY_ORDER, [
       'liquor',
       'citrus',
@@ -81,6 +80,11 @@ describe('the data itself', () => {
       assert.equal(categoryOf(method), 'method');
       assert.ok(!STOCKABLE.includes(method), `${method} is a technique, not a bottle`);
     }
+  });
+
+  test('Monster Ultra is a stockable mixer', () => {
+    assert.equal(categoryOf('Monster Ultra (Zero Sugar)'), 'top');
+    assert.ok(STOCKABLE.includes('Monster Ultra (Zero Sugar)'));
   });
 });
 
@@ -160,6 +164,12 @@ describe('reachable — the interactive walk', () => {
 });
 
 describe('makeable — the host’s cupboard', () => {
+  test('gin and Monster make a Gin & Monster', () => {
+    const stock = ['Gin', 'Monster Ultra (Zero Sugar)'];
+    assert.ok(makeable(stock).some((r) => r.name === 'Gin & Monster'));
+    assert.ok(!makeable(['Gin']).some((r) => r.name === 'Gin & Monster'));
+  });
+
   test('a cupboard holding exactly a Negroni produces one', () => {
     const stock = [NEGRONI.base, ...NEGRONI.needs];
     const can = makeable(stock);
