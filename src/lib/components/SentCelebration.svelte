@@ -6,6 +6,7 @@
    */
   import { dialog } from '$lib/dialog';
   import { enablePush, pushSupported, pushState } from '$lib/stores/push.svelte';
+  import InstallPrompt from '$lib/components/InstallPrompt.svelte';
 
   let { onclose }: { onclose: () => void } = $props();
 
@@ -50,6 +51,16 @@
         </button>
       {/if}
     {/if}
+    <!--
+      **The one moment installing is worth proposing to a guest.**
+
+      They have just got value out of this and will plausibly want a second round —
+      "keep it handy" is true here in a way it simply was not on the menubar, where a
+      permanent chip met people who had not yet seen a drink. Offered once, remembered
+      if declined, and always reachable again from Settings.
+    -->
+    <InstallPrompt who="guest" reason="Ordering another later? Keep this on your Home Screen." />
+
     <button type="button" class="send" onclick={onclose}>Start another 🍸</button>
   </div>
 </div>

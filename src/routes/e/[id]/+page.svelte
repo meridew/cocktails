@@ -46,7 +46,7 @@
   import { lockBackground } from '$lib/dialog';
   import AppBar from '$lib/components/AppBar.svelte';
   import Configurator from '$lib/components/Configurator.svelte';
-  import InstallButton from '$lib/components/InstallButton.svelte';
+
   import OrderRail from '$lib/components/OrderRail.svelte';
   import SentCelebration from '$lib/components/SentCelebration.svelte';
 
@@ -79,6 +79,37 @@
    * the other way costs a drink nobody knew they could have had.
    */
   let menu = $state<EventMenu | null>(null);
+
+  /**
+   * How often to ask whether the menu has changed.
+   *
+   * A minute, against the bar's four seconds and the host's eight. Those two watch a
+   * queue, which moves every time anybody orders; this watches what the bar is willing
+   * to make, which moves when a host has a think about it. Polling that at four
+   * seconds would be a request a second from every phone in the room to learn nothing.
+   */
+  const MENU_POLL_MS = 60_000;
+  let timer: ReturnType<typeof setInterval> | undefined;
+
+  /**
+   * Fetch the menu, and never break the screen doing it.
+   *
+   * The failure path matters as much as the happy one: leaving `menu` untouched on a
+   * hiccup means a guest keeps the list they already had rather than watching it empty
+   * because the wifi dipped. Same reason the first load falls back to the house six.
+   */
+  async function loadMenu(): Promise<void> {
+    try {
+      menu = await eventMenu(data.eventId);
+    } catch {
+      /* offline, or a party that's been deleted — keep whatever we last had */
+    }
+  }
+
+  /** A phone coming out of a pocket is the moment worth re-checking. */
+  const onVisible = (): void => {
+    if (document.visibilityState === 'visible') void loadMenu();
+  };
 
   /**
    * Arriving at a party: say who you are, once.
@@ -244,11 +275,32 @@
     // Deliberately not awaited: the house list renders immediately and is replaced
     // when the real one lands, rather than the whole page waiting on a request to
     // show anything at all.
-    void eventMenu(data.eventId)
-      .then((r) => (menu = r))
-      .catch(() => {
-        /* offline, or a party that's been deleted — offer the house list */
-      });
+    void loadMenu();
+
+    /**
+     * **Keep looking, because the menu is not a fixed thing.**
+     *
+     * This page used to fetch once and never again, so a host tweaking what the bar
+     * will make changed nothing for anybody already holding the menu — verified: the
+     * short list lost two drinks and an open page still offered them twelve seconds
+     * later, and went on offering them until it was reloaded. On a phone left open on
+     * a kitchen counter that is the whole evening.
+     *
+     * A minute, not the bar's four seconds: a queue changes every time somebody
+     * orders, a menu changes when a host has a think. The visibility check is what
+     * actually carries it — a phone comes out of a pocket far more often than it sits
+     * awake for sixty seconds, and browsers freeze timers in a backgrounded tab
+     * anyway.
+     */
+    timer = setInterval(() => void loadMenu(), MENU_POLL_MS);
+    document.addEventListener('visibilitychange', onVisible);
+  });
+
+  onDestroy(() => {
+    clearInterval(timer);
+    if (typeof document !== 'undefined') {
+      document.removeEventListener('visibilitychange', onVisible);
+    }
   });
 
   // The mobile order sheet spans two siblings — the rail and its click-to-dismiss
@@ -456,7 +508,16 @@
           <button type="button" class="chip chip-surprise" disabled={!!closed} onclick={surprise}>
             🎲 Surprise
           </button>
-          <InstallButton />
+          <!--
+            **The install chip has gone from here.** It sat in this row as though it
+            were another way to pick a drink, on every visit forever — nothing recorded
+            a no, so on Android it returned on the next page load and on iOS it never
+            left. And it met a guest before they had seen a single drink, on the same
+            screen as the arrival panel and the notification card.
+
+            It is offered once, after a round is sent, where "keep this handy for the
+            next one" is actually true. See SentCelebration.
+          -->
         </div>
 
         <!-- One menu: what the bar is prepared to make. The search box and the base

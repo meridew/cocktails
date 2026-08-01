@@ -30,6 +30,7 @@
     refreshPushState,
   } from '$lib/stores/push.svelte';
   import { hydrateSession, session, signOut } from '$lib/stores/session.svelte';
+  import InstallPrompt from '$lib/components/InstallPrompt.svelte';
   import StaffGate from '$lib/components/StaffGate.svelte';
   import StaffAdmin from '$lib/components/StaffAdmin.svelte';
   import BarMenu from '$lib/components/BarMenu.svelte';
@@ -369,6 +370,25 @@
   </header>
 
   {#if connErr}<p class="bt-conn" role="status">{connErr}</p>{/if}
+
+  {#if working}
+    <!--
+      **This is the screen where installing actually matters, and it offered nothing.**
+
+      A bartender is here all night, and on iOS Web Push does not exist in a Safari tab
+      at all — so for them "add it to the Home Screen" is not a nicety, it is the only
+      route to order alerts. The old prompt was a chip in the *guest's* menu, loud for
+      the person who benefits least, while this screen's only mention was buried at
+      ⚙️ → Settings.
+
+      Dismissed separately from the guest one: somebody who waved it away at a birthday
+      has said nothing about whether they want it when they end up behind a bar.
+    -->
+    <InstallPrompt
+      who="bar"
+      reason="Working the bar? Put this on your Home Screen — it stays put, and it's the only way to get alerts for new orders on an iPhone."
+    />
+  {/if}
 
   {#if !working}
     <StaffGate {eventId} {partyName} onasked={onclose} />

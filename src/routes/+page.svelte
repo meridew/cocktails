@@ -94,6 +94,8 @@
     session.actor.account?.role === 'admin' ? 'the admin desk' : 'your bar',
   );
   const signedIn = $derived(session.actor.account !== null);
+  /** The party this device holds a bar session for, if any — see the row below. */
+  const onShift = $derived(session.actor.party?.id ?? null);
 
   /**
    * Signed in, verified, and still nobody — which is what a suspension looks like
@@ -273,6 +275,19 @@
         which bar it was a door to.
       -->
       <section class="doors">
+        <!--
+          **Where an installed app lands.** The manifest's `start_url` is `/` and has
+          to be — it is baked into the icon and cannot know which party. So for the
+          person most likely to install, the icon opens *here*, furthest from their
+          job. This row is the fix: a device holding a bar session gets one tap back
+          to the queue, the same shape as "Go to the admin desk" below it.
+        -->
+        {#if onShift}
+          <a class="door-row" href="/bar/{onShift}">
+            <span class="door-row-q">You're on shift</span>
+            <span class="door-row-a">Back to the bar →</span>
+          </a>
+        {/if}
         {#if signedIn}
           <a class="door-row" href={home}>
             <span class="door-row-q">You're signed in</span>

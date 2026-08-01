@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { dialog } from '$lib/dialog';
+  import { canInstall, isApple } from '$lib/install';
 
   // The Chrome/Android "you can install this PWA" event.
   type BIPEvent = Event & {
@@ -12,31 +13,24 @@
   let installed = $state(false);
   let showTip = $state(false);
 
-  const ua = typeof navigator !== 'undefined' ? navigator.userAgent : '';
-  const isIos = /iphone|ipad|ipod/i.test(ua);
-  // Inside a Capacitor WebView the page is served from capacitor:// or
-  // https://localhost, never the real origin. Checking that costs nothing and
-  // means the app doesn't depend on @capacitor/core just to hide one button —
-  // there is no native project to build against yet, and it's the only thing that
-  // was still importing it.
-  const isNative =
-    typeof location !== 'undefined' &&
-    (location.protocol === 'capacitor:' ||
-      // Capacitor on iOS serves from https://localhost. The dev server is *http*
-      // on localhost, so the scheme is what keeps them apart — matching on the
-      // hostname alone would hide the button while developing.
-      (location.protocol === 'https:' && location.hostname === 'localhost'));
-  const standalone =
-    (typeof window !== 'undefined' && window.matchMedia('(display-mode: standalone)').matches) ||
-    (typeof navigator !== 'undefined' &&
-      (navigator as unknown as { standalone?: boolean }).standalone === true);
+  /**
+   * **The detection lives in `$lib/install` now, and that is a bug fix.**
+   *
+   * This file used to match `/iphone|ipad|ipod/` on the user agent while
+   * `needsInstallFirst()` — the thing that decides whether to *tell* somebody to
+   * install — also handled iPadOS reporting itself as a Macintosh. So on an iPad the
+   * notification card said "that needs the app on your Home Screen first" and rendered
+   * this button, which drew nothing at all.
+   */
+  const isIos = isApple();
+  const canInstallHere = canInstall();
 
-  // Show on the web when installable: Chrome/Android fires beforeinstallprompt;
-  // iOS Safari has no install API, so we offer an "Add to Home Screen" tip.
-  let canShow = $derived(!isNative && !standalone && !installed && (!!deferred || isIos));
+  // Chrome/Android fires `beforeinstallprompt`; iOS Safari has no install API, so the
+  // fallback is a tip pointing at the Share sheet.
+  let canShow = $derived(canInstallHere && !installed && (!!deferred || isIos));
 
   onMount(() => {
-    if (isNative || standalone) return;
+    if (!canInstallHere) return;
     const onPrompt = (e: Event) => {
       e.preventDefault(); // keep the event so our button drives it
       deferred = e as BIPEvent;
@@ -81,7 +75,9 @@
     onclick={() => (showTip = false)}
   >
     <div class="install-tip-card" role="document">
-      <h3>Install Cocktails 🍸</h3>
+      <h3>Add Cocktails 🍸</h3>
+      <!-- "In Safari", not "On iPhone": the same words are true on an iPad, which is
+           the device this whole control used to fail silently on. -->
       <p>
         In Safari, tap <strong>Share</strong> <span aria-hidden="true">⬆︎</span>, then
         <strong>Add to Home Screen</strong>.

@@ -2572,3 +2572,42 @@ button.row:hover {
   line-height: 1.4;
   color: var(--text-soft);
 }
+
+/* ---- "put this on your Home Screen" --------------------------------------- */
+
+/*
+ * A row, not a modal.
+ *
+ * This replaced a permanent `📲 Install app` chip that sat in the guest's menubar
+ * beside "Help me choose" and "Surprise" — same visual weight as an ordering control,
+ * for something that is not about drinks at all. It is offered once now, to the
+ * person it is worth it for, and it sits in the flow where it can be ignored rather
+ * than interrupting an evening to sell an icon.
+ */
+.installrow {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 14px 0;
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  border: 2px dashed rgba(255, 255, 255, 0.28);
+}
+.installrow-why {
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.45;
+}
+.installrow-acts {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* On the bar it is one row among a night's worth of orders — quieter still, and it
+   must never look like something that needs dealing with before pouring. */
+.bartender .installrow {
+  margin: 10px 14px;
+  border-color: rgba(255, 255, 255, 0.2);
+  color: var(--panel-text);
+}
