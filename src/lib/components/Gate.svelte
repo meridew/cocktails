@@ -88,7 +88,7 @@
       You're signed in, but this account has no claim on {what}. If that's wrong, whoever set the
       party up can sort it.
     </p>
-    <a class="btn btn-go" href="/">What's on tonight</a>
+    <a class="btn btn-go" href="/">What's on</a>
   </section>
 {/if}
 

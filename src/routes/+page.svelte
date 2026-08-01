@@ -42,7 +42,7 @@
   let { data }: { data: { googleEnabled: boolean } } = $props();
 
   /**
-   * What's on tonight.
+   * What's on.
    *
    * The front door used to be a sign-in form, which had the audience backwards:
    * hosts and staff are a handful of people and guests are everyone else. A guest
@@ -238,7 +238,7 @@
       <!-- The list is the door. A guest who lost the QR code, or who was told
            "it's on the website", lands here and taps their party. -->
       {#if parties.length}
-        <h1 class="door-title">What's on tonight</h1>
+        <h1 class="door-title">What's on</h1>
         <p class="door-sub">Tap yours and start ordering</p>
         <div class="parties">
           {#each parties as p (p.id)}
@@ -285,7 +285,7 @@
           </button>
         {/if}
         <div class="door-row door-row-static">
-          <span class="door-row-q">Pouring tonight?</span>
+          <span class="door-row-q">Pouring at one of these?</span>
           <span class="door-row-a">
             Tap your party above, then <strong>I'm pouring here</strong> at the foot of the menu.
           </span>

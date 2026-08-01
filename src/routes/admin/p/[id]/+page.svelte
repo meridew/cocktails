@@ -170,13 +170,22 @@
           </p>
           <div class="row-acts">
             {#if p.status !== 'live'}
+              <!--
+                **"Let guests order", not "Open the bar".** That phrase already means
+                something else two screens away: on the bar's own gate it takes *you*
+                a shift on this device. Two different acts under identical words is
+                the same failure the app bar had when one corner meant six things.
+
+                It also says what actually changes, which the status line right above
+                it is already phrased in — "Guests see the menu but can't order yet".
+              -->
               <button
                 class="btn btn-go"
                 type="button"
                 disabled={Boolean(busy)}
                 onclick={() => setStatus('live')}
               >
-                Open the bar
+                Let guests order
               </button>
             {:else}
               <button class="btn btn-go" type="button" disabled={Boolean(busy)} onclick={work}>
@@ -188,7 +197,7 @@
                 disabled={Boolean(busy)}
                 onclick={() => setStatus('done')}
               >
-                Close the bar
+                Stop taking orders
               </button>
             {/if}
           </div>
@@ -215,12 +224,12 @@
               <span class="row-note">Couldn't count it.</span>
             {:else if stock.length === 0}
               <span class="row-note">
-                Nothing recorded — the menu falls back to the house six.
+                Nothing recorded — the menu falls back to a short standard one.
               </span>
             {:else}
               <b>{stock.length}</b>
               <span class="row-note">
-                {stock.length === 1 ? 'bottle' : 'bottles'} · pours
+                {stock.length === 1 ? 'thing' : 'things'} · pours
                 <b>{menuSummary?.total ?? '…'}</b> drinks
               </span>
             {/if}
@@ -234,7 +243,7 @@
         </section>
 
         <section class="panel">
-          <h2>What it leads with</h2>
+          <h2>What the bar will make</h2>
           <p class="card-stat">
             {#if !menuSummary}
               <span class="row-note">Counting…</span>
@@ -292,7 +301,7 @@
 
 {#if curating && party}
   <WorkSheet
-    title="What it leads with"
+    title="What the bar will make"
     subtitle={party.name}
     onclose={() => {
       curating = false;

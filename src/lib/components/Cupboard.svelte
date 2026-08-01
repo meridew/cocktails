@@ -189,11 +189,18 @@
       of 173 bottles.
     -->
     <div class="panel-acts cupboard-stat">
+      <!--
+        **"Things", not "bottles".** A third of this list is not in a bottle: mint,
+        cucumber, fresh chilli, salt, black pepper, egg white, sugar cubes, olives, a
+        lemon twist, a salt rim. Owain's own cupboard is mint, lemons, limes, oranges
+        and espresso. "Things in" also matches the heading these screens already carry
+        — "What you've got in".
+      -->
       <p class="stat" aria-live="polite">
         <b>{pourable.length}</b>
         {pourable.length === 1 ? 'drink' : 'drinks'} from
         <b>{ticked.size}</b>
-        {ticked.size === 1 ? 'bottle' : 'bottles'}
+        {ticked.size === 1 ? 'thing' : 'things'}
       </p>
 
       {#if readonly}
@@ -213,7 +220,7 @@
            but "what should I buy". Only counts bottles that are the sole thing
            standing between this cupboard and a recipe. -->
       <section class="panel">
-        <h2>One more bottle</h2>
+        <h2>Worth buying next</h2>
         <div class="suggests">
           {#each nextBest as s (s.ingredient)}
             <button
@@ -303,7 +310,7 @@
     </section>
 
     <section class="panel">
-      <h2>What that pours</h2>
+      <h2>What that makes</h2>
       {#if pourable.length === 0}
         <p class="empty">Tick a spirit and something to mix it with.</p>
       {:else}

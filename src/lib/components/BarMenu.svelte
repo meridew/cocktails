@@ -71,7 +71,7 @@
 
     {#if pushLabel}
       <button type="button" class="barmenu-item" onclick={pick(onpush)}>
-        <span>New-order alerts</span>
+        <span>Notifications</span>
         <em>{pushLabel}</em>
       </button>
     {/if}

@@ -159,9 +159,22 @@ describe('what it says', () => {
   test('promises only what it delivers, and points at Settings', async () => {
     mount();
     const text = asked()?.textContent ?? '';
-    // Both matter: it's about their own order (not marketing), and the decision is
-    // reversible — which is what makes "Not now" a safe thing to tap.
-    assert.match(text, /your own order/i);
+    /**
+     * **This test was pinning a lie, which is worth recording.**
+     *
+     * It asserted `/your own order/` — and the copy did say "Only about your own
+     * order". But this card is mounted in the root layout, so it can be read on the
+     * bar, where `pushToRole('bartender', …)` sends a push for *everybody's* drinks.
+     * The promise also broke retroactively: accepting as a guest and later working a
+     * bar triggers `enableIfPermitted('bartender')`.
+     *
+     * So the test's own name was right and its assertion was wrong. It now checks
+     * that both audiences are named — which is what "only what it delivers" means
+     * when two different people can read the same card.
+     */
+    assert.match(text, /your drink/i);
+    assert.match(text, /behind the bar/i);
+    // Reversible, which is what makes "Not now" a safe thing to tap.
     assert.match(text, /Settings/i);
   });
 

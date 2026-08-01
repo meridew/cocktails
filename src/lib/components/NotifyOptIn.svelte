@@ -65,7 +65,19 @@
           <button type="button" class="optin-no" onclick={decline}>Not now</button>
         </div>
       {:else}
-        <p>Only about your own order. You can change this any time in Settings.</p>
+        <!--
+          **This used to say "Only about your own order", and that was false.**
+
+          This card is mounted in the root layout, so it can be read on any screen —
+          including the bar, where `pushToRole('bartender', …)` sends a push for
+          *everybody's* drinks. It also broke retroactively: accepting as a guest and
+          later working a bar triggers `enableIfPermitted('bartender')`, so the
+          promise expired even where it had been true when read.
+        -->
+        <p>
+          When your drink's ready — and every order, if you end up behind the bar. You can change
+          this any time in Settings.
+        </p>
         <div class="optin-actions">
           <button type="button" class="optin-yes" disabled={busy} onclick={accept}>
             {busy ? 'Setting up…' : 'Yes, notify me'}

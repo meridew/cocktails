@@ -375,7 +375,7 @@
               Your name
               <input
                 bind:value={nameInput}
-                placeholder="DANIEL"
+                placeholder="Alex"
                 autocomplete="name"
                 autocapitalize="words"
                 maxlength="40"
@@ -394,7 +394,7 @@
              told the bar is shut. -->
         <p class="ask-banner ask-declined">
           {closed === 'closed'
-            ? '🌙 The bar has closed — no more orders tonight.'
+            ? '🚫 The bar has closed — no more orders.'
             : "⏳ This party isn't open yet. Have a look at the menu; the bar will start taking orders shortly."}
         </p>
       {/if}
@@ -451,9 +451,7 @@
             {/each}
           </div>
           {#if onOffer.length === 0}
-            <p class="menu-empty">
-              The bar hasn't got anything on tonight — ask whoever's pouring.
-            </p>
+            <p class="menu-empty">The bar hasn't got anything on — ask whoever's pouring.</p>
           {/if}
         {/if}
 

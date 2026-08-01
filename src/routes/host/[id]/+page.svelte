@@ -161,7 +161,7 @@
            serves is not that. The capability table already says so: an owner holds
            `menu:curate` and nothing else beyond reading. -->
         <section class="panel">
-          <h2>What to lead with</h2>
+          <h2>What the bar will make</h2>
           <p class="card-stat">
             {#if !menuSummary}
               <span class="row-note"
@@ -220,7 +220,7 @@
 
 {#if curating}
   <WorkSheet
-    title="What to lead with"
+    title="What the bar will make"
     subtitle={party?.name}
     onclose={() => {
       curating = false;

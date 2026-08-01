@@ -108,7 +108,7 @@
       <!-- No credential, but this device has been to a party. That is very probably
            the bar they mean, and asking to help there is one tap. -->
       <section class="panel">
-        <h2>Helping out tonight?</h2>
+        <h2>Pouring at a party?</h2>
         <p>The bar you were last at can wave you in — no account needed.</p>
         <a class="btn btn-go" href="/bar/{lastSeen}">I'm pouring here</a>
       </section>
@@ -117,9 +117,9 @@
         <h2>Which party?</h2>
         <p>
           Open the link or QR code for the party you're pouring at, and you can ask to help from its
-          menu. Or pick it from what's on tonight.
+          menu. Or pick it from what's on.
         </p>
-        <a class="btn btn-go" href="/">What's on tonight</a>
+        <a class="btn btn-go" href="/">What's on</a>
       </section>
     {/if}
   </main>

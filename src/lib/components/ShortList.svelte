@@ -102,7 +102,7 @@
         This party has no cupboard behind it yet, so these are the six house drinks. Fill the
         cupboard in and this list grows.
       {:else}
-        Tick the ones to lead with. Leave it empty and guests get the lot — they can always search
+        Tick what the bar will make. Leave it empty and guests get the lot — they can always search
         or ask to be walked through it.
       {/if}
     </p>
@@ -115,8 +115,11 @@
         <button type="button" class="btn" disabled={busy} onclick={revert}>Undo</button>
       {/if}
       {#if ticked.size > 0}
+        <!-- "Feature" is our verb for the short list, not a word a host would reach
+             for. This button clears every tick, and clearing every tick is what makes
+             guests see everything — so say that. -->
         <button type="button" class="btn" disabled={busy} onclick={() => ticked.clear()}>
-          Feature nothing
+          Show them everything
         </button>
       {/if}
     </div>
@@ -140,7 +143,9 @@
 
     {#if groups.length === 0}
       <p class="empty">
-        {filter ? `Nothing matches “${filter}”.` : 'Nothing is pourable — fill in the cupboard.'}
+        {filter
+          ? `Nothing matches “${filter}”.`
+          : 'Nothing can be made yet — fill in the cupboard.'}
       </p>
     {/if}
   {/if}

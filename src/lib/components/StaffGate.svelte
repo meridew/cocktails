@@ -260,7 +260,7 @@
        does work — it's the button above this one. -->
   <SignInSheet
     googleEnabled={Boolean(page.data.googleEnabled)}
-    hint="Hosts and admins. If you're just helping out tonight, ask to be waved in instead — you don't need an account."
+    hint="Hosts and admins. If you're just helping out, ask to be waved in instead — you don't need an account."
     onclose={() => (signingIn = false)}
     onsignedin={async () => {
       signingIn = false;

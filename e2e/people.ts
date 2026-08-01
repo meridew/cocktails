@@ -188,7 +188,9 @@ export async function openHostDesk(page: Page, hostName: string): Promise<void> 
 export async function openPartyDesk(page: Page, partyName: string): Promise<void> {
   await page.goto('/admin');
   await page.locator('.row', { hasText: partyName }).locator('.row-open').click();
-  await expect(page.getByRole('heading', { name: 'The bar' })).toBeVisible();
+  // `exact`, because the short-list card next to it is now "What the bar will make"
+  // and a substring match resolves to both.
+  await expect(page.getByRole('heading', { name: 'The bar', exact: true })).toBeVisible();
 }
 
 /** Dan creates a party for a host and opens it, from his own desk. */

@@ -101,13 +101,15 @@
             </p>
           {:else if stock.length === 0}
             <p class="card-stat">
-              <span class="row-note">Nothing recorded yet — your guests see the house six.</span>
+              <span class="row-note"
+                >Nothing recorded yet — your guests see a short standard menu.</span
+              >
             </p>
           {:else}
             <p class="card-stat">
               <b>{stock.length}</b>
               <span class="row-note">
-                {stock.length === 1 ? 'bottle' : 'bottles'} in · pours <b>{pourable}</b>
+                {stock.length === 1 ? 'thing' : 'things'} in · pours <b>{pourable}</b>
                 {pourable === 1 ? 'drink' : 'drinks'}
               </span>
             </p>

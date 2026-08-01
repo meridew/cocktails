@@ -216,8 +216,10 @@ test('a closed bar says so before anyone builds a round', async ({ browser }) =>
 
   // Dan calls last orders. Closing lives on the party's own page rather than as a
   // fifth pill on its row — see the admin page's header comment.
+  // "Stop taking orders", not "Close the bar" — that phrase meant something else two
+  // screens away, where the bar's gate uses "Open the bar" to take *you* a shift.
   await openPartyDesk(dan, partyName);
-  await dan.getByRole('button', { name: 'Close the bar' }).click();
+  await dan.getByRole('button', { name: 'Stop taking orders' }).click();
 
   await guest.reload();
   await expect(guest.getByText(/The bar has closed/)).toBeVisible();

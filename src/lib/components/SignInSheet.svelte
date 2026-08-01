@@ -171,7 +171,7 @@
          party. Someone reading this is one tap from the door they actually want. -->
     {#if allowRegister && !registering}
       <p class="sheet-aside">
-        Helping behind the bar tonight? You don't need an account — open your party's link and tap <strong
+        Helping behind the bar? You don't need an account — open your party's link and tap <strong
           >I'm pouring here</strong
         >.
       </p>

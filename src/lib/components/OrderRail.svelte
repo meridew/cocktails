@@ -117,7 +117,7 @@
     <input
       id="name"
       bind:value={name}
-      placeholder="DANIEL"
+      placeholder="Alex"
       autocomplete="name"
       autocapitalize="words"
       maxlength={LIMITS.maxFieldLen}
@@ -126,7 +126,7 @@
     <textarea
       id="note"
       bind:value={note}
-      placeholder="No ice! Extra lime! Make it spicy!"
+      placeholder="No ice, extra lime, make it spicy"
       maxlength={LIMITS.maxFieldLen}></textarea>
     {#if errMsg}<p class="status err" role="alert">{errMsg}</p>{/if}
 

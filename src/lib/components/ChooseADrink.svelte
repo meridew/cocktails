@@ -135,14 +135,18 @@
   <h2>Let's find you one</h2>
 
   {#if !base}
-    <p>Start with a spirit. Only the ones tonight can actually pour are here.</p>
+    <!-- This read "Only the ones tonight can actually pour are here", which has no
+         subject — the words got shuffled at some point and it shipped. Nobody caught
+         it in place, because in context you skim past the second sentence. -->
+    <p>Start with a spirit. Only what the bar can actually make is here.</p>
     <div class="suggests">
       {#each offerableBases as b (b)}
         <button class="btn" type="button" onclick={() => (base = b)}>{b}</button>
       {/each}
     </div>
     {#if offerableBases.length === 0}
-      <p class="empty">Nothing is pourable tonight — ask whoever's behind the bar.</p>
+      <!-- "Pourable" is our word, not a guest's. -->
+      <p class="empty">The bar can't make anything right now — ask whoever's pouring.</p>
     {/if}
   {:else if finished}
     <p><strong>{finished.name}</strong>{finished.blurb ? ` — ${finished.blurb}` : ''}</p>
@@ -195,6 +199,6 @@
   <div class="row-acts">
     {#if base}<button class="btn btn-quiet" type="button" onclick={restart}>Start again</button
       >{/if}
-    <button class="btn btn-quiet" type="button" onclick={onclose}>Back to the menu</button>
+    <button class="btn btn-quiet" type="button" onclick={onclose}>Done</button>
   </div>
 </section>

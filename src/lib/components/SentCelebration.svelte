@@ -27,14 +27,14 @@
 >
   <div class="celebrate-card">
     <h2>Cheers! 🥂</h2>
-    <p class="celebrate-msg">Your drinks are <strong>on the way</strong>. 🍹</p>
+    <p class="celebrate-msg">Sent to the bar. 🍹</p>
     {#if canOffer}
       {#if notify === 'on'}
         <p class="notify-on">🔔 You'll get a buzz when it's ready.</p>
       {:else if notify === 'denied'}
         <p class="notify-note">Notifications are blocked — enable them in your browser settings.</p>
       {:else if notify === 'disabled'}
-        <p class="notify-note">Notifications aren't switched on at the bar tonight.</p>
+        <p class="notify-note">Notifications aren't switched on at the bar.</p>
       {:else}
         <button
           type="button"

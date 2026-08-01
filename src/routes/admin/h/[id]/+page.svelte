@@ -155,7 +155,7 @@
               <span class="row-note">They've said what they have in.</span>
             {:else}
               <span class="row-note">
-                They haven't opened it yet — the menu falls back to the house six.
+                They haven't opened it yet — the menu falls back to a short standard one.
               </span>
             {/if}
           </p>

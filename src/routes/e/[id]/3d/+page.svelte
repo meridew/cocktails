@@ -163,7 +163,7 @@
         >
           <label class="field">
             Your name
-            <input bind:value={nameInput} placeholder="DANIEL" autocomplete="name" maxlength="40" />
+            <input bind:value={nameInput} placeholder="Alex" autocomplete="name" maxlength="40" />
           </label>
           <button class="btn btn-go" type="submit" disabled={!nameInput.trim()}>I'm in</button>
         </form>
@@ -174,7 +174,7 @@
   {#if status === 'loading'}
     <p class="stage3d-say">Pouring…</p>
   {:else if status === 'empty'}
-    <p class="stage3d-say">The bar hasn't got anything on tonight.</p>
+    <p class="stage3d-say">The bar hasn't got anything on.</p>
   {:else if status === 'nowebgl'}
     <p class="stage3d-say">
       This phone can't do the 3D menu. <a href="/e/{data.eventId}">Here's the normal one →</a>
@@ -182,7 +182,7 @@
   {/if}
 
   {#if closed && status === 'ready'}
-    <p class="stage3d-say stage3d-shut">🌙 The bar isn't taking orders.</p>
+    <p class="stage3d-say stage3d-shut">🚫 The bar isn't taking orders.</p>
   {/if}
 
   <!-- The tab bar is the flat one, deliberately: the count is the thing a guest
