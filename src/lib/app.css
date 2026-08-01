@@ -1388,10 +1388,27 @@ button.row:hover {
 
 /* Sticky so the effect of a tick is never scrolled off. Opaque, because it sits
    over a scrolling list and a translucent readout is unreadable over text. */
-.cupboard-stat {
+/* The action bar of a long tick list, kept on screen while you work down it.
+   Was `.cupboard-stat`, and the rename is the fix: the short list is the same job at
+   the same length and never got it, so its Save scrolled away after the first flick
+   and the only control left in view was the sheet's "Done" — which discarded.
+   `.panel-acts` is opaque, which is what makes this readable over a moving list. */
+.acts-sticky {
   position: sticky;
   top: 0;
   z-index: 2;
+}
+/* Says how much is at stake, next to the button that resolves it. */
+.unsaved {
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 2px solid var(--line);
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
 }
 
 /* auto-fill rather than fixed columns: one column on a phone, three on a laptop,
@@ -2165,6 +2182,20 @@ button.row:hover {
    of its own — one place decides what "muted on a dark surface" means. */
 .worksheet-done {
   flex: none;
+}
+/* Replaces the single "Done" while there is unsaved work. Wraps rather than
+   shrinks — on a narrow phone two full-width buttons under the title beat two
+   crushed ones beside it, and this is the moment least worth mis-tapping. */
+.worksheet-acts {
+  display: flex;
+  flex: none;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+/* The header is a dark surface; `.btn-quiet` is drawn for the yellow. */
+.worksheet-acts .btn-quiet {
+  color: #fff;
 }
 .worksheet-body {
   flex: 1 1 auto;

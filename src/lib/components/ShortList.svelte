@@ -22,6 +22,7 @@
   import { SvelteSet } from 'svelte/reactivity';
   import { eventMenu, setShortList, Unauthorized, type MenuItem } from '$lib/api';
   import { groupByBase } from '$lib/menu';
+  import { registerSheetEditor } from '$lib/worksheet';
 
   let { eventId }: { eventId: string } = $props();
 
@@ -36,7 +37,26 @@
   /** What's ticked now, and what the server last confirmed — the diff is "unsaved". */
   const ticked = new SvelteSet<string>();
   let saved = $state<string[]>([]);
-  const dirty = $derived(ticked.size !== saved.length || saved.some((id) => !ticked.has(id)));
+
+  /**
+   * How many ticks differ from the server, in both directions.
+   *
+   * Counted rather than merely flagged because the action bar has to *say* it. "Save"
+   * being enabled was the only sign anything was pending, and that sign was the one
+   * control that scrolled off the screen — so from the second flick onwards there was
+   * nothing anywhere admitting there was work to lose.
+   */
+  const pending = $derived.by(() => {
+    const was = new Set(saved);
+    let n = 0;
+    for (const id of ticked) if (!was.has(id)) n++;
+    for (const id of was) if (!ticked.has(id)) n++;
+    return n;
+  });
+  const dirty = $derived(pending > 0);
+
+  // The surrounding sheet asks before it lets anybody close it or leave the page.
+  registerSheetEditor({ isDirty: () => dirty, save: () => save() });
 
   /** Grouped by base spirit and searchable, because this can be 200 rows. */
   const groups = $derived(groupByBase(items, filter));
@@ -64,8 +84,9 @@
     else ticked.add(id);
   }
 
-  async function save(): Promise<void> {
-    if (busy) return;
+  /** Returns whether it stuck: the sheet only closes on `true`. See `SheetEditor`. */
+  async function save(): Promise<boolean> {
+    if (busy) return false;
     busy = true;
     err = '';
     try {
@@ -73,8 +94,10 @@
       // fallen off the menu, and pretending otherwise leaves the screen permanently
       // dirty.
       adopt((await setShortList(eventId, [...ticked])).shortList);
+      return true;
     } catch (e) {
       if (!(e instanceof Unauthorized)) err = (e as Error).message || "That didn't save";
+      return false;
     } finally {
       busy = false;
     }
@@ -89,30 +112,35 @@
   {#if !loaded}
     <p class="empty">Loading…</p>
   {:else}
-    <p class="stat" aria-live="polite">
-      {#if ticked.size === 0}
-        <b>{items.length}</b> drinks · guests see them all
-      {:else}
-        <b>{ticked.size}</b> featured of <b>{items.length}</b>
-      {/if}
-    </p>
+    <!--
+      **Sticky, which it was not, and that was the whole bug.**
 
-    <p class="empty">
-      {#if source === 'house'}
-        This party has no cupboard behind it yet, so these are the six house drinks. Fill the
-        cupboard in and this list grows.
-      {:else}
-        Tick what the bar will make. Leave it empty and guests get the lot — they can always search
-        or ask to be walked through it.
-      {/if}
-    </p>
+      The count and the Save button used to be two separate blocks at the top of a
+      list up to 200 rows long. Both scrolled away on the first flick, leaving the
+      sheet's own "Done" as the only control on screen — and "Done" discarded. The
+      cupboard already solved this and this file never got the same treatment; now
+      they share `.acts-sticky`.
 
-    <div class="row-acts">
+      The count moved *into* the bar for the same reason: what you have done and what
+      it will take to keep it are one thought, and neither is any use out of sight.
+    -->
+    <div class="panel-acts acts-sticky">
+      <p class="stat" aria-live="polite">
+        {#if ticked.size === 0}
+          <b>{items.length}</b> drinks · guests see them all
+        {:else}
+          <b>{ticked.size}</b> featured of <b>{items.length}</b>
+        {/if}
+        {#if dirty}
+          <span class="unsaved">{pending} unsaved</span>
+        {/if}
+      </p>
+
       <button type="button" class="btn btn-go" disabled={!dirty || busy} onclick={save}>
         {busy ? 'Saving…' : dirty ? 'Save' : 'Saved'}
       </button>
       {#if dirty}
-        <button type="button" class="btn" disabled={busy} onclick={revert}>Undo</button>
+        <button type="button" class="btn btn-quiet" disabled={busy} onclick={revert}>Undo</button>
       {/if}
       {#if ticked.size > 0}
         <!-- "Feature" is our verb for the short list, not a word a host would reach
@@ -123,6 +151,16 @@
         </button>
       {/if}
     </div>
+
+    <p class="empty">
+      {#if source === 'house'}
+        This party has no cupboard behind it yet, so these are the six house drinks. Fill the
+        cupboard in and this list grows.
+      {:else}
+        Tick what the bar will make. Leave it empty and guests get the lot — they can always search
+        or ask to be walked through it.
+      {/if}
+    </p>
 
     <label class="field">
       Search

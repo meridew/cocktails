@@ -18,9 +18,28 @@
    * already do full-screen-over-content, so this is the house idiom rather than a new
    * one — and staying on the page is what keeps "look at their cupboard, then open
    * their party" one context instead of a navigation each way.
+   *
+   * ## It will not throw your work away any more
+   *
+   * **"Done" used to discard.** It calls `onclose`, which unmounts the editor — and
+   * on the short list the Save button scrolled off screen after the first flick, so
+   * the only control left in view was the one that lost forty ticks. Reported as
+   * "it is too easy to change drink selection and navigate away losing changes",
+   * which is exactly what the header offered.
+   *
+   * So the sheet now asks the editor whether it has unsaved work (see
+   * `$lib/worksheet`) and, when it has, does four things: relabels the header to
+   * **Save and close**, keeps a quiet **Discard** beside it, confirms on Escape, and
+   * guards *leaving the page* — Back, the phone's back gesture, an in-app link, or
+   * closing the tab. Nothing in this app guarded any of those before.
+   *
+   * Staying not-a-route is what makes that last part necessary rather than free: Back
+   * does not close the sheet, it leaves `/admin/p/<id>` altogether.
    */
   import type { Snippet } from 'svelte';
+  import { beforeNavigate } from '$app/navigation';
   import { dialog } from '$lib/dialog';
+  import { provideWorkSheet, type SheetEditor } from '$lib/worksheet';
 
   let {
     title,
@@ -35,25 +54,56 @@
     children: Snippet;
   } = $props();
 
-  /*
-   * No scroll lock here on purpose.
+  /** Filled in by whatever is rendered inside, if it has anything to lose. */
+  let editor = $state<SheetEditor | null>(null);
+  provideWorkSheet((e) => (editor = e));
+
+  // Called, not read: see `SheetEditor.isDirty`. This is what tracks the child's rune.
+  const dirty = $derived(editor?.isDirty() ?? false);
+  let saving = $state(false);
+
+  /** One sentence, used by all three exits, so they cannot drift apart. */
+  const ASK = 'You have unsaved changes. Leave without saving?';
+
+  /** Escape and Discard both come through here. Silent when there is nothing to lose. */
+  function tryClose(): void {
+    if (!dirty || confirm(ASK)) onclose();
+  }
+
+  async function saveAndClose(): Promise<void> {
+    if (!editor || saving) return;
+    saving = true;
+    try {
+      // Only close if it actually stuck. A failed save leaves the sheet open with the
+      // editor's own error showing, rather than closing over the top of it.
+      if (await editor.save()) onclose();
+    } finally {
+      saving = false;
+    }
+  }
+
+  /**
+   * Leaving the *page*, which closing the sheet is not.
    *
-   * The obvious `document.body.style.overflow = 'hidden'` is a no-op in this app:
-   * neo.css already pins the shell with `body { overflow: hidden }` and scrolls
-   * `.deck` instead, so setting it does nothing and restoring it on close restores
-   * it to the same value. What actually needs holding is scroll *chaining* — a flick
-   * that runs out of sheet would otherwise carry on into the deck behind it — and
-   * that is `overscroll-behavior: contain` on `.worksheet-body`, in CSS.
-   *
-   * Modal behaviour, on the other hand, is `use:dialog` below and not written here.
-   * The first version of this file hand-rolled an Escape handler on `svelte:window`
-   * and stopped there — no focus trap, no inert background, no focus returned to the
-   * button that opened it — while seven other overlays in this app were already
-   * using the shared action that does all four. That is the actual lesson about
-   * frameworks: the primitive existed and was good, and a new overlay quietly
-   * shipped without it.
+   * Covers Back, the phone's back gesture and any in-app link. `cancel()` keeps them
+   * where they are; the sheet is still open and still holding the work.
    */
+  beforeNavigate((nav) => {
+    if (dirty && !confirm(ASK)) nav.cancel();
+  });
 </script>
+
+<!--
+  Closing the tab or reloading. The browser shows its own wording and ignores ours —
+  `preventDefault` is the whole of the modern API — so there is nothing to phrase
+  here. It is best-effort by design: some mobile browsers skip it entirely, which is
+  why it is the last of four guards rather than the only one.
+-->
+<svelte:window
+  onbeforeunload={(e) => {
+    if (dirty) e.preventDefault();
+  }}
+/>
 
 <div
   class="worksheet"
@@ -61,7 +111,7 @@
   aria-modal="true"
   aria-label={title}
   tabindex="-1"
-  use:dialog={{ onclose }}
+  use:dialog={{ onclose: tryClose }}
 >
   <div class="worksheet-card">
     <header class="worksheet-head">
@@ -69,7 +119,20 @@
         <h2>{title}</h2>
         {#if subtitle}<p class="row-note">{subtitle}</p>{/if}
       </div>
-      <button class="btn worksheet-done" type="button" onclick={onclose}>Done</button>
+      {#if dirty}
+        <!-- Two buttons only while there is a real choice to make. When nothing is
+             unsaved this is one button that means one thing, as it always was. -->
+        <div class="worksheet-acts">
+          <button class="btn btn-go" type="button" disabled={saving} onclick={saveAndClose}>
+            {saving ? 'Saving…' : 'Save and close'}
+          </button>
+          <button class="btn btn-quiet" type="button" disabled={saving} onclick={tryClose}>
+            Discard
+          </button>
+        </div>
+      {:else}
+        <button class="btn worksheet-done" type="button" onclick={onclose}>Done</button>
+      {/if}
     </header>
     <div class="worksheet-body">
       {@render children()}

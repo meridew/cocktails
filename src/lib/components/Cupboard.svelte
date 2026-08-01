@@ -18,6 +18,7 @@
    * also made this reusable.
    */
   import { onMount } from 'svelte';
+  import { registerSheetEditor } from '$lib/worksheet';
   import { SvelteSet } from 'svelte/reactivity';
   import { getStock, saveStock, Unauthorized } from '$lib/api';
   import {
@@ -68,6 +69,10 @@
   );
 
   const dirty = $derived(ticked.size !== saved.length || saved.some((i) => !ticked.has(i)));
+
+  // The surrounding sheet asks before it lets anybody close it or leave the page.
+  // `readonly` has nothing to lose, so it never claims to.
+  registerSheetEditor({ isDirty: () => dirty && !readonly, save: () => save() });
 
   /**
    * Which shelf is open. `all` is the whole cupboard, and stays the default —
@@ -150,8 +155,9 @@
     else ticked.add(ingredient);
   }
 
-  async function save(): Promise<void> {
-    if (busy) return;
+  /** Returns whether it stuck: the sheet only closes on `true`. See `SheetEditor`. */
+  async function save(): Promise<boolean> {
+    if (busy) return false;
     busy = true;
     err = '';
     try {
@@ -160,8 +166,10 @@
       const r = await saveStock(userId, [...ticked]);
       adopt(r.stock);
       onsaved?.(r.stock);
+      return true;
     } catch (e) {
       if (!(e instanceof Unauthorized)) err = (e as Error).message || "That didn't save";
+      return false;
     } finally {
       busy = false;
     }
@@ -188,7 +196,7 @@
       Sticky, so the effect of a tick is never off-screen while you work down a list
       of 173 bottles.
     -->
-    <div class="panel-acts cupboard-stat">
+    <div class="panel-acts acts-sticky">
       <!--
         **"Things", not "bottles".** A third of this list is not in a bottle: mint,
         cucumber, fresh chilli, salt, black pepper, egg white, sugar cubes, olives, a
