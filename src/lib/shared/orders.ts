@@ -100,10 +100,30 @@ export interface OrderItem {
   name: string;
   qty: number;
   /**
+   * The server-authored build card captured when this line was accepted. Optional
+   * so orders written before recipe cards existed remain readable.
+   */
+  guide?: RecipeGuide;
+  /**
    * How many of this line have actually been poured. Optional and defaulted to 0
    * so every order written before per-drink tracking existed stays valid.
    */
   made?: number;
+}
+
+export interface RecipeMeasure {
+  name: string;
+  /** A display measure such as `50 ml`, `Top up`, or `6 sprigs`. */
+  amount?: string;
+}
+
+export interface RecipeGuide {
+  ingredients: RecipeMeasure[];
+  steps: string[];
+  method?: string;
+  ice?: string;
+  glass?: string;
+  garnish?: string;
 }
 
 export interface Order {

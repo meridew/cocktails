@@ -3,6 +3,7 @@ import {
   cleanItems,
   cleanStr,
   party,
+  recipeGuideForOrderLine,
   type OrderCreatedResponse,
   type OrderListResponse,
 } from '$lib/shared';
@@ -99,7 +100,11 @@ export async function POST(event: RequestEvent) {
   const unavailable = items.find((item) => !offered.has(item.name));
   if (unavailable) return fail(422, `${unavailable.name} is not on this party's menu`);
 
-  const order = createOrder(eventId, { name, items, note, deviceId });
+  const guidedItems = items.map((item) => {
+    const guide = recipeGuideForOrderLine(item.name);
+    return guide ? { ...item, guide } : item;
+  });
+  const order = createOrder(eventId, { name, items: guidedItems, note, deviceId });
   void pushToRole('bartender', newOrderPush(order)); // fire-and-forget
   return json({ ok: true, id: order.id, order } satisfies OrderCreatedResponse);
 }

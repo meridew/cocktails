@@ -41,6 +41,15 @@ export interface Recipe {
   glass?: string;
   blurb?: string;
   method?: string;
+  /** A measured house build. Recipes without one still expose composition and serve data. */
+  spec?: RecipeSpec;
+}
+
+export interface RecipeSpec {
+  measures: { ingredient: string; amount: string }[];
+  /** Short original instructions written for the bar screen, not copied source prose. */
+  steps: string[];
+  source: { label: string; url?: string };
 }
 
 export const CATEGORY_ORDER = data.categoryOrder as Category[];

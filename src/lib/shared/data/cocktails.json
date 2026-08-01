@@ -208,7 +208,24 @@
       "ice": "Cubes, plenty",
       "glass": "Highball / copa",
       "blurb": "The effortless classic — crisp, bitter, endlessly refreshing.",
-      "method": "Built"
+      "method": "Built",
+      "spec": {
+        "measures": [
+          { "ingredient": "Gin", "amount": "50 ml" },
+          { "ingredient": "Tonic Water", "amount": "150 ml" },
+          { "ingredient": "Ice", "amount": "Plenty" },
+          { "ingredient": "Lime wedge", "amount": "1" }
+        ],
+        "steps": [
+          "Fill the glass with ice and pour in the gin.",
+          "Top with chilled tonic and stir gently.",
+          "Finish with the lime wedge."
+        ],
+        "source": {
+          "label": "Tanqueray London Dry & Tonic",
+          "url": "https://www.tanqueray.com/en-GB/cocktails/gin-and-tonic-tanqueray-london-dry"
+        }
+      }
     },
     {
       "id": "gin-monster",
@@ -219,7 +236,21 @@
       "ice": "Cubes, plenty",
       "glass": "Highball",
       "blurb": "Bracing, citrusy and unapologetically lively.",
-      "method": "Built"
+      "method": "Built",
+      "spec": {
+        "measures": [
+          { "ingredient": "Gin", "amount": "50 ml" },
+          { "ingredient": "Monster Ultra (Zero Sugar)", "amount": "150 ml" },
+          { "ingredient": "Ice", "amount": "Plenty" },
+          { "ingredient": "Lime wedge", "amount": "1" }
+        ],
+        "steps": [
+          "Fill a highball with ice and pour in the gin.",
+          "Top with chilled Monster and stir gently.",
+          "Finish with the lime wedge."
+        ],
+        "source": { "label": "House specification" }
+      }
     },
     {
       "id": "negroni",
@@ -722,7 +753,24 @@
       "ice": "Shaken, on the rocks",
       "glass": "Rocks",
       "blurb": "No orange liqueur — just tequila, lime and agave. Purist's choice.",
-      "method": "Shaken"
+      "method": "Shaken",
+      "spec": {
+        "measures": [
+          { "ingredient": "Tequila", "amount": "60 ml" },
+          { "ingredient": "Lime Juice", "amount": "30 ml" },
+          { "ingredient": "Agave Syrup", "amount": "30 ml" },
+          { "ingredient": "Cubed ice", "amount": "Fill glass" }
+        ],
+        "steps": [
+          "Shake the tequila, lime and agave hard with ice.",
+          "Strain into an ice-filled rocks glass.",
+          "Finish with a lime wheel."
+        ],
+        "source": {
+          "label": "IBA Tommy's Margarita",
+          "url": "https://iba-world.com/iba-cocktail/tommys-margarita/"
+        }
+      }
     },
     {
       "id": "spicy-margarita",
@@ -865,7 +913,25 @@
       "ice": "Blended with ice",
       "glass": "Hurricane / coupe",
       "blurb": "Ripe strawberry, bright lime and rum in a frosty summer classic.",
-      "method": "Blended"
+      "method": "Blended",
+      "spec": {
+        "measures": [
+          { "ingredient": "White Rum", "amount": "50 ml" },
+          { "ingredient": "Lime Juice", "amount": "25 ml" },
+          { "ingredient": "Simple Syrup", "amount": "15 ml" },
+          { "ingredient": "Strawberry Purée", "amount": "40 ml" },
+          { "ingredient": "Crushed ice", "amount": "1 cup" }
+        ],
+        "steps": [
+          "Blend every measured ingredient until smooth and slushy.",
+          "Pour into a chilled hurricane or coupe glass.",
+          "Finish with strawberry and a lime wheel."
+        ],
+        "source": {
+          "label": "House frozen build informed by published UK bar recipes",
+          "url": "https://cocktailfun.com/strawberry-daiquiri.html"
+        }
+      }
     },
     {
       "id": "mojito",
@@ -876,7 +942,26 @@
       "ice": "Crushed",
       "glass": "Highball",
       "blurb": "Muddled mint and lime, lengthened with soda. Havana in a glass.",
-      "method": "Muddled"
+      "method": "Muddled",
+      "spec": {
+        "measures": [
+          { "ingredient": "White Rum", "amount": "45 ml" },
+          { "ingredient": "Lime Juice", "amount": "20 ml" },
+          { "ingredient": "Simple Syrup", "amount": "15 ml" },
+          { "ingredient": "Mint", "amount": "6 sprigs" },
+          { "ingredient": "Soda Water", "amount": "Top up" },
+          { "ingredient": "Crushed ice", "amount": "Fill glass" }
+        ],
+        "steps": [
+          "Gently muddle the mint with lime and syrup in the glass.",
+          "Add rum and crushed ice, then top with soda.",
+          "Stir lightly and finish with mint and lime."
+        ],
+        "source": {
+          "label": "IBA Mojito, with simple syrup as the house sweetener",
+          "url": "https://iba-world.com/iba-cocktail/mojito/"
+        }
+      }
     },
     {
       "id": "pina-colada",
@@ -2639,7 +2724,25 @@
       "ice": "Crushed",
       "glass": "Highball",
       "blurb": "All the lime-and-mint lift, none of the rum.",
-      "method": "Muddled"
+      "method": "Muddled",
+      "spec": {
+        "measures": [
+          { "ingredient": "Lime Juice", "amount": "30 ml" },
+          { "ingredient": "Simple Syrup", "amount": "20 ml" },
+          { "ingredient": "Mint", "amount": "10 leaves" },
+          { "ingredient": "Soda Water", "amount": "120 ml" },
+          { "ingredient": "Crushed ice", "amount": "Fill glass" }
+        ],
+        "steps": [
+          "Gently muddle the mint with lime and syrup in the glass.",
+          "Fill with crushed ice and top with soda.",
+          "Stir lightly and finish with a mint sprig."
+        ],
+        "source": {
+          "label": "House adaptation from The Mixer Virgin Mojito",
+          "url": "https://www.themixer.com/en-uk/recipes/virgin-mojito-recipe/"
+        }
+      }
     },
     {
       "id": "virgin-colada",

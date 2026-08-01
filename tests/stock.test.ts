@@ -13,6 +13,7 @@
 import { test, describe, beforeAll } from 'vitest';
 import assert from 'node:assert/strict';
 import { request, send } from './app';
+import type { Order } from '$lib/shared';
 import {
   admittedDevice,
   asAccount,
@@ -170,6 +171,37 @@ describe('the menu is generated, not filtered', () => {
 
     assert.equal((await putStock(host.id, stock, asAccount(host))).status, 200);
     assert.ok(names(await readMenu(party)).includes('Strawberry Daiquiri'));
+  });
+
+  test('the server snapshots its recipe, not instructions supplied by a guest', async () => {
+    const host = await person('stock-strawberry-guide');
+    const party = partyFor(host.id, 'Guided strawberry party');
+    const stock = ['White Rum', 'Lime Juice', 'Simple Syrup', 'Strawberry Purée'];
+    await putStock(host.id, stock, asAccount(host));
+
+    const created = await request(
+      '/api/orders',
+      send('POST', {
+        eventId: party,
+        deviceId: admittedDevice(party, 'strawberry-guide'),
+        name: 'Ada',
+        items: [
+          {
+            name: 'Strawberry Daiquiri',
+            qty: 1,
+            guide: { ingredients: [], steps: ['Use the guest instructions'] },
+          },
+        ],
+      }),
+    );
+    assert.equal(created.status, 200);
+
+    const listed = await request(`/api/orders?eventId=${party}`, { headers: asAccount(host) });
+    assert.equal(listed.status, 200);
+    const [order] = ((await listed.json()) as { orders: Order[] }).orders;
+    assert.ok(order?.items[0]?.guide);
+    assert.equal(order.items[0].guide.ingredients[0]?.amount, '50 ml');
+    assert.ok(!order.items[0].guide.steps.some((step) => step.includes('guest instructions')));
   });
 
   test('a sugar-free Monster tick puts Gin & Monster on the guest menu', async () => {

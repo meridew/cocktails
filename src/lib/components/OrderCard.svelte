@@ -13,6 +13,7 @@
   import { HANDOFFS, HANDOFF_META, STATUS_META, orderProgress } from '$lib/shared';
   import type { Handoff, Order, OrderStatus } from '$lib/shared';
   import Avatar from '$lib/components/Avatar.svelte';
+  import { BookOpen } from '@lucide/svelte';
 
   let {
     order,
@@ -79,6 +80,8 @@
    * changes the guest's notification wording.
    */
   let choosingHandoff = $derived(order.status === 'making');
+  /** At most one build guide is open inside the already-expanded order. */
+  let openGuide = $state<string | null>(null);
 
   function ago(ts: number): string {
     const s = Math.max(0, Math.round((Date.now() - ts) / 1000));
@@ -241,33 +244,92 @@
     <div class="ord-more">
       {#if order.note}<p class="ord-note">“{order.note}”</p>{/if}
 
-      {#if trackable}
-        <div class="ord-pour">
-          <h5>Poured</h5>
-          {#each order.items as item, index (item.name)}
+      <div class="ord-pour">
+        <h5>{trackable ? 'Poured' : 'Drinks'}</h5>
+        {#each order.items as item, index (item.name)}
+          <div class="ord-pour-item">
             <div class="ord-pour-row">
               <span class="ord-pour-name">{item.name}</span>
-              <span class="ord-pour-count">{item.made ?? 0}/{item.qty}</span>
-              <span class="ord-pour-btns">
+              {#if item.guide}
                 <button
                   type="button"
-                  class="ord-step"
-                  disabled={busy || (item.made ?? 0) <= 0}
-                  aria-label="One fewer {item.name} poured"
-                  onclick={() => onprogress(index, (item.made ?? 0) - 1)}>−</button
+                  class="ord-recipe-toggle"
+                  aria-expanded={openGuide === item.name}
+                  aria-label="{openGuide === item.name ? 'Hide' : 'Show'} recipe for {item.name}"
+                  title="{openGuide === item.name ? 'Hide' : 'Show'} recipe"
+                  onclick={() => (openGuide = openGuide === item.name ? null : item.name)}
                 >
-                <button
-                  type="button"
-                  class="ord-step"
-                  disabled={busy || (item.made ?? 0) >= item.qty}
-                  aria-label="One more {item.name} poured"
-                  onclick={() => onprogress(index, (item.made ?? 0) + 1)}>+</button
-                >
-              </span>
+                  <BookOpen size={18} strokeWidth={2} />
+                </button>
+              {/if}
+              {#if trackable}
+                <span class="ord-pour-count">{item.made ?? 0}/{item.qty}</span>
+                <span class="ord-pour-btns">
+                  <button
+                    type="button"
+                    class="ord-step"
+                    disabled={busy || (item.made ?? 0) <= 0}
+                    aria-label="One fewer {item.name} poured"
+                    onclick={() => onprogress(index, (item.made ?? 0) - 1)}>−</button
+                  >
+                  <button
+                    type="button"
+                    class="ord-step"
+                    disabled={busy || (item.made ?? 0) >= item.qty}
+                    aria-label="One more {item.name} poured"
+                    onclick={() => onprogress(index, (item.made ?? 0) + 1)}>+</button
+                  >
+                </span>
+              {/if}
             </div>
-          {/each}
-        </div>
-      {/if}
+            {#if item.guide && openGuide === item.name}
+              <section class="ord-recipe-guide" aria-label="Recipe for {item.name}">
+                <h6>Ingredients</h6>
+                <ul>
+                  {#each item.guide.ingredients as ingredient (`${ingredient.amount}-${ingredient.name}`)}
+                    <li>
+                      {#if ingredient.amount}<b>{ingredient.amount}</b>{/if}
+                      <span>{ingredient.name}</span>
+                    </li>
+                  {/each}
+                </ul>
+
+                {#if item.guide.steps.length > 0}
+                  <h6>Make it</h6>
+                  <ol>
+                    {#each item.guide.steps as step (step)}
+                      <li>{step}</li>
+                    {/each}
+                  </ol>
+                {/if}
+
+                <dl class="ord-recipe-facts">
+                  {#if item.guide.method}
+                    <div>
+                      <dt>Method</dt>
+                      <dd>{item.guide.method}</dd>
+                    </div>
+                  {/if}
+                  {#if item.guide.ice}<div>
+                      <dt>Ice</dt>
+                      <dd>{item.guide.ice}</dd>
+                    </div>{/if}
+                  {#if item.guide.glass}<div>
+                      <dt>Glass</dt>
+                      <dd>{item.guide.glass}</dd>
+                    </div>{/if}
+                  {#if item.guide.garnish}
+                    <div>
+                      <dt>Finish</dt>
+                      <dd>{item.guide.garnish}</dd>
+                    </div>
+                  {/if}
+                </dl>
+              </section>
+            {/if}
+          </div>
+        {/each}
+      </div>
 
       {#if choosingHandoff}
         <div class="ord-hand">

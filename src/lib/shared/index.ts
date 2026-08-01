@@ -17,5 +17,6 @@ export * from './permissions';
 export * from './push';
 export * from './api';
 export * from './recipes';
+export * from './recipe-guide';
 export * from './sanitise';
 export * from './party';

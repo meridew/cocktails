@@ -18,7 +18,7 @@
  */
 import { test, describe, afterEach } from 'vitest';
 import assert from 'node:assert/strict';
-import { cleanup, render } from '@testing-library/svelte';
+import { cleanup, fireEvent, render } from '@testing-library/svelte';
 import OrderCard from '$lib/components/OrderCard.svelte';
 import type { Order } from '$lib/shared';
 
@@ -111,5 +111,38 @@ describe('the meta line carries what used to be its own rows', () => {
     // full text has to survive somewhere the bartender can reach without guessing.
     assert.equal(mark.getAttribute('title'), 'light on the lime');
     assert.equal(container.querySelector('.ord-note-peek'), null, 'no row of its own');
+  });
+});
+
+describe('the bartender recipe guide', () => {
+  test('opens measured ingredients and steps only when asked', async () => {
+    const order = {
+      ...bigRound(1),
+      items: [
+        {
+          name: 'Strawberry Daiquiri',
+          qty: 1,
+          guide: {
+            ingredients: [
+              { name: 'White Rum', amount: '50 ml' },
+              { name: 'Strawberry Purée', amount: '40 ml' },
+            ],
+            steps: ['Blend until smooth.'],
+            method: 'Blended',
+            glass: 'Coupe',
+          },
+        },
+      ],
+    } as Order;
+    const view = draw(order, true);
+
+    assert.equal(view.queryByText('Blend until smooth.'), null, 'closed by default');
+    await fireEvent.click(
+      view.getByRole('button', { name: 'Show recipe for Strawberry Daiquiri' }),
+    );
+    assert.ok(view.getByText('50 ml'));
+    assert.ok(view.getByText('Strawberry Purée'));
+    assert.ok(view.getByText('Blend until smooth.'));
+    assert.ok(view.getByText('Coupe'));
   });
 });

@@ -37,6 +37,7 @@ const CUPBOARD = [
   'Lime Juice',
   'Agave Syrup',
   'Simple Syrup',
+  'Strawberry Purée',
 ];
 
 /** A device that has never signed in to anything. */
@@ -83,6 +84,8 @@ test('a host stocks up, Dan opens the bar, a guest orders and a helper pours it'
   // Six bottles is more than six drinks, and it is emphatically not "the curated six
   // filtered down" — a Mojito needs mint, which this cupboard hasn't got.
   await expect(guest.locator('.cocktail', { hasText: 'Daiquiri' }).first()).toBeVisible();
+  const strawberry = guest.locator('.cocktail', { hasText: 'Strawberry Daiquiri' }).first();
+  await expect(strawberry).toBeVisible();
   await expect(guest.locator('.cocktail', { hasText: 'Mojito' })).toHaveCount(0);
 
   await margarita.getByRole('button', { name: 'Add to order' }).click();
@@ -90,6 +93,7 @@ test('a host stocks up, Dan opens the bar, a guest orders and a helper pours it'
   const sheet = guest.getByRole('dialog');
   await expect(sheet).toBeVisible();
   await sheet.getByRole('button', { name: 'Add to order' }).click();
+  await strawberry.getByRole('button', { name: 'Add to order' }).click();
 
   // No name to type: they gave it on the way in, so the rail already knows and
   // sending a round is one tap. That is the point of asking on arrival.
@@ -118,6 +122,15 @@ test('a host stocks up, Dan opens the bar, a guest orders and a helper pours it'
   const order = helper.locator('.ord', { hasText: 'Priya' });
   await expect(order).toBeVisible();
   await expect(order.getByText(/Margarita/)).toBeVisible();
+
+  // Recipe data is authored by the server and costs no queue height until the
+  // bartender opens the order and asks for one drink's build.
+  await order.locator('.ord-summary').click();
+  await order.getByRole('button', { name: 'Show recipe for Strawberry Daiquiri' }).click();
+  const guide = order.getByRole('region', { name: 'Recipe for Strawberry Daiquiri' });
+  await expect(guide.getByText('50 ml')).toBeVisible();
+  await expect(guide.getByText('White Rum')).toBeVisible();
+  await expect(guide.getByText(/Blend every measured ingredient/)).toBeVisible();
 
   // Priya is a face this bar has not seen, so her card offers **Admit** where an
   // ordinary one offers Start — the drink is visible but cannot be made yet. That is

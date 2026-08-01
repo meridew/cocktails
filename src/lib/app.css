@@ -382,6 +382,9 @@
   gap: 10px;
   padding: 3px 0;
 }
+.ord-pour-item + .ord-pour-item {
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
 .ord-pour-name {
   flex: 1 1 auto;
   min-width: 0;
@@ -400,6 +403,82 @@
   display: flex;
   gap: 6px;
   flex: none;
+}
+.ord-recipe-toggle {
+  width: 40px;
+  height: 40px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  background: transparent;
+  color: #00e5ff;
+  border: 2px solid rgba(0, 229, 255, 0.45);
+  border-radius: 8px;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.ord-recipe-toggle[aria-expanded='true'] {
+  background: #00e5ff;
+  color: #0a0a12;
+  border-color: #00e5ff;
+}
+.ord-recipe-guide {
+  margin: 3px 0 8px;
+  padding: 5px 0 2px 12px;
+  border-left: 3px solid #00e5ff;
+  font-size: 0.82rem;
+}
+.ord-recipe-guide h6 {
+  margin: 5px 0 4px;
+  color: #00e5ff;
+  font-family: 'Bungee', system-ui, sans-serif;
+  font-size: 0.58rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.ord-recipe-guide ul,
+.ord-recipe-guide ol {
+  margin: 0 0 8px;
+  padding: 0;
+}
+.ord-recipe-guide ul {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 2px 12px;
+  list-style: none;
+}
+.ord-recipe-guide ul li {
+  display: flex;
+  gap: 7px;
+}
+.ord-recipe-guide ul b {
+  flex: none;
+  color: #ffe600;
+}
+.ord-recipe-guide ol {
+  padding-left: 18px;
+}
+.ord-recipe-guide ol li + li {
+  margin-top: 3px;
+}
+.ord-recipe-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px 14px;
+  margin: 6px 0 0;
+  font-size: 0.72rem;
+}
+.ord-recipe-facts div {
+  display: flex;
+  gap: 5px;
+}
+.ord-recipe-facts dt {
+  opacity: 0.55;
+  text-transform: uppercase;
+}
+.ord-recipe-facts dd {
+  margin: 0;
 }
 .ord-step {
   width: 44px;

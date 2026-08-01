@@ -1,5 +1,5 @@
-import { DRINKS, axesFor, buildLine, type Config, type Drink } from '$lib/data';
-import { makeable, OPTIONAL_CATEGORIES, type RECIPES } from '$lib/shared';
+import { DRINKS, type Drink } from '$lib/data';
+import { configuredLines, makeable, OPTIONAL_CATEGORIES, type Recipe } from '$lib/shared';
 import { listEventMenu, listStock, type EventRow } from './db';
 
 export interface GeneratedMenuItem {
@@ -33,7 +33,7 @@ export function generatedMenu(found: Pick<EventRow, 'id' | 'hostUserId'>): {
   return { source: recorded ? 'cupboard' : 'house', recorded, stock, items, shortList };
 }
 
-const describeRecipe = (recipe: (typeof RECIPES)[number]): GeneratedMenuItem => ({
+const describeRecipe = (recipe: Recipe): GeneratedMenuItem => ({
   id: recipe.id,
   name: recipe.name,
   base: recipe.base,
@@ -44,26 +44,7 @@ const describeRecipe = (recipe: (typeof RECIPES)[number]): GeneratedMenuItem => 
 
 /** Every valid label the configurator can produce for one of the house drinks. */
 function configuredNames(drink: Drink): Set<string> {
-  const names = new Set<string>([drink.name]);
-  const axes = axesFor(drink);
-
-  const visit = (index: number, config: Config): void => {
-    if (index === axes.length) {
-      names.add(buildLine(drink, config).name);
-      return;
-    }
-    const axis = axes[index]!;
-    if (axis.showIf && !axis.showIf(config)) {
-      visit(index + 1, config);
-      return;
-    }
-    for (const choice of axis.choices) {
-      visit(index + 1, { ...config, [axis.key]: choice.value });
-    }
-  };
-
-  visit(0, {});
-  return names;
+  return new Set(configuredLines(drink).keys());
 }
 
 /** Order-line names the guest-facing menu currently permits at this party. */

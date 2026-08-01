@@ -194,9 +194,15 @@ describe('POST /api/orders', () => {
       json({ name: 'Dan', eventId, items: [{ name: 'Wine' }], deviceId: admittedDevice(eventId) }),
     );
     assert.equal(res.status, 200);
-    const { order } = (await res.json()) as { order: { status: string; items: unknown[] } };
+    const { order } = (await res.json()) as {
+      order: { status: string; items: { name: string; qty: number }[] };
+    };
     assert.equal(order.status, 'pending');
-    assert.deepEqual(order.items, [{ name: 'Wine', qty: 1 }], 'a missing qty defaults to 1');
+    assert.deepEqual(
+      order.items.map(({ name, qty }) => ({ name, qty })),
+      [{ name: 'Wine', qty: 1 }],
+      'a missing qty defaults to 1',
+    );
   });
 
   test('sanitises strings through the boundary', async () => {
@@ -246,12 +252,15 @@ describe('POST /api/orders', () => {
       }),
     );
     const { order } = (await res.json()) as { order: { items: { name: string; qty: number }[] } };
-    assert.deepEqual(order.items, [
-      { name: 'Wine', qty: 1 },
-      { name: 'Mojito', qty: 1 },
-      { name: 'Margarita', qty: LIMITS.maxQty },
-      { name: 'Old Fashioned', qty: 2 },
-    ]);
+    assert.deepEqual(
+      order.items.map(({ name, qty }) => ({ name, qty })),
+      [
+        { name: 'Wine', qty: 1 },
+        { name: 'Mojito', qty: 1 },
+        { name: 'Margarita', qty: LIMITS.maxQty },
+        { name: 'Old Fashioned', qty: 2 },
+      ],
+    );
   });
 
   test('caps the number of items per order', async () => {
