@@ -46,6 +46,7 @@ import {
   event,
   eventGuest,
   eventMenu,
+  eventSound,
   orders,
   staff,
   staffSessions,
@@ -72,6 +73,8 @@ export type UserRow = typeof user.$inferSelect;
 type OrderRow = typeof orders.$inferSelect;
 export type EventGuestRow = typeof eventGuest.$inferSelect;
 type SubRow = typeof subscriptions.$inferSelect;
+/** A take, minus its audio — `listSounds` never selects the blob. See its note. */
+export type SoundRow = Omit<typeof eventSound.$inferSelect, 'audio'>;
 
 function rowToOrder(r: OrderRow, newGuest = false, photoId: string | null = null): Order {
   let items: OrderItem[] = [];
@@ -674,6 +677,85 @@ export function createDb(dbPath: string) {
         .run();
     },
 
+    // ---- the noises a party makes ----
+
+    /**
+     * Every take at a party, newest last, **without the audio**.
+     *
+     * The blobs are deliberately left behind: this feeds the host's list of takes and
+     * the guest's list of hashes, and neither wants a megabyte of base64 to render
+     * three rows. The audio is fetched one clip at a time from its own immutable URL.
+     */
+    listSounds(eventId: string): SoundRow[] {
+      return db
+        .select({
+          id: eventSound.id,
+          eventId: eventSound.eventId,
+          cue: eventSound.cue,
+          label: eventSound.label,
+          enabled: eventSound.enabled,
+          createdAt: eventSound.createdAt,
+        })
+        .from(eventSound)
+        .where(eq(eventSound.eventId, eventId))
+        .orderBy(eventSound.createdAt)
+        .all();
+    },
+
+    /** How many takes a cue already holds, so the endpoint can refuse the sixth. */
+    countSounds(eventId: string, cue: string): number {
+      return db
+        .select({ id: eventSound.id })
+        .from(eventSound)
+        .where(and(eq(eventSound.eventId, eventId), eq(eventSound.cue, cue)))
+        .all().length;
+    },
+
+    addSound(s: { eventId: string; cue: string; audio: string; label: string }): { id: string } {
+      const id = genId();
+      db.insert(eventSound)
+        .values({ ...s, id, enabled: true, createdAt: now() })
+        .run();
+      return { id };
+    },
+
+    /** Scoped to the party as well as the id, so one party can't touch another's. */
+    setSoundEnabled(eventId: string, id: string, enabled: boolean): boolean {
+      return (
+        db
+          .update(eventSound)
+          .set({ enabled })
+          .where(and(eq(eventSound.eventId, eventId), eq(eventSound.id, id)))
+          .run().changes > 0
+      );
+    },
+
+    deleteSound(eventId: string, id: string): boolean {
+      return (
+        db
+          .delete(eventSound)
+          .where(and(eq(eventSound.eventId, eventId), eq(eventSound.id, id)))
+          .run().changes > 0
+      );
+    },
+
+    /**
+     * One clip, by its row id.
+     *
+     * Scoped to the party as well, so a take id learned at one party cannot be played
+     * from another. **Not filtered by `enabled`**, because the host has to be able to
+     * listen to a take they have switched off before deciding whether to bin it.
+     */
+    soundAudio(eventId: string, id: string): string | null {
+      return (
+        db
+          .select({ audio: eventSound.audio })
+          .from(eventSound)
+          .where(and(eq(eventSound.eventId, eventId), eq(eventSound.id, id)))
+          .get()?.audio ?? null
+      );
+    },
+
     // ---- the keypad ----
 
     // ---- people with accounts ----
@@ -986,6 +1068,14 @@ export const setInStock: Db['setInStock'] = (userId, ingredient, inStock) =>
   d().setInStock(userId, ingredient, inStock);
 export const listEventMenu: Db['listEventMenu'] = (eventId) => d().listEventMenu(eventId);
 export const setEventMenu: Db['setEventMenu'] = (eventId, ids) => d().setEventMenu(eventId, ids);
+
+export const listSounds: Db['listSounds'] = (eventId) => d().listSounds(eventId);
+export const countSounds: Db['countSounds'] = (eventId, cue) => d().countSounds(eventId, cue);
+export const addSound: Db['addSound'] = (s) => d().addSound(s);
+export const setSoundEnabled: Db['setSoundEnabled'] = (eventId, id, on) =>
+  d().setSoundEnabled(eventId, id, on);
+export const deleteSound: Db['deleteSound'] = (eventId, id) => d().deleteSound(eventId, id);
+export const soundAudio: Db['soundAudio'] = (eventId, id) => d().soundAudio(eventId, id);
 
 export const userById: Db['userById'] = (id) => d().userById(id);
 export const userByEmail: Db['userByEmail'] = (email) => d().userByEmail(email);

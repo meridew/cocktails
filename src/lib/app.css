@@ -1499,6 +1499,31 @@ button.row:hover {
   color: var(--bg);
 }
 
+/* Party sounds. A take's row carries three controls, so its buttons are square and
+   its play/bin are icons — three word-buttons would wrap on a phone. */
+.btn-icon {
+  min-width: 44px;
+  padding-inline: 10px;
+  text-align: center;
+}
+/* Kept but not playing: recedes the way a switched-off extra does, and for the same
+   reason — the host should see at a glance which takes are in the mix. */
+.take.is-off .row-name {
+  font-weight: 500;
+  color: var(--text-soft);
+}
+.recorder {
+  margin: 8px 0 20px;
+}
+/* Full width so the scrubber is usable with a thumb, and capped so it doesn't
+   dominate the sheet on a laptop. */
+.recorder-play {
+  display: block;
+  width: 100%;
+  max-width: 420px;
+  margin-bottom: 10px;
+}
+
 /* "One more bottle" — the question a tick list can't answer on its own. */
 .suggests {
   display: flex;

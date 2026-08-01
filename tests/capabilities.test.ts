@@ -121,6 +121,14 @@ const GOVERNED: Record<string, Requirement> = {
   // Which extras the menu offers. Same capability as the short list on purpose:
   // both are "what does my party serve", and a host holds it at their own.
   'PUT /api/events/[id]/settings': 'menu:curate',
+  // The noises a host records. Same capability again — same kind of decision.
+  'GET /api/events/[id]/sounds': 'menu:curate',
+  'POST /api/events/[id]/sounds': 'menu:curate',
+  'PATCH /api/events/[id]/sounds/[soundId]': 'menu:curate',
+  'DELETE /api/events/[id]/sounds/[soundId]': 'menu:curate',
+  // Public, like the menu it plays alongside: a guest has no credential by design,
+  // and this is a noise the host chose to play at everyone who walks in.
+  'GET /api/events/[id]/sounds/[soundId]/audio': 'public',
 
   // Better Auth's catch-all: these are how someone *becomes* authenticated, so a
   // capability gate would be circular. Its own guards are inside the library — and

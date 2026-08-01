@@ -1,7 +1,15 @@
 import { json, type RequestEvent } from '@sveltejs/kit';
-import { makeable, party, readSettings, OPTIONAL_CATEGORIES, RECIPES } from '$lib/shared';
+import {
+  isSoundCue,
+  makeable,
+  party,
+  readSettings,
+  OPTIONAL_CATEGORIES,
+  RECIPES,
+  type PartySounds,
+} from '$lib/shared';
 import { DRINKS } from '$lib/data';
-import { eventById, listEventMenu, listStock, setEventMenu } from '$lib/server/db';
+import { eventById, listEventMenu, listSounds, listStock, setEventMenu } from '$lib/server/db';
 import { body, denied, fail, requireCapability } from '$lib/server/guards';
 
 /** Recipe ids one party may feature. Generous; a guard against a flood. */
@@ -80,6 +88,22 @@ export function GET(event: RequestEvent) {
      * so a host flipping a switch reaches open menus for free.
      */
     settings: readSettings(found.settings),
+    /**
+     * Which takes are live, per cue — ids only, never the audio.
+     *
+     * A cue is on exactly when it has an enabled take, so there is no separate switch
+     * that could disagree with the recordings underneath it. The guest's phone fetches
+     * each clip once from its own immutable URL and picks between them at play time,
+     * which is what makes "record it four times and let the party choose" cost one
+     * small array on a payload that re-polls every minute.
+     */
+    sounds: listSounds(found.id).reduce(
+      (acc, s) => {
+        if (s.enabled && isSoundCue(s.cue)) acc[s.cue].push(s.id);
+        return acc;
+      },
+      { join: [], add: [], sent: [] } as PartySounds,
+    ),
     /**
      * The cupboard itself, so "help me choose" can run in the browser.
      *

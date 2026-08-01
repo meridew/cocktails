@@ -63,6 +63,43 @@ export const event = sqliteTable('event', {
 });
 
 /**
+ * A noise the host recorded, played at one moment of a guest's evening.
+ *
+ * **A row per take, not per cue**, which is the whole shape of the feature: a host
+ * records "welcome in!" four times in four voices and the party picks one at random,
+ * so the fifth guest through the door doesn't hear the same clip the first did.
+ *
+ * `enabled` is why a take is a row rather than a slot. Deleting a recording you might
+ * want back later is a bad trade for "not tonight", and a cue is on exactly when it
+ * has at least one enabled take — so there is no separate per-cue switch that could
+ * disagree with the takes underneath it.
+ *
+ * The audio itself lives here as a data URL, like `eventGuest.photo`, because these
+ * are three-second clips and a filesystem is one more thing to back up, permission
+ * and lose.
+ *
+ * **`id` is the cache key, and there is no content hash.** A selfie needed one
+ * because it is a column on a row a guest can edit, so the row's own key says nothing
+ * about which picture you'd get. A take is never edited — recording again makes
+ * another row — so `id` already names one unchanging clip, which is all `immutable`
+ * on the serving URL requires.
+ */
+export const eventSound = sqliteTable('event_sound', {
+  id: text('id').primaryKey(),
+  eventId: text('event_id')
+    .notNull()
+    .references(() => event.id, { onDelete: 'cascade' }),
+  /** One of `SOUND_CUES` — `join`, `add` or `sent`. See `$lib/shared/party`. */
+  cue: text('cue').notNull(),
+  /** `data:audio/…;base64,…`. Validated against an allow-list on the way in. */
+  audio: text('audio').notNull(),
+  /** What the host called it, or "Take 3" if they didn't. */
+  label: text('label').notNull(),
+  enabled: integer('enabled', { mode: 'boolean' }).notNull().default(true),
+  createdAt: integer('created_at').notNull(),
+});
+
+/**
  * What a **host** has in — the cupboard the menu is generated from.
  *
  * Keyed on the user, not the event, and that is the whole point: a home bar is

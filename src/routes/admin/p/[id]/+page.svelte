@@ -13,6 +13,7 @@
     eventMenu,
     getStock,
     listHosts,
+    listTakes,
     myParties,
     openBar,
     updateParty,
@@ -26,6 +27,7 @@
   import Cupboard from '$lib/components/Cupboard.svelte';
   import Gate from '$lib/components/Gate.svelte';
   import MenuExtras from '$lib/components/MenuExtras.svelte';
+  import PartySounds from '$lib/components/PartySounds.svelte';
   import ShortList from '$lib/components/ShortList.svelte';
   import WorkSheet from '$lib/components/WorkSheet.svelte';
 
@@ -39,7 +41,10 @@
   let notice = $state('');
   let curating = $state(false);
   let extras = $state(false);
+  let sounds = $state(false);
   let cupboardOpen = $state(false);
+  /** How much has been recorded, so the card says it without opening the sheet. */
+  let soundCount = $state<{ takes: number; cues: number } | null>(null);
   let menuSummary = $state<{ featured: number; total: number } | null>(null);
   /** How many extras are on, and which aren't — so the card says it without opening. */
   let extrasOn = $state<{ on: number; total: number; off: string[] } | null>(null);
@@ -71,6 +76,21 @@
     }
   }
 
+  /**
+   * The sounds are counted separately from the menu, because they are not on it: the
+   * guest payload carries only the *enabled* ids, and this card has to speak for the
+   * parked takes too — "3 recordings" that became "1 recording" when two were
+   * switched off would read as having lost them.
+   */
+  async function countSounds(): Promise<void> {
+    try {
+      const { sounds: takes } = await listTakes(eventId);
+      soundCount = { takes: takes.length, cues: new Set(takes.map((t) => t.cue)).size };
+    } catch {
+      /* the card falls back to "Loading…" rather than inventing a number */
+    }
+  }
+
   let started = false;
   $effect(() => {
     if (!session.actor.account || started) return;
@@ -82,7 +102,7 @@
       ]);
       party = p?.events.find((e) => e.id === eventId) ?? null;
       host = h?.hosts.find((x) => x.id === party?.hostUserId) ?? null;
-      await countMenu();
+      await Promise.all([countMenu(), countSounds()]);
       if (host) await countStock(host.id);
       loading = false;
     })();
@@ -287,6 +307,31 @@
           <button class="btn" type="button" onclick={() => (extras = true)}>Change them</button>
         </section>
 
+        <!-- Its own card rather than a section inside "Extras", because a switch and a
+             recording are different kinds of work: one is a decision, the other is a
+             job with a microphone in it. Same page, so the two are still found
+             together. -->
+        <section class="panel">
+          <h2>Sounds</h2>
+          <p class="card-stat">
+            {#if !soundCount}
+              <span class="row-note">Loading…</span>
+            {:else if soundCount.takes === 0}
+              <span class="row-note">Nothing recorded — the party runs quietly.</span>
+            {:else}
+              <b>{soundCount.takes}</b>
+              <span class="row-note">
+                {soundCount.takes === 1 ? 'recording' : 'recordings'} across
+                {soundCount.cues}
+                {soundCount.cues === 1 ? 'moment' : 'moments'}
+              </span>
+            {/if}
+          </p>
+          <button class="btn" type="button" onclick={() => (sounds = true)}>
+            {soundCount?.takes ? 'Change them' : 'Record something'}
+          </button>
+        </section>
+
         <section class="panel">
           <h2>Their guests' link</h2>
           <p>Put this under a QR code on the table, or send it round.</p>
@@ -351,6 +396,19 @@
     }}
   >
     <MenuExtras {eventId} />
+  </WorkSheet>
+{/if}
+
+{#if sounds && party}
+  <WorkSheet
+    title="Sounds"
+    subtitle={party.name}
+    onclose={() => {
+      sounds = false;
+      void countSounds();
+    }}
+  >
+    <PartySounds {eventId} />
   </WorkSheet>
 {/if}
 

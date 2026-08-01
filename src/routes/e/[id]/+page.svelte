@@ -32,6 +32,7 @@
   import { eventMenu, joinParty, putGuestPhoto, type EventMenu, type MenuItem } from '$lib/api';
   import { photoSentTo, rememberPhotoSent, savedPhoto, savedPhotoId } from '$lib/photo';
   import { setArriving } from '$lib/stores/arrival.svelte';
+  import { loadSounds, playCue } from '$lib/sound';
   import PhotoPicker from '$lib/components/PhotoPicker.svelte';
   import { emojiFor, groupByBase } from '$lib/menu';
   import { ALL_ON, can, party as partyScope } from '$lib/shared';
@@ -101,6 +102,10 @@
   async function loadMenu(): Promise<void> {
     try {
       menu = await eventMenu(data.eventId);
+      // Every load, not just the first: a host who records a sound mid-party reaches
+      // phones already open on the menu, and `loadSounds` keeps the clips it already
+      // has rather than throwing away their buffering.
+      loadSounds(data.eventId, menu.sounds);
     } catch {
       /* offline, or a party that's been deleted — keep whatever we last had */
     }
@@ -380,11 +385,12 @@
       selected = configurable;
       // The flash comes when the sheet's own "Add to order" fires, not now — this
       // tap only opened a dialog, and saying "added" would be a lie for the second
-      // or two before they confirm.
+      // or two before they confirm. The sound waits for the same reason.
       return;
     }
     addLine(item.name);
     flash(item.id);
+    playCue('add');
   }
 
   function toggleFav(name: string) {
@@ -396,6 +402,7 @@
     view.order = false;
     celebrating = true;
     fireConfetti();
+    playCue('sent');
   }
 </script>
 
@@ -472,6 +479,17 @@
           <form
             onsubmit={(e) => {
               e.preventDefault();
+              /**
+               * **The join sound fires here and not inside `join()`.**
+               *
+               * `join()` also runs on mount for a guest whose name this device already
+               * knows — no tap, so no gesture, so a browser would refuse to play
+               * anything and the cue would work for first-timers only. It is hung on
+               * the submit itself, which is the tap, and which is also the honest
+               * moment: somebody is joining. A guest coming back for a second round
+               * didn't arrive, they returned.
+               */
+              playCue('join');
               void join(nameInput);
             }}
           >
@@ -673,7 +691,17 @@
        defaults, so we want a fresh component rather than a reused one carrying
        the previous selections. Configurator relies on this. -->
   {#key selected.name}
-    <Configurator drink={selected} onadd={(n) => addLine(n)} onclose={() => (selected = null)} />
+    <!-- The sound rides the configurator's own "Add to order" rather than the tap
+         that opened it, so the six house drinks sound the same as the generated ones
+         at the moment the drink actually goes in. -->
+    <Configurator
+      drink={selected}
+      onadd={(n) => {
+        addLine(n);
+        playCue('add');
+      }}
+      onclose={() => (selected = null)}
+    />
   {/key}
 {/if}
 {#if celebrating}

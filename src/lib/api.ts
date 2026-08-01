@@ -14,6 +14,8 @@ import type {
   StaffRequestCreated,
   Staff,
   PartySettings,
+  PartySounds,
+  SoundCue,
 } from '$lib/shared';
 import { currentEventId } from './party';
 
@@ -370,6 +372,8 @@ export interface EventMenu {
   shortList: string[];
   /** Which extras this party offers. Rides here so the menu poll carries changes. */
   settings: PartySettings;
+  /** Enabled take ids per cue — see `$lib/sound`. Ids only; the audio is fetched. */
+  sounds: PartySounds;
   /** The host's ingredients, so "help me choose" can run without a round trip. */
   stock: string[];
 }
@@ -392,6 +396,46 @@ export const setPartySettings = (eventId: string, settings: Partial<PartySetting
     method: 'PUT',
     body: JSON.stringify({ settings }),
   });
+
+// ---- the noises a party makes ----
+
+/** One recorded take, as the host's list sees it. The audio is fetched separately. */
+export interface Take {
+  id: string;
+  eventId: string;
+  cue: string;
+  label: string;
+  enabled: boolean;
+  createdAt: number;
+}
+
+/** Every take at a party, on or off. Host-only; guests get ids on the menu payload. */
+export const listTakes = (eventId: string) =>
+  req<{ ok: true; sounds: Take[] }>(`/events/${eventId}/sounds`);
+
+/** Keep a recording. Arrives enabled — they just made it on purpose. */
+export const addTake = (eventId: string, cue: SoundCue, audio: string, label?: string) =>
+  req<{ ok: true; id: string }>(`/events/${eventId}/sounds`, {
+    method: 'POST',
+    body: JSON.stringify({ cue, audio, label }),
+  });
+
+/** Park a take without losing it. A cue falls silent when nothing of its is on. */
+export const setTakeEnabled = (eventId: string, id: string, enabled: boolean) =>
+  req<OkResponse>(`/events/${eventId}/sounds/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ enabled }),
+  });
+
+export const deleteTake = (eventId: string, id: string) =>
+  req<OkResponse>(`/events/${eventId}/sounds/${id}`, { method: 'DELETE' });
+
+/**
+ * Where one clip's bytes live. **Not a `req` call** — this is a URL, handed to an
+ * `<audio>` element rather than fetched, so the browser streams and caches it.
+ */
+export const takeAudioUrl = (eventId: string, id: string): string =>
+  `/api/events/${eventId}/sounds/${id}/audio`;
 
 // ---- admin: the people and their parties ----
 

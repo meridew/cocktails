@@ -20,6 +20,7 @@
   import { goto } from '$app/navigation';
   import { eventMenu, joinParty, type EventMenu, type MenuItem } from '$lib/api';
   import { emojiFor } from '$lib/menu';
+  import { loadSounds, playCue } from '$lib/sound';
   import { createGrid, type Grid } from '$lib/three/grid';
   import { addLine, basketCount } from '$lib/stores/basket.svelte';
   import { getDeviceId, getSavedName, saveName } from '$lib/device';
@@ -99,6 +100,11 @@
       return;
     }
 
+    // Same clips as the flat menu. This page fetches once rather than polling, so a
+    // sound recorded while somebody is in here lands on their next visit — which is
+    // the right trade for a scene that is already holding a GPU context open.
+    loadSounds(data.eventId, menu.sounds);
+
     if (onOffer.length === 0) {
       status = 'empty';
       return;
@@ -117,7 +123,10 @@
         // menu uses. A generated recipe has none and goes straight in.
         const configurable = DRINKS.find((d) => d.name === item.name);
         if (configurable) selected = configurable;
-        else addLine(item.name);
+        else {
+          addLine(item.name);
+          playCue('add');
+        }
       },
     });
     grid.setItems(onOffer);
@@ -145,6 +154,7 @@
     view.order = false;
     celebrating = true;
     fireConfetti();
+    playCue('sent');
   }
 
   onDestroy(() => grid?.dispose());
@@ -176,6 +186,9 @@
         <form
           onsubmit={(e) => {
             e.preventDefault();
+            // On the tap, not inside `join()` — see the flat menu's note. `join()`
+            // also runs unattended for a guest this device already has a name for.
+            playCue('join');
             void join(nameInput);
           }}
         >
@@ -229,7 +242,14 @@
 
 {#if selected}
   {#key selected.name}
-    <Configurator drink={selected} onadd={(n) => addLine(n)} onclose={() => (selected = null)} />
+    <Configurator
+      drink={selected}
+      onadd={(n) => {
+        addLine(n);
+        playCue('add');
+      }}
+      onclose={() => (selected = null)}
+    />
   {/key}
 {/if}
 {#if celebrating}

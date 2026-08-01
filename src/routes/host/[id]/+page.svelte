@@ -16,7 +16,15 @@
   import { onDestroy } from 'svelte';
   import { goto } from '$app/navigation';
   import { page } from '$app/state';
-  import { eventMenu, listOrders, myParties, NotFound, Unauthorized, type Party } from '$lib/api';
+  import {
+    eventMenu,
+    listOrders,
+    listTakes,
+    myParties,
+    NotFound,
+    Unauthorized,
+    type Party,
+  } from '$lib/api';
   import {
     MENU_EXTRAS,
     ORDER_STATUSES,
@@ -28,6 +36,7 @@
   import AppBar from '$lib/components/AppBar.svelte';
   import Gate from '$lib/components/Gate.svelte';
   import MenuExtras from '$lib/components/MenuExtras.svelte';
+  import PartySounds from '$lib/components/PartySounds.svelte';
   import ShortList from '$lib/components/ShortList.svelte';
   import WorkSheet from '$lib/components/WorkSheet.svelte';
 
@@ -43,7 +52,10 @@
   let notice = $state('');
   let curating = $state(false);
   let extras = $state(false);
+  let sounds = $state(false);
   let timer: ReturnType<typeof setInterval> | undefined;
+  /** How much has been recorded, so the card says it without opening the sheet. */
+  let soundCount = $state<{ takes: number; cues: number } | null>(null);
 
   /** So the card can say what the menu leads with without opening the board. */
   let menuSummary = $state<{ featured: number; total: number } | null>(null);
@@ -62,6 +74,21 @@
       };
     } catch {
       /* the card falls back to its "couldn't count" copy */
+    }
+  }
+
+  /**
+   * Counted separately from the menu, because the sounds are not on it: the guest
+   * payload carries only the *enabled* ids, and this card has to speak for the parked
+   * takes too — "3 recordings" dropping to "1" on switching two off would read as
+   * having lost them.
+   */
+  async function countSounds(): Promise<void> {
+    try {
+      const { sounds: takes } = await listTakes(eventId);
+      soundCount = { takes: takes.length, cues: new Set(takes.map((t) => t.cue)).size };
+    } catch {
+      /* the card falls back to "Loading…" rather than inventing a number */
     }
   }
 
@@ -96,7 +123,7 @@
     started = true;
     void (async () => {
       party = (await myParties().catch(() => null))?.events.find((e) => e.id === eventId) ?? null;
-      await Promise.all([fetchOrders(), countMenu()]);
+      await Promise.all([fetchOrders(), countMenu(), countSounds()]);
       loading = false;
       timer = setInterval(() => void fetchOrders(), POLL_MS);
     })();
@@ -213,6 +240,33 @@
           <button class="btn" type="button" onclick={() => (extras = true)}>Change them</button>
         </section>
 
+        <!-- Its own card rather than a section inside "Extras", because a switch and a
+             recording are different kinds of work: one is a decision, the other is a
+             job with a microphone in it. Same page, so the two are still found
+             together. -->
+        <section class="panel">
+          <h2>Sounds</h2>
+          <p class="card-stat">
+            {#if !soundCount}
+              <span class="row-note">Loading…</span>
+            {:else if soundCount.takes === 0}
+              <span class="row-note">
+                Nothing recorded. Put your own voice on the moments that matter.
+              </span>
+            {:else}
+              <b>{soundCount.takes}</b>
+              <span class="row-note">
+                {soundCount.takes === 1 ? 'recording' : 'recordings'} across
+                {soundCount.cues}
+                {soundCount.cues === 1 ? 'moment' : 'moments'}
+              </span>
+            {/if}
+          </p>
+          <button class="btn" type="button" onclick={() => (sounds = true)}>
+            {soundCount?.takes ? 'Change them' : 'Record something'}
+          </button>
+        </section>
+
         <section class="panel">
           <h2>What's happening</h2>
           <!-- Watching, not working. Every row here is a statement, not a button. -->
@@ -276,5 +330,18 @@
     }}
   >
     <MenuExtras {eventId} />
+  </WorkSheet>
+{/if}
+
+{#if sounds}
+  <WorkSheet
+    title="Sounds"
+    subtitle={party?.name}
+    onclose={() => {
+      sounds = false;
+      void countSounds();
+    }}
+  >
+    <PartySounds {eventId} />
   </WorkSheet>
 {/if}

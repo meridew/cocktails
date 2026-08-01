@@ -41,6 +41,9 @@ import * as hostStock from '../src/routes/api/hosts/[id]/stock/+server';
 import * as eventById from '../src/routes/api/events/[id]/+server';
 import * as eventMenu from '../src/routes/api/events/[id]/menu/+server';
 import * as eventSettings from '../src/routes/api/events/[id]/settings/+server';
+import * as eventSounds from '../src/routes/api/events/[id]/sounds/+server';
+import * as eventSound from '../src/routes/api/events/[id]/sounds/[soundId]/+server';
+import * as eventSoundAudio from '../src/routes/api/events/[id]/sounds/[soundId]/audio/+server';
 import * as eventGuests from '../src/routes/api/events/[id]/guests/+server';
 import * as guestPhoto from '../src/routes/api/events/[id]/guests/photo/+server';
 import * as parties from '../src/routes/api/parties/+server';
@@ -76,6 +79,9 @@ export const ROUTES: Record<string, Handlers> = {
   '/api/events/[id]': eventById,
   '/api/events/[id]/menu': eventMenu,
   '/api/events/[id]/settings': eventSettings,
+  '/api/events/[id]/sounds': eventSounds,
+  '/api/events/[id]/sounds/[soundId]': eventSound,
+  '/api/events/[id]/sounds/[soundId]/audio': eventSoundAudio,
   '/api/events/[id]/guests': eventGuests,
   '/api/events/[id]/guests/photo': guestPhoto,
   '/api/parties': parties,

@@ -1,6 +1,6 @@
 <script lang="ts">
   /**
-   * Settings. One switch today — notifications on or off for this device.
+   * Settings for this device: notifications, party sounds, and your photo.
    *
    * "Off" isn't a preference the server consults before sending; it's the absence
    * of a subscription. Web Push is `userVisibleOnly`, so a push that arrives *must*
@@ -27,10 +27,14 @@
   import { currentEventId } from '$lib/party';
   import { getDeviceId } from '$lib/device';
   import { photoId as hashOf, rememberPhotoSent } from '$lib/photo';
+  import { muteSounds, soundsMuted } from '$lib/sound';
   import InstallButton from '$lib/components/InstallButton.svelte';
   import PhotoPicker from '$lib/components/PhotoPicker.svelte';
 
   let { onclose }: { onclose: () => void } = $props();
+
+  /** Read once on open: `localStorage` isn't reactive, and nothing else writes it. */
+  let quiet = $state(soundsMuted());
 
   /**
    * **Signing out lives here now.**
@@ -175,6 +179,37 @@
       clears them, which is the honest tradeoff of not holding a list of every bar
       this phone has ever visited.
     -->
+    <!--
+      **Party sounds, off.**
+
+      A host can put their own voice on arriving, ordering and sending, and most people
+      will want to hear it. But a phone that starts talking in a pocket is its own
+      problem, and there is no way for the host to know whose room is quiet — so the
+      answer lives on the device, next to the other thing this sheet exists for.
+
+      It says nothing about whether *this* party has any: the switch is about what this
+      phone is willing to do, and a party with no recordings simply stays silent
+      either way.
+    -->
+    <button
+      type="button"
+      class="barmenu-item"
+      role="switch"
+      aria-checked={!quiet}
+      onclick={() => {
+        quiet = !quiet;
+        muteSounds(quiet);
+      }}
+    >
+      <span>Party sounds</span>
+      <em>{quiet ? 'Off' : 'On'}</em>
+    </button>
+    <p class="settings-note">
+      {quiet
+        ? "You won't hear anything your host recorded."
+        : 'Short clips your host recorded, if they made any.'}
+    </p>
+
     <div class="settings-account">
       <p class="settings-note">Your photo</p>
       <PhotoPicker onchange={onPhotoChange} />
