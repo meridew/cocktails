@@ -12,6 +12,7 @@
    * a one-tap toggle after the first grant.
    */
   import { goto } from '$app/navigation';
+  import { version } from '$app/environment';
   import { dialog } from '$lib/dialog';
   import {
     disablePush,
@@ -35,6 +36,23 @@
 
   /** Read once on open: `localStorage` isn't reactive, and nothing else writes it. */
   let quiet = $state(soundsMuted());
+
+  /**
+   * When this build was made, in the reader's own timezone.
+   *
+   * SvelteKit's `version` defaults to the build timestamp, so it is already the
+   * number we want and there is nothing to maintain. Rendered as a date because
+   * "1785580553118" answers nobody's question, and left raw if a future config sets
+   * a name instead of a stamp.
+   */
+  const stamp = /^\d+$/.test(version)
+    ? new Date(Number(version)).toLocaleString(undefined, {
+        day: 'numeric',
+        month: 'short',
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+    : version;
 
   /**
    * **Signing out lives here now.**
@@ -229,6 +247,20 @@
         </button>
       </div>
     {/if}
+
+    <!--
+      **Which version is this?**
+
+      Written after an afternoon of not being able to answer that. Phones were stuck
+      on an old build, three plausible causes were each disproved in turn, and every
+      check came down to "can you see a feature that only exists in the new one" —
+      which needs somebody to know what shipped when, and is useless to a guest.
+
+      A date on the screen turns that into a five-second question. It is deliberately
+      the last thing in this sheet and deliberately quiet: nobody needs it until they
+      need it badly.
+    -->
+    <p class="settings-note settings-build">Version {stamp}</p>
 
     <button type="button" class="barmenu-close" onclick={onclose}>Close</button>
   </div>

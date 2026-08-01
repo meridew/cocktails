@@ -1398,6 +1398,14 @@ button.row:hover {
   top: 0;
   z-index: 2;
 }
+/* The build date, last in Settings. Quiet enough to ignore, findable when the
+   question is "which version am I actually looking at". */
+.settings-build {
+  text-align: center;
+  opacity: 0.7;
+  font-variant-numeric: tabular-nums;
+}
+
 /* Says how much is at stake, next to the button that resolves it. */
 .unsaved {
   margin-left: 8px;
