@@ -2,12 +2,12 @@
 
 Things deliberately deferred — revisit before they block a phase.
 
-> ## ⚠️ Start with [`HANDOFF-2026-08-01.md`](HANDOFF-2026-08-01.md)
+> ## Start with [`HANDOFF-2026-08-01.md`](HANDOFF-2026-08-01.md)
 >
-> The 1 Aug session supersedes parts of the 31 Jul section below. Two things there
-> are live hazards this file does not mention: **`EVACUATE` is switched on in the
-> service worker** and must be turned back off, and **"which party?" on the bar is an
-> open bug with the audit half-finished**. Read that first.
+> The active code hazards from that handoff are resolved in the current worktree:
+> order mutations retain party scope, and the worker is push-only with a one-time
+> legacy-cache evacuation. They are **not live until explicitly deployed**. Mac SSH,
+> outbound-email configuration and offsite backups remain external blockers.
 
 ## 📍 Where the session of 31 Jul 2026 (evening) left things
 
@@ -45,12 +45,10 @@ the others and only the third is fixed in code:
    HTTP cache, so a stale document came back looking like a fresh one and was written
    into Cache Storage as current. Fixed in `hooks.server.ts` (`b16deb9`).
 
-**Still open, and the better question:** the service worker does two jobs — precache
-the shell, and receive Web Push. Push needs it. Precaching does not, and precaching
-caused every failure above. Everything the app does needs the API, so an offline
-shell renders a UI that cannot do anything. Chrome dropped the fetch-handler
-requirement for installability in 108/112, so **stripping the worker back to push-only
-is available and would delete more code than it adds.** Proposed, not decided.
+**Resolved in the current worktree:** the worker is push-only. It installs without
+fetching the app shell, never intercepts page requests, and deletes the old
+`cocktails-*` caches. Finding one of those caches triggers one final reload for the
+legacy client; later deploys return to the polite update prompt.
 
 ### ~~Tests are on disk but out of the gate~~ — partly reversed, 1 Aug 2026
 
@@ -151,11 +149,11 @@ scope)` is the account-role × party-role pair, and `tests/permissions.test.ts`
 
 **One survives**, and it is in the plan's §13 too:
 
-### `staffByIdUnscoped` is guarded by its name, not by the type system
+### ~~`staffByIdUnscoped` is guarded by its name, not by the type system~~ ✅ resolved
 
-The unscoped lookup is genuinely needed when resolving a session from a token we
-already trust. But the plan's principle is "the type system is the defence, not
-care", and a name is care. A branded `TrustedStaffId` type would make it real.
+`staffByIdUnscoped` now requires a branded `TrustedStaffId`, produced when a staff
+session is selected by its hashed bearer token. Other former callers retain their
+already-scoped `StaffRow` instead of dropping scope and looking it up again.
 
 ## ⛔ Waiting on a human
 

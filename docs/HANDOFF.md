@@ -1,5 +1,11 @@
 # 🤝 Session Handoff — read this first
 
+> **Archived pre-platform handoff.** Its NAS deployment, shared credentials, route
+> counts and next steps are obsolete. Start with
+> [`HANDOFF-2026-08-01.md`](HANDOFF-2026-08-01.md), then use
+> [`OUTSTANDING.md`](OUTSTANDING.md) for deliberately parked work. This file remains
+> only as history for decisions that the newer handoff does not discuss.
+
 > Context snapshot so a fresh session (started in **this** folder,
 > `C:\Users\danie\vscode-workspace\cocktails`) can continue seamlessly.
 > **Active work:** [`PLATFORM-PLAN.md`](PLATFORM-PLAN.md) — **rewritten 31 Jul 2026**

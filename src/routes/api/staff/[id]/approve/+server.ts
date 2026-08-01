@@ -15,7 +15,7 @@ export async function POST(event: RequestEvent) {
   if (denied(auth)) return auth.denied;
 
   const target = staffInEvent(eventId, event.params.id!);
-  if (!target || !approveStaff(target.id, auth.actor.account?.id ?? null)) {
+  if (!target || !approveStaff(target, auth.actor.account?.id ?? null)) {
     return fail(404, 'no pending request');
   }
   // Reach them even if they've pocketed their phone: polling only works while the

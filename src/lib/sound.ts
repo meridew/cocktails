@@ -28,6 +28,20 @@
 import { takeAudioUrl } from '$lib/api';
 import { NO_SOUNDS, type PartySounds, type SoundCue } from '$lib/shared';
 
+/** Keep the phone's voice-call processing from flattening short party recordings. */
+export const RECORDING_CONSTRAINTS: MediaTrackConstraints = {
+  echoCancellation: false,
+  noiseSuppression: false,
+  autoGainControl: true,
+  sampleRate: 48_000,
+};
+
+/** A browser still chooses the codec; this only gives the chosen one enough room. */
+export const recorderOptions = (mimeType?: string): MediaRecorderOptions => ({
+  ...(mimeType ? { mimeType } : {}),
+  audioBitsPerSecond: 128_000,
+});
+
 /** Buffered clips, by take id. Module-level: one party per page, one set of sounds. */
 const players = new Map<string, HTMLAudioElement>();
 

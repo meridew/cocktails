@@ -1,7 +1,7 @@
 # cocktails
 
-A SvelteKit party-ordering app, served by one Node process. `docs/HANDOFF.md`
-describes the stack; `docs/PLATFORM-PLAN.md` describes where it's going and why.
+A SvelteKit party-ordering app, served by one Node process. Start with
+`docs/HANDOFF-2026-08-01.md`; `docs/PLATFORM-PLAN.md` explains the product and why.
 
 ## Shells on Windows — read before running commands
 
@@ -60,7 +60,7 @@ recorded in `docs/PLATFORM-PLAN.md` §9.
   done on a green typecheck alone — and don't skip `format:check`, which CI runs
   first and which will fail a commit that only the other two were run against.
 - `npm run test:e2e` builds the app and drives it in a real browser (Playwright,
-  `e2e/`). It also gates in CI. Slower than the rest, and worth running whenever a
+  `e2e/`). It is run by hand, not in CI. Slower than the rest, and worth running whenever a
   change crosses more than one participant — a host's cupboard reaching a guest's
   menu, a guest's order reaching the bar.
 - **`npx playwright test` does not build.** The server it starts

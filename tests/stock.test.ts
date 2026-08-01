@@ -14,6 +14,7 @@ import { test, describe, beforeAll } from 'vitest';
 import assert from 'node:assert/strict';
 import { request, send } from './app';
 import {
+  admittedDevice,
   asAccount,
   asBar,
   barToken,
@@ -284,6 +285,26 @@ describe('the short list', () => {
   test('emptying it is allowed — curation is optional in both directions', async () => {
     assert.equal((await curate(anaParty, [], asAccount(ana))).status, 200);
     assert.deepEqual((await readMenu(anaParty)).shortList, []);
+  });
+
+  test('a stale basket cannot order around the current short list', async () => {
+    await putStock(ana.id, MARGARITA, asAccount(ana));
+    await curate(anaParty, ['margarita'], asAccount(ana));
+    const excluded = (await readMenu(anaParty)).items.find((item) => item.id !== 'margarita');
+    assert.ok(excluded, 'the cupboard should make another drink to exclude');
+
+    const res = await request(
+      '/api/orders',
+      send('POST', {
+        eventId: anaParty,
+        deviceId: admittedDevice(anaParty, 'stale-menu'),
+        name: 'Stale guest',
+        items: [{ name: excluded.name, qty: 1 }],
+      }),
+    );
+    assert.equal(res.status, 422);
+    assert.match(((await res.json()) as { error: string }).error, /not on this party's menu/i);
+    await curate(anaParty, [], asAccount(ana));
   });
 
   test('Admin curates for a host who would rather not', async () => {

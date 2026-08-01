@@ -23,6 +23,7 @@
    */
   import { onDestroy } from 'svelte';
   import { MAX_TAKE_SECONDS } from '$lib/shared';
+  import { RECORDING_CONSTRAINTS, recorderOptions } from '$lib/sound';
 
   /**
    * `onkeep` answers whether it actually stored the thing — see `keep` below for why
@@ -83,7 +84,7 @@
     err = '';
     preview = null;
     try {
-      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream = await navigator.mediaDevices.getUserMedia({ audio: RECORDING_CONSTRAINTS });
     } catch {
       // Denied, or no microphone. Both look the same from here and read the same to
       // a host, who only needs to know it isn't going to work.
@@ -94,7 +95,7 @@
     const mimeType = supported();
     const chunks: Blob[] = [];
     try {
-      rec = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+      rec = new MediaRecorder(stream, recorderOptions(mimeType));
     } catch {
       release();
       err = "This browser won't record audio.";

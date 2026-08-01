@@ -1,16 +1,8 @@
 import { json, type RequestEvent } from '@sveltejs/kit';
-import {
-  isSoundCue,
-  makeable,
-  party,
-  readSettings,
-  OPTIONAL_CATEGORIES,
-  RECIPES,
-  type PartySounds,
-} from '$lib/shared';
-import { DRINKS } from '$lib/data';
-import { eventById, listEventMenu, listSounds, listStock, setEventMenu } from '$lib/server/db';
+import { isSoundCue, party, readSettings, RECIPES, type PartySounds } from '$lib/shared';
+import { eventById, listSounds, setEventMenu } from '$lib/server/db';
 import { body, denied, fail, requireCapability } from '$lib/server/guards';
+import { generatedMenu } from '$lib/server/menu';
 
 /** Recipe ids one party may feature. Generous; a guard against a flood. */
 const MAX_SHORT_LIST = 60;
@@ -46,22 +38,8 @@ export function GET(event: RequestEvent) {
   const found = eventById(event.params.id!);
   if (!found) return fail(404, 'no such party');
 
-  // The cupboard belongs to the **host**, not the party — so several parties for the
-  // same host all read one list, and a host who restocks does it once.
-  const rows = listStock(found.hostUserId);
-  const stock = rows.filter((r) => r.inStock).map((r) => r.ingredient);
-  const recorded = rows.length > 0;
-
-  const items = recorded
-    ? makeable(stock, { ignore: OPTIONAL_CATEGORIES }).map(describe)
-    : DRINKS.map((d) => ({
-        id: d.name,
-        name: d.name,
-        base: d.spirits[0] ?? '',
-        blurb: undefined,
-        glass: undefined,
-        garnish: undefined,
-      }));
+  // The cupboard belongs to the host, and this same result gates POST /api/orders.
+  const { source, recorded, stock, items, shortList } = generatedMenu(found);
 
   return json({
     ok: true,
@@ -73,14 +51,14 @@ export function GET(event: RequestEvent) {
      */
     event: { id: found.id, name: found.name, status: found.status },
     /** Where the list came from, so the guest screen can say so honestly. */
-    source: recorded ? 'cupboard' : 'house',
+    source,
     recorded,
     items,
     /**
      * Recipe ids this party leads with. **Empty means show everything** — curation is
      * optional and its absence must not read as a broken menu.
      */
-    shortList: listEventMenu(found.id).filter((id) => items.some((i) => i.id === id)),
+    shortList,
     /**
      * Which extras the menu offers — see `PUT ./settings`, which has no GET of its
      * own precisely so that this is the one payload carrying them. It is already
@@ -116,15 +94,6 @@ export function GET(event: RequestEvent) {
     stock,
   });
 }
-
-const describe = (r: (typeof RECIPES)[number]) => ({
-  id: r.id,
-  name: r.name,
-  base: r.base,
-  blurb: r.blurb,
-  glass: r.glass,
-  garnish: r.garnish,
-});
 
 /**
  * Choose what this party leads with.

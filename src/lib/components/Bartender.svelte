@@ -252,13 +252,13 @@
   };
 
   const act = (o: Order, status: OrderStatus, handoff?: Handoff) =>
-    mutate(o.id, async () => merge((await setStatus(o.id, status, handoff)).order));
+    mutate(o.id, async () => merge((await setStatus(o.id, eventId, status, handoff)).order));
 
   const bump = (o: Order, bumped: boolean) =>
-    mutate(o.id, async () => merge((await bumpOrder(o.id, bumped)).order));
+    mutate(o.id, async () => merge((await bumpOrder(o.id, eventId, bumped)).order));
 
   const progress = (o: Order, index: number, made: number) =>
-    mutate(o.id, async () => merge((await setItemProgress(o.id, index, made)).order));
+    mutate(o.id, async () => merge((await setItemProgress(o.id, eventId, index, made)).order));
 
   /**
    * Let this guest in, or turn them away.
@@ -270,7 +270,7 @@
    */
   const admit = (o: Order, block: boolean) =>
     mutate(o.id, async () => {
-      await admitOrderGuest(o.id, block);
+      await admitOrderGuest(o.id, eventId, block);
       if (block && openId === o.id) openId = null;
       await fetchOrders();
     });
@@ -278,7 +278,7 @@
   const del = (o: Order) =>
     mutate(o.id, async () => {
       try {
-        await deleteOrder(o.id);
+        await deleteOrder(o.id, eventId);
       } catch (e) {
         // Another bartender already removed it — the goal is met either way.
         if (!(e instanceof NotFound)) throw e;
@@ -289,7 +289,7 @@
 
   const clearDone = () =>
     mutate(BULK, async () => {
-      await clearOrders('done');
+      await clearOrders(eventId, 'done');
       orders = orders.filter((o) => o.status !== 'done');
     });
 

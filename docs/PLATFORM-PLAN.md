@@ -987,9 +987,9 @@ Written down so nobody has to discover them, and so nobody "fixes" one by accide
 - **The `staff` table is `event_member`.** The old plan named a separate membership
   table; one table with a nullable `user_id` is what actually works, because helpers
   deliberately have no account. See `HISTORY.md`.
-- **`staffByIdUnscoped` is guarded by its name, not the type system.** The plan's own
-  principle is that the type system is the defence and a name is care. A branded
-  `TrustedStaffId` would make it real.
+- **~~`staffByIdUnscoped` is guarded by its name, not the type system.~~ Resolved 1
+  Aug 2026.** It now requires a branded `TrustedStaffId` produced by a hashed staff
+  session lookup. Callers that already have a scoped `StaffRow` keep it.
 
 ---
 

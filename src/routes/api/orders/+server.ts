@@ -7,6 +7,7 @@ import {
   type OrderListResponse,
 } from '$lib/shared';
 import { createOrder, eventById, listOrders, now } from '$lib/server/db';
+import { offeredOrderNames } from '$lib/server/menu';
 import { newOrderPush } from '$lib/server/notify';
 import { pushToRole } from '$lib/server/push';
 import { body, denied, fail, requireCapability } from '$lib/server/guards';
@@ -93,6 +94,10 @@ export async function POST(event: RequestEvent) {
     return fail(409, found.status === 'done' ? 'the bar has closed' : "this party isn't open yet");
   }
   const eventId = found.id;
+
+  const offered = offeredOrderNames(found);
+  const unavailable = items.find((item) => !offered.has(item.name));
+  if (unavailable) return fail(422, `${unavailable.name} is not on this party's menu`);
 
   const order = createOrder(eventId, { name, items, note, deviceId });
   void pushToRole('bartender', newOrderPush(order)); // fire-and-forget

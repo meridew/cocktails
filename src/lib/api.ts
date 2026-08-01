@@ -24,6 +24,9 @@ import { currentEventId } from './party';
 // VITE_API_BASE to the public HTTPS origin (including the /api suffix).
 const BASE = import.meta.env.VITE_API_BASE ?? '/api';
 
+const inParty = (path: string, eventId: string): string =>
+  `${path}?eventId=${encodeURIComponent(eventId)}`;
+
 export class Unauthorized extends Error {
   constructor() {
     super('unauthorized');
@@ -101,30 +104,30 @@ export const createOrder = (input: NewOrderInput) =>
  * it; naming a party is not permission to read it.
  */
 export const listOrders = (eventId?: string) =>
-  req<OrderListResponse>(eventId ? `/orders?eventId=${encodeURIComponent(eventId)}` : '/orders');
+  req<OrderListResponse>(eventId ? inParty('/orders', eventId) : '/orders');
 
 /**
  * Move an order along. `handoff` is only meaningful when serving, and saying
  * nothing is a valid answer — it keeps the guest's notification neutral.
  */
-export const setStatus = (id: string, status: OrderStatus, handoff?: Handoff) =>
-  req<{ ok: true; order: Order }>(`/orders/${id}`, {
+export const setStatus = (id: string, eventId: string, status: OrderStatus, handoff?: Handoff) =>
+  req<{ ok: true; order: Order }>(inParty(`/orders/${id}`, eventId), {
     method: 'PATCH',
     body: JSON.stringify(handoff ? { status, handoff } : { status }),
   });
 
-export const deleteOrder = (id: string) =>
-  req<{ ok: boolean }>(`/orders/${id}`, { method: 'DELETE' });
+export const deleteOrder = (id: string, eventId: string) =>
+  req<{ ok: boolean }>(inParty(`/orders/${id}`, eventId), { method: 'DELETE' });
 
-export const clearOrders = (which: ClearWhich) =>
-  req<OkResponse>('/orders/clear', {
+export const clearOrders = (eventId: string, which: ClearWhich) =>
+  req<OkResponse>(inParty('/orders/clear', eventId), {
     method: 'POST',
     body: JSON.stringify({ which }),
   });
 
 /** Push an order to the front of the queue, or put it back in normal order. */
-export const bumpOrder = (id: string, bumped: boolean) =>
-  req<{ ok: true; order: Order }>(`/orders/${id}/bump`, {
+export const bumpOrder = (id: string, eventId: string, bumped: boolean) =>
+  req<{ ok: true; order: Order }>(inParty(`/orders/${id}/bump`, eventId), {
     method: 'POST',
     body: JSON.stringify({ bumped }),
   });
@@ -136,8 +139,8 @@ export const bumpOrder = (id: string, bumped: boolean) =>
  * behind it stays a server concept. Admission is per guest, so this releases
  * everything they have ordered and everything they order later tonight.
  */
-export const admitOrderGuest = (id: string, block = false) =>
-  req<{ ok: true; blocked: boolean }>(`/orders/${id}/admit`, {
+export const admitOrderGuest = (id: string, eventId: string, block = false) =>
+  req<{ ok: true; blocked: boolean }>(inParty(`/orders/${id}/admit`, eventId), {
     method: 'POST',
     body: JSON.stringify({ block }),
   });
@@ -194,8 +197,8 @@ export const liveParties = () =>
   req<{ ok: true; parties: { id: string; name: string }[] }>('/parties');
 
 /** Record how many of one line have been poured (the server clamps to the qty). */
-export const setItemProgress = (id: string, index: number, made: number) =>
-  req<{ ok: true; order: Order }>(`/orders/${id}/progress`, {
+export const setItemProgress = (id: string, eventId: string, index: number, made: number) =>
+  req<{ ok: true; order: Order }>(inParty(`/orders/${id}/progress`, eventId), {
     method: 'PATCH',
     body: JSON.stringify({ index, made }),
   });

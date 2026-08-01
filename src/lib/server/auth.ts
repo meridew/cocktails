@@ -15,7 +15,7 @@
  * account too: `resolveActor` reads the role through the link, which is how the
  * keypad returns someone to the bar as *themselves* rather than as a generic shift.
  */
-import { createHash, randomBytes, randomInt, scrypt, timingSafeEqual } from 'node:crypto';
+import { createHash, randomBytes, scrypt, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
 import type { Staff, StaffStatus } from '$lib/shared';
 import {
@@ -128,7 +128,7 @@ export function barSessionForAccount(
     // the name entirely, so rows already exist showing a blank line on the Bar staff
     // screen; without this they would stay blank for the life of the party.
     if (!row.displayName && displayName) renameStaff(row.id, displayName);
-    const current = staffByIdUnscoped(row.id);
+    const current = staffForAccount(eventId, userId);
     return current ? startSession(current) : null;
   }
 
@@ -138,7 +138,7 @@ export function barSessionForAccount(
   // an arbitrary distinction dressed up as a permission.
   const id = genId();
   createStaff({ id, eventId, userId, displayName, status: 'active', joinedVia: 'seed' });
-  const created = staffByIdUnscoped(id);
+  const created = staffForAccount(eventId, userId);
   return created ? startSession(created) : null;
 }
 
@@ -198,11 +198,10 @@ export function claimStaffAccess(
   return { status: 'active', ...startSession(row) };
 }
 
-/** Approve a pending request. Only meaningful for a row that is still pending. */
-export function approveStaff(id: string, approvedBy: string | null): boolean {
-  const row = staffByIdUnscoped(id);
-  if (!row || row.status !== 'pending') return false;
-  setStaffStatus(id, 'active', approvedBy);
+/** Approve a request already looked up inside the caller's party scope. */
+export function approveStaff(row: StaffRow, approvedBy: string | null): boolean {
+  if (row.status !== 'pending') return false;
+  setStaffStatus(row.id, 'active', approvedBy);
   return true;
 }
 

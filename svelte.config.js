@@ -3,8 +3,8 @@ import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
 
 /**
  * One adapter: `adapter-node`, which produces `build/index.js` — a plain Node
- * server that serves the app *and* `/api` from one process. That's what the NAS
- * container runs, and it's what `npm run preview` runs locally, so local and
+ * server that serves the app *and* `/api` from one process. That's what launchd
+ * runs on the Mac, and it's what `npm run preview` runs locally, so local and
  * production are the same artifact.
  *
  * `adapter-static` for the Capacitor build is deliberately not here yet: that
@@ -22,7 +22,11 @@ export default {
      * Web Push needs a service worker; SvelteKit registers src/service-worker.ts
      * automatically in production and leaves it alone in dev.
      *
-     * `updateViaCache: 'none'` is load-bearing, and this is the bug it fixes.
+     * The worker is deliberately push-only. The old offline shell could not do
+     * anything without the API, and its request interception caused every stale-
+     * build incident recorded in the handoff.
+     *
+     * `updateViaCache: 'none'` is still load-bearing, and this is the bug it fixes.
      *
      * The origin sends no `Cache-Control` for `/service-worker.js`, because
      * adapter-node's sirv only sets one for `/_app/immutable/`. Cloudflare therefore
@@ -34,10 +38,8 @@ export default {
      *
      * So for four hours after any deploy, a *fresh registration* could be handed the
      * **previous** service worker. Reported from an Android phone: refreshing Chrome
-     * showed the new version, then reinstalling the PWA brought the old one back —
-     * and took Chrome with it, because a service worker is scoped to the origin, not
-     * to the tab. An old worker that activates also runs its own `activate` cleanup,
-     * which deletes every cache that is not its own, including the current one.
+     * showed the new version, then reinstalling the PWA brought the old one back.
+     * A worker is scoped to the origin, not to one tab.
      *
      * `'none'` makes the browser fetch this script bypassing its **own** HTTP cache.
      * That is worth having and it is not the whole fix — an earlier version of this
@@ -66,9 +68,8 @@ export default {
     /*
      * Poll for a new build, so a tab that stays open finds out about one.
      *
-     * The service worker already handles this correctly *at the boundary* —
-     * `skipWaiting()` and `clients.claim()` mean a new worker takes over at once,
-     * and the old cache is deleted. What neither does is reload the page, so an app
+     * `skipWaiting()` and `clients.claim()` make a new push worker take over at once.
+     * That does not reload the page, so an app
      * left open on a phone keeps running the JavaScript it booted with, forever, and
      * nothing on screen ever says otherwise. That is the half of "I can't refresh to
      * get the latest version" that survives deploying properly.

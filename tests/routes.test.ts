@@ -236,10 +236,10 @@ describe('POST /api/orders', () => {
         name: 'Coerce',
         eventId,
         items: [
-          { name: 'Zero', qty: 0 },
-          { name: 'NaN', qty: 'abc' },
-          { name: 'Huge', qty: 1000 },
-          { name: 'Fraction', qty: 2.7 },
+          { name: 'Wine', qty: 0 },
+          { name: 'Mojito', qty: 'abc' },
+          { name: 'Margarita', qty: 1000 },
+          { name: 'Old Fashioned', qty: 2.7 },
           null,
         ],
         deviceId: admittedDevice(eventId),
@@ -247,16 +247,17 @@ describe('POST /api/orders', () => {
     );
     const { order } = (await res.json()) as { order: { items: { name: string; qty: number }[] } };
     assert.deepEqual(order.items, [
-      { name: 'Zero', qty: 1 },
-      { name: 'NaN', qty: 1 },
-      { name: 'Huge', qty: LIMITS.maxQty },
-      { name: 'Fraction', qty: 2 },
+      { name: 'Wine', qty: 1 },
+      { name: 'Mojito', qty: 1 },
+      { name: 'Margarita', qty: LIMITS.maxQty },
+      { name: 'Old Fashioned', qty: 2 },
     ]);
   });
 
   test('caps the number of items per order', async () => {
+    const menu = ['Margarita', 'Mojito', 'Moscow Mule', 'Old Fashioned', 'Wine'];
     const items = Array.from({ length: LIMITS.maxItemsPerOrder + 10 }, (_, i) => ({
-      name: `Drink ${i}`,
+      name: menu[i % menu.length],
       qty: 1,
     }));
     const res = await request(

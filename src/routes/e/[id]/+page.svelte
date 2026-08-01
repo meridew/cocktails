@@ -116,6 +116,9 @@
     if (document.visibilityState === 'visible') void loadMenu();
   };
 
+  /** Switching back from a side-by-side host window does not change visibility. */
+  const onFocus = (): void => void loadMenu();
+
   /**
    * Arriving at a party: say who you are, once.
    *
@@ -312,12 +315,14 @@
      */
     timer = setInterval(() => void loadMenu(), MENU_POLL_MS);
     document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', onFocus);
   });
 
   onDestroy(() => {
     clearInterval(timer);
     if (typeof document !== 'undefined') {
       document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', onFocus);
     }
   });
 

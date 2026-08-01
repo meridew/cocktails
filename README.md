@@ -1,115 +1,110 @@
-# 🍸 Cocktails
+# Cocktails
 
-A party drinks-ordering app. Guests browse a menu, build a round and send it with
-their name; whoever's running the bar works the queue on their phone. Self-hosted
-on a Synology NAS, public over a Cloudflare Tunnel with no inbound ports.
+A party drinks-ordering app. A host records what is in their cupboard, the app
+generates what can be poured, guests order anonymously, and Dan or a temporary
+helper works the queue.
 
 **Live:** <https://cock.meridew.com>
 
+The four audiences are deliberately different:
+
+| Person | What they do                                     |
+| ------ | ------------------------------------------------ |
+| Admin  | Manages hosts and parties, and can work any bar  |
+| Host   | Maintains one cupboard and watches their parties |
+| Staff  | Joins one party temporarily and pours orders     |
+| Guest  | Opens a party link and orders without an account |
+
 ## Running it
+
+Node 24 is required; Node 25 is deliberately excluded in `package.json`.
 
 ```bash
 npm install
 npm run dev
 ```
 
-One dev server on `http://localhost:5173` serving the app _and_ `/api` — the
-database is created on first boot and an admin account is seeded from the env.
+The development server at `http://localhost:5173` serves the pages and `/api` from
+one SvelteKit application. The SQLite database is created and migrated on first use.
 
-|                        |                                                      |
-| ---------------------- | ---------------------------------------------------- |
-| `npm run dev`          | dev server, HMR                                      |
-| `npm test`             | the suite (Vitest, jsdom)                            |
-| `npm run check`        | svelte-check + typecheck                             |
-| `npm run build`        | production build → `build/`                          |
-| `npm run preview`      | build, then run the real production artifact locally |
-| `npm run db:reset`     | empty the database                                   |
-| `npm run db:seed busy` | a queue mid-service (`helper` for a pending request) |
-
-`npm run preview` runs exactly what the container runs, so a bug that only shows up
-in the built output can be caught without deploying.
+| Command                 | Purpose                                          |
+| ----------------------- | ------------------------------------------------ |
+| `npm run dev`           | Development server with HMR                      |
+| `npm run dev:lan`       | Development server reachable from another device |
+| `npm run format:check`  | The first CI gate                                |
+| `npm run check`         | Svelte and TypeScript diagnostics                |
+| `npm test`              | Vitest suite                                     |
+| `npm run build`         | Production build in `build/`                     |
+| `npm run preview`       | Build and run the production artifact locally    |
+| `npm run test:e2e`      | Build and run the Playwright journeys            |
+| `npm run db:seed busy`  | Seed a queue (`helper` seeds a pending request)  |
+| `npm run db:seed reset` | Reset local development data                     |
 
 ## Configuration
 
-Put what you need in `.env` (gitignored). All of it is optional — the app runs
-without any, using dev defaults on localhost.
+Local configuration may go in `.env` (gitignored). Production variables are loaded
+by the Mac's launch script.
 
-|                                          |                                                    |
-| ---------------------------------------- | -------------------------------------------------- |
-| `STAFF_PIN`                              | the 6-digit PIN that opens the bar                 |
-| `STAFF_EMAIL` / `STAFF_PASSWORD`         | break-glass sign-in for the same admin account     |
-| `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | Web Push. Unset → push is inert                    |
-| `DB_PATH`                                | SQLite file. Defaults to `./data/cocktails.sqlite` |
+| Variable                                    | Purpose                                            |
+| ------------------------------------------- | -------------------------------------------------- |
+| `DB_PATH`                                   | SQLite file; defaults to `./data/cocktails.sqlite` |
+| `ORIGIN`                                    | Public origin used in account links                |
+| `BETTER_AUTH_SECRET`                        | Account-session signing secret                     |
+| `ADMIN_EMAILS`                              | Comma-separated accounts that always remain admins |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Optional Google sign-in                            |
+| `GRAPH_TENANT_ID` / `GRAPH_CLIENT_ID`       | Microsoft Graph mail application                   |
+| `GRAPH_KEY_FILE` / `GRAPH_SENDER`           | Graph certificate path and sender                  |
+| `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY`    | Web Push credentials                               |
+| `VAPID_SUBJECT`                             | Web Push contact URI                               |
+| `ALLOWED_ORIGIN`                            | Optional comma-separated native-app CORS origins   |
 
-In production a _missing_ credential never falls back to a guessable one: the
-password becomes random and the PIN door switches off entirely.
+Missing Graph configuration writes verification links to the server log instead of
+sending them. Missing VAPID keys disables push. Production never falls back to a
+fixed account-session secret.
 
 ## Shape
 
-One SvelteKit app. `src/routes` holds the pages and the `/api` endpoints;
-`adapter-node` builds `build/index.js`, a single Node process serving both.
+One SvelteKit app, built with `adapter-node` and run natively on the Mac mini:
 
-```
-src/
-├── routes/            / (menu) · /bar · api/**/+server.ts
-├── lib/
-│   ├── server/        db · auth · notify · push · ratelimit · guards
-│   ├── components/    the UI
-│   ├── stores/        client state (Svelte 5 runes)
-│   └── shared/        types and rules both sides must agree on
-├── hooks.server.ts    CORS · body cap · security headers · logging · boot seed
-└── service-worker.ts  precache + Web Push
+```text
+src/routes/          pages and /api endpoints
+src/lib/components/ UI components
+src/lib/stores/      client state, using Svelte 5 runes
+src/lib/shared/      types, validation, recipes and permissions used both sides
+src/lib/server/      Drizzle/SQLite, auth, email, push and guards
+drizzle/             forward migrations applied at first query
+tests/               Vitest behavior and contract tests
+e2e/                 Playwright participant journeys
 ```
 
-Two things to know before changing anything:
+The permission model is account role plus party role plus an explicit scope. The UI
+and server both use `src/lib/shared/permissions.ts`. Guests and temporary helpers do
+not need accounts.
 
-- **`src/lib/neo.css` is a verbatim copy of the original hand-made design.** It's in
-  `.prettierignore` and must stay byte-identical — additions belong in `app.css`.
-- **Migrations exist.** The schema is declared in `src/lib/server/schema.ts` for
-  Drizzle; `drizzle-kit generate` writes migrations to `drizzle/`, and `createDb`
-  applies them at first query — one code path for the server, the dev loop and every
-  in-memory test database. **The freedom to wipe ends the moment the first real host
-  account is created** — from then the data belongs to a host, not to us. It has not
-  ended yet; see the top of [the platform plan](docs/PLATFORM-PLAN.md).
+The service worker is push-only. It does not intercept requests or provide a stale,
+nonfunctional offline shell.
 
-## Testing platform states you don't have
+## Guardrails
 
-Notification permission is one-shot: once a browser profile has denied it, the
-opt-in flow can never render there again. And "what does an iPhone that hasn't
-installed the app see?" normally means finding an iPhone. Dev-only query params
-fake both — they are read **only** under `import.meta.env.DEV`, so they are dead
-code in a production build (asserted by `tests/devOverrides.test.ts`):
+- `src/lib/neo.css` is a verbatim copy of the original design. Keep it byte-identical;
+  additions belong in `src/lib/app.css`.
+- Client code must never import `$lib/server/*`; the build enforces the boundary.
+- A change is not done until format, typecheck, tests and build pass. Run Playwright
+  when behavior crosses participants or navigation.
+- Deploy only when explicitly requested. Pushes gate but do not deploy.
 
-|                                        |                                        |
-| -------------------------------------- | -------------------------------------- |
-| `?permission=default\|granted\|denied` | what `Notification.permission` reports |
-| `?platform=ios\|android\|desktop`      | what the UA sniffing concludes         |
-| `?installed=1\|0`                      | standalone app vs browser tab          |
-| `?push=unsupported\|supported`         | whether the Push API exists            |
-| `?reset-overrides`                     | back to reality                        |
+## Hosting
 
-They stick in `sessionStorage`, so the URL can go back to being clean. An iPhone
-that hasn't added the app to its Home Screen:
-
-```
-http://localhost:5173/?permission=default&platform=ios&installed=0&push=unsupported
-```
-
-`npm run dev:lan` serves on the network so a phone can reach it — good for layout
-and flows, but **not** PWA install or push: those need a secure context, and a LAN
-IP over plain HTTP isn't one.
-
-## Deploying
-
-Pushing gates but does **not** deploy — CI typechecks, tests and builds on a cloud
-runner, and stops there. Deploy when you actually want it live:
+The production app runs as native Node under launchd on a Mac mini M4. Cloudflared
+connects it to the public hostname without inbound ports, and a self-hosted Actions
+runner performs the gate and manual deployment. There is no Docker or active NAS
+deployment.
 
 ```bash
-gh workflow run "gate + deploy (NAS)" --ref main -f deploy=true
+gh workflow run "gate + deploy (Mac)" --ref main -f deploy=true
 ```
 
-A self-hosted runner on the NAS then assembles the image and restarts the
-container. It deliberately compiles nothing — it shares a 4-core box with two VMs
-and has under a gigabyte free.
-
-More detail, including how to operate the NAS: [`docs/handoff.md`](docs/handoff.md).
+Start operational work with
+[`docs/HANDOFF-2026-08-01.md`](docs/HANDOFF-2026-08-01.md). Deliberately deferred
+product decisions and credential-dependent work are in
+[`docs/OUTSTANDING.md`](docs/OUTSTANDING.md).

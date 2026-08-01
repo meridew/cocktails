@@ -66,7 +66,10 @@ export const genId = (): string => randomBytes(6).toString('hex');
  * snake_case on disk — `schema.ts` maps between them.
  */
 export type StaffRow = typeof staff.$inferSelect;
-export type SessionRow = typeof staffSessions.$inferSelect;
+declare const trustedStaffId: unique symbol;
+export type TrustedStaffId = string & { readonly [trustedStaffId]: true };
+type StoredSessionRow = typeof staffSessions.$inferSelect;
+export type SessionRow = Omit<StoredSessionRow, 'staffId'> & { staffId: TrustedStaffId };
 export type EventRow = typeof event.$inferSelect;
 export type StockRow = typeof stock.$inferSelect;
 export type UserRow = typeof user.$inferSelect;
@@ -807,7 +810,7 @@ export function createDb(dbPath: string) {
      * hand host A a row belonging to host B, which is exactly the leak the tenancy
      * suite exists to catch.
      */
-    staffByIdUnscoped(id: string): StaffRow | null {
+    staffByIdUnscoped(id: TrustedStaffId): StaffRow | null {
       return db.select().from(staff).where(eq(staff.id, id)).get() ?? null;
     },
 
@@ -990,9 +993,15 @@ export function createDb(dbPath: string) {
     },
 
     staffSession(tokenHash: string): SessionRow | null {
-      return (
-        db.select().from(staffSessions).where(eq(staffSessions.tokenHash, tokenHash)).get() ?? null
-      );
+      const row = db
+        .select()
+        .from(staffSessions)
+        .where(eq(staffSessions.tokenHash, tokenHash))
+        .get();
+      if (!row) return null;
+      // The id is trusted because it came from a session selected by its hashed
+      // bearer token, not from a route parameter or request body.
+      return { ...row, staffId: row.staffId as TrustedStaffId };
     },
 
     deleteStaffSession(tokenHash: string): void {

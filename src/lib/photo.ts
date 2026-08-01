@@ -64,7 +64,7 @@ export async function photoId(dataUrl: string): Promise<string> {
  * is checked rather than assumed.
  */
 export async function shrink(file: File): Promise<string> {
-  const bitmap = await createImageBitmap(file);
+  const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
   try {
     const side = Math.min(bitmap.width, bitmap.height);
     const sx = (bitmap.width - side) / 2;
