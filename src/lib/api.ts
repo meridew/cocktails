@@ -433,9 +433,15 @@ export const deleteTake = (eventId: string, id: string) =>
 /**
  * Where one clip's bytes live. **Not a `req` call** — this is a URL, handed to an
  * `<audio>` element rather than fetched, so the browser streams and caches it.
+ *
+ * It still goes through `BASE`, and that is not decoration: this wrote `/api/…`
+ * literally at first, which is identical while the app and its API share an origin
+ * and silently wrong the moment `VITE_API_BASE` points elsewhere — every request in
+ * the app would follow it and the sounds alone would 404, on the one build nobody
+ * tests locally.
  */
 export const takeAudioUrl = (eventId: string, id: string): string =>
-  `/api/events/${eventId}/sounds/${id}/audio`;
+  `${BASE}/events/${eventId}/sounds/${id}/audio`;
 
 // ---- admin: the people and their parties ----
 
