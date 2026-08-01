@@ -60,6 +60,10 @@ self.addEventListener('push', (event) => {
     self.registration.showNotification(data.title ?? '🍸 Cocktails', {
       body: data.body ?? '',
       tag: data.tag,
+      // A later state for the same order replaces its earlier notification. Ask
+      // supporting phones to alert again rather than updating that card silently.
+      renotify: Boolean(data.tag),
+      vibrate: [180, 80, 180],
       icon: '/pwa-192.png',
       badge: '/pwa-192.png',
       data: { url: data.url ?? '/' },

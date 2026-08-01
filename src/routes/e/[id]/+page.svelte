@@ -32,8 +32,15 @@
   import { eventMenu, joinParty, putGuestPhoto, type EventMenu, type MenuItem } from '$lib/api';
   import { photoSentTo, rememberPhotoSent, savedPhoto, savedPhotoId } from '$lib/photo';
   import { setArriving } from '$lib/stores/arrival.svelte';
-  import { loadSounds, playCue } from '$lib/sound';
+  import {
+    acknowledgeSoundHint,
+    loadSounds,
+    partyHasSounds,
+    playCue,
+    soundsMuted,
+  } from '$lib/sound';
   import PhotoPicker from '$lib/components/PhotoPicker.svelte';
+  import SoundHint from '$lib/components/SoundHint.svelte';
   import { emojiFor, groupByBase } from '$lib/menu';
   import { ALL_ON, can, party as partyScope } from '$lib/shared';
   import { hydrateSession, session } from '$lib/stores/session.svelte';
@@ -494,6 +501,9 @@
                * moment: somebody is joining. A guest coming back for a second round
                * didn't arrive, they returned.
                */
+              if (menu && partyHasSounds(menu.sounds) && !soundsMuted()) {
+                acknowledgeSoundHint(data.eventId);
+              }
               playCue('join');
               void join(nameInput);
             }}
@@ -508,6 +518,9 @@
                 maxlength="40"
               />
             </label>
+            {#if menu}
+              <SoundHint eventId={data.eventId} sounds={menu.sounds} placement="arrival" />
+            {/if}
             <button class="btn btn-go" type="submit" disabled={joining || !nameInput.trim()}>
               {joining ? 'One moment…' : "I'm in"}
             </button>
@@ -529,6 +542,9 @@
       {#if askingName}
         <!-- nothing else while we ask; the menu is one tap away -->
       {:else}
+        {#if menu}
+          <SoundHint eventId={data.eventId} sounds={menu.sounds} dismissible />
+        {/if}
         <div class="menubar">
           {#if favourites.size}
             <button

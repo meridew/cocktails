@@ -14,3 +14,14 @@ describe('service worker update safety', () => {
     expect(source).toContain('client.navigate(client.url)');
   });
 });
+
+describe('push alert resilience', () => {
+  test('alerts again when a later state replaces the same order notification', () => {
+    expect(source).toContain('renotify: Boolean(data.tag)');
+  });
+
+  test('asks supporting phones for a short vibration without forcing silence', () => {
+    expect(source).toContain('vibrate: [180, 80, 180]');
+    expect(source).not.toContain('silent: true');
+  });
+});

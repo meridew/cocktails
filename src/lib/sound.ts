@@ -49,6 +49,30 @@ const players = new Map<string, HTMLAudioElement>();
 let live: PartySounds = NO_SOUNDS;
 
 const MUTE_KEY = 'party_sounds_off';
+const HINT_KEY = 'party_sound_hint_seen:';
+
+/** Whether this party has anything for a guest's phone to play. */
+export function partyHasSounds(sounds: PartySounds): boolean {
+  return Object.values(sounds).some((takes) => takes.length > 0);
+}
+
+/** Whether this browser session has already dealt with this party's volume hint. */
+export function soundHintSeen(eventId: string): boolean {
+  try {
+    return sessionStorage.getItem(`${HINT_KEY}${eventId}`) === '1';
+  } catch {
+    return false;
+  }
+}
+
+/** Keep a volume reminder out of the way for the rest of this party session. */
+export function acknowledgeSoundHint(eventId: string): void {
+  try {
+    sessionStorage.setItem(`${HINT_KEY}${eventId}`, '1');
+  } catch {
+    /* no session storage; the hint can still be dismissed in its mounted component */
+  }
+}
 
 /**
  * Whether this device wants the party's sounds. **On unless somebody said no.**

@@ -75,8 +75,25 @@ test('a host stocks up, Dan opens the bar, a guest orders and a helper pours it'
   await createParty(dan, hostName, partyName);
   const id = await partyId(host, partyName);
 
+  // A real enabled cue makes the guest's volume reminder part of this journey. The
+  // bytes need only exercise the upload and menu contract; component tests use a
+  // playable fake and prove that the test button dispatches to the audio element.
+  const recorded = await host.request.post(`/api/events/${id}/sounds`, {
+    data: { cue: 'join', audio: 'data:audio/webm;base64,AA==', label: 'E2E welcome' },
+  });
+  expect(recorded.ok()).toBe(true);
+
   // ---- the guest: a menu generated from that cupboard ---------------------
   const guest = await phone(browser);
+  await guest.goto(`/e/${id}`);
+  const soundHint = guest.getByRole('complementary', { name: 'Party sound' });
+  await expect(soundHint).toBeVisible();
+  await expect(soundHint.getByRole('button', { name: 'Test party sound' })).toBeVisible();
+  const hintBox = await soundHint.boundingBox();
+  const joinBox = await guest.getByRole('button', { name: "I'm in" }).boundingBox();
+  expect(hintBox).not.toBeNull();
+  expect(joinBox).not.toBeNull();
+  expect(hintBox!.y + hintBox!.height).toBeLessThanOrEqual(joinBox!.y);
   await arriveAt(guest, id, 'Priya');
 
   const margarita = guest.locator('.cocktail', { hasText: 'Margarita' }).first();

@@ -20,7 +20,13 @@
   import { goto } from '$app/navigation';
   import { eventMenu, joinParty, type EventMenu, type MenuItem } from '$lib/api';
   import { emojiFor } from '$lib/menu';
-  import { loadSounds, playCue } from '$lib/sound';
+  import {
+    acknowledgeSoundHint,
+    loadSounds,
+    partyHasSounds,
+    playCue,
+    soundsMuted,
+  } from '$lib/sound';
   import { createGrid, type Grid } from '$lib/three/grid';
   import { addLine, basketCount } from '$lib/stores/basket.svelte';
   import { getDeviceId, getSavedName, saveName } from '$lib/device';
@@ -30,6 +36,7 @@
   import Configurator from '$lib/components/Configurator.svelte';
   import OrderRail from '$lib/components/OrderRail.svelte';
   import SentCelebration from '$lib/components/SentCelebration.svelte';
+  import SoundHint from '$lib/components/SoundHint.svelte';
 
   let { data }: { data: { eventId: string } } = $props();
 
@@ -188,6 +195,9 @@
             e.preventDefault();
             // On the tap, not inside `join()` — see the flat menu's note. `join()`
             // also runs unattended for a guest this device already has a name for.
+            if (menu && partyHasSounds(menu.sounds) && !soundsMuted()) {
+              acknowledgeSoundHint(data.eventId);
+            }
             playCue('join');
             void join(nameInput);
           }}
@@ -196,9 +206,18 @@
             Your name
             <input bind:value={nameInput} placeholder="Alex" autocomplete="name" maxlength="40" />
           </label>
+          {#if menu}
+            <SoundHint eventId={data.eventId} sounds={menu.sounds} placement="arrival" />
+          {/if}
           <button class="btn btn-go" type="submit" disabled={!nameInput.trim()}>I'm in</button>
         </form>
       </section>
+    </div>
+  {/if}
+
+  {#if !askingName && menu}
+    <div class="stage3d-soundhint">
+      <SoundHint eventId={data.eventId} sounds={menu.sounds} dismissible />
     </div>
   {/if}
 
@@ -311,6 +330,14 @@
   .stage3d-sheet .panel {
     max-width: 420px;
     width: 100%;
+  }
+  .stage3d-soundhint {
+    position: absolute;
+    z-index: 2;
+    top: 70px;
+    left: 50%;
+    width: min(520px, calc(100% - 24px));
+    transform: translateX(-50%);
   }
   .stage3d-say {
     position: absolute;
