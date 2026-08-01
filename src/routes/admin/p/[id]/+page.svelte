@@ -199,6 +199,7 @@
             </span>
           </p>
           <div class="row-acts">
+            <a class="btn" href="/insights/{eventId}">Party insights</a>
             {#if p.status !== 'live'}
               <!--
                 **"Let guests order", not "Open the bar".** That phrase already means

@@ -38,7 +38,10 @@ import * as events from '../src/routes/api/events/+server';
 import * as hosts from '../src/routes/api/hosts/+server';
 import * as hostById from '../src/routes/api/hosts/[id]/+server';
 import * as hostStock from '../src/routes/api/hosts/[id]/stock/+server';
+import * as hostAlcoholProfile from '../src/routes/api/hosts/[id]/alcohol-profile/+server';
 import * as eventById from '../src/routes/api/events/[id]/+server';
+import * as eventAnalytics from '../src/routes/api/events/[id]/analytics/+server';
+import * as analytics from '../src/routes/api/analytics/+server';
 import * as eventMenu from '../src/routes/api/events/[id]/menu/+server';
 import * as eventSettings from '../src/routes/api/events/[id]/settings/+server';
 import * as eventSounds from '../src/routes/api/events/[id]/sounds/+server';
@@ -75,8 +78,11 @@ export const ROUTES: Record<string, Handlers> = {
   '/api/hosts': hosts,
   '/api/hosts/[id]': hostById,
   '/api/hosts/[id]/stock': hostStock,
+  '/api/hosts/[id]/alcohol-profile': hostAlcoholProfile,
+  '/api/analytics': analytics,
   '/api/events/[id]/bar': eventBar,
   '/api/events/[id]': eventById,
+  '/api/events/[id]/analytics': eventAnalytics,
   '/api/events/[id]/menu': eventMenu,
   '/api/events/[id]/settings': eventSettings,
   '/api/events/[id]/sounds': eventSounds,

@@ -203,6 +203,7 @@ describe('POST /api/orders', () => {
       [{ name: 'Wine', qty: 1 }],
       'a missing qty defaults to 1',
     );
+    assert.ok(!('unit' in order.items[0]!), 'private unit snapshots must not reach guests');
   });
 
   test('sanitises strings through the boundary', async () => {

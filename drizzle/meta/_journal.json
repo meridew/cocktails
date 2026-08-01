@@ -43,6 +43,13 @@
       "when": 1785574479561,
       "tag": "0005_useful_angel",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1785601636794,
+      "tag": "0006_stormy_spyke",
+      "breakpoints": true
     }
   ]
 }

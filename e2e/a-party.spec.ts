@@ -186,4 +186,32 @@ test('a host stocks up, Dan opens the bar, a guest orders and a helper pours it'
   // ---- and the host, who never touched a thing, can see it happened -------
   await host.goto(`/host/${id}`);
   await expect(host.getByText(/1\s*poured/)).toBeVisible();
+
+  // ---- private insights, from both account roles -------------------------
+  await host.goto(`/insights/${id}`);
+  await expect(host.getByRole('heading', { name: 'Guest totals' })).toBeVisible();
+  await expect(host.getByRole('button', { name: 'Served' })).toHaveClass(/active/);
+  await expect(host.locator('.guest-row', { hasText: 'Priya' })).toContainText('2');
+  await host.getByRole('button', { name: 'Ordered' }).click();
+  await host.getByLabel('Sort guest totals').selectOption('name');
+  await host.getByRole('button', { name: 'Show drink breakdown for Priya' }).click();
+  await expect(host.locator('.drink-breakdown')).toContainText('Strawberry Daiquiri');
+
+  await host.goto('/insights');
+  await expect(host.locator('.history-row', { hasText: partyName })).toBeVisible();
+
+  await dan.goto('/insights');
+  await dan.getByLabel('Host').selectOption({ label: hostName });
+  await expect(dan.locator('.history-row', { hasText: partyName })).toBeVisible();
+
+  // The dense table changes shape on a phone, but it must remain readable without
+  // making the whole page wider than the viewport.
+  await host.setViewportSize({ width: 390, height: 844 });
+  await host.goto(`/insights/${id}`);
+  await expect(host.getByRole('heading', { name: 'Guest totals' })).toBeVisible();
+  expect(await host.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
+    true,
+  );
+  await host.getByRole('button', { name: 'Show drink breakdown for Priya' }).click();
+  await expect(host.locator('.drink-breakdown')).toBeVisible();
 });

@@ -49,6 +49,7 @@ const EXPECTED: Record<Capability, { admin: boolean; owner: boolean; staff: bool
   'orders:advance': { admin: true, owner: false, staff: true },
   'orders:delete': { admin: true, owner: false, staff: true },
   'orders:clear': { admin: true, owner: false, staff: true },
+  'analytics:read': { admin: true, owner: true, staff: false },
   // Letting a guest in is bar work: whoever is pouring is looking at the room. A
   // host still only watches — the same line every other row on this table draws.
   'guests:read': { admin: true, owner: false, staff: true },

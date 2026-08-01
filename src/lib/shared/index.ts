@@ -20,3 +20,5 @@ export * from './recipes';
 export * from './recipe-guide';
 export * from './sanitise';
 export * from './party';
+export * from './alcohol';
+export * from './analytics';

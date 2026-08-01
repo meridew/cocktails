@@ -93,6 +93,23 @@ jobs:
     if: github.event_name == 'workflow_dispatch' && inputs.deploy
     runs-on: [self-hosted, mac]
     steps:
+      - name: Back up SQLite before migration
+        run: |
+          set -e
+          umask 077
+          cd "$HOME/apps/cocktails"
+          set -a
+          . "$HOME/.config/cocktails/env"
+          set +a
+          DB="${DB_PATH:-data/cocktails.sqlite}"
+          BACKUP_DIR="$HOME/.local/share/cocktails/backups"
+          BACKUP="$BACKUP_DIR/cocktails-$(date -u +%Y%m%dT%H%M%SZ).sqlite"
+          test -f "$DB"
+          mkdir -p "$BACKUP_DIR"
+          /usr/bin/sqlite3 "$DB" ".timeout 10000" ".backup '$BACKUP'"
+          test "$(/usr/bin/sqlite3 "$BACKUP" 'PRAGMA integrity_check;')" = "ok"
+          echo "consistent SQLite backup: $BACKUP ($(stat -f%z "$BACKUP") bytes)"
+
       # Deliberately not a checkout: the live tree is ~/apps/cocktails, which is what
       # launchd runs. The runner's own workspace is a different directory, and
       # building there would gate one copy while serving another.

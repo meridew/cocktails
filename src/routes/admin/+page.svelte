@@ -147,6 +147,7 @@
       <nav class="shelf-tabs" aria-label="Sections">
         <a class="bar-tab" aria-current="true" href="/admin">Parties <b>{parties.length}</b></a>
         <a class="bar-tab" href="/admin/hosts">Hosts <b>{hosts.length}</b></a>
+        <a class="bar-tab" href="/insights">Insights</a>
       </nav>
 
       {#if loading}

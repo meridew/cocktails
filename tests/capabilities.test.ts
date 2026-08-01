@@ -87,10 +87,14 @@ const GOVERNED: Record<string, Requirement> = {
   'DELETE /api/hosts/[id]': 'host:delete',
   'GET /api/hosts/[id]/stock': 'stock:read',
   'PUT /api/hosts/[id]/stock': 'stock:edit',
+  'GET /api/hosts/[id]/alcohol-profile': 'stock:read',
+  'PUT /api/hosts/[id]/alcohol-profile': 'stock:edit',
 
   'GET /api/events': 'session',
+  'GET /api/analytics': 'session',
   'POST /api/events': 'party:create',
   'GET /api/events/[id]': 'orders:read',
+  'GET /api/events/[id]/analytics': 'analytics:read',
   // As above: open and close are separate capabilities, chosen by the body.
   'PATCH /api/events/[id]': 'party:edit',
   'DELETE /api/events/[id]': 'party:delete',

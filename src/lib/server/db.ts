@@ -23,7 +23,7 @@
 import Database from 'better-sqlite3';
 import { drizzle, type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
-import { and, asc, count, desc, eq, inArray, lt, ne, sql } from 'drizzle-orm';
+import { and, asc, count, desc, eq, inArray, isNull, lt, ne, sql } from 'drizzle-orm';
 import { mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { randomBytes } from 'node:crypto';
@@ -38,8 +38,10 @@ import type {
   SubscriberRole,
   SubscriptionRecord,
   SubscriptionTransport,
+  StoredOrderItem,
+  AlcoholOverrides,
 } from '$lib/shared';
-import { LIMITS, isHandoff } from '$lib/shared';
+import { LIMITS, isHandoff, snapshotForOrderLine } from '$lib/shared';
 import { config } from './config';
 import * as schema from './schema';
 import {
@@ -48,6 +50,7 @@ import {
   eventMenu,
   eventSound,
   orders,
+  recipeMeasureOverride,
   staff,
   staffSessions,
   stock,
@@ -75,22 +78,31 @@ export type StockRow = typeof stock.$inferSelect;
 export type UserRow = typeof user.$inferSelect;
 type OrderRow = typeof orders.$inferSelect;
 export type EventGuestRow = typeof eventGuest.$inferSelect;
+export type RecipeMeasureOverrideRow = typeof recipeMeasureOverride.$inferSelect;
 type SubRow = typeof subscriptions.$inferSelect;
 /** A take, minus its audio — `listSounds` never selects the blob. See its note. */
 export type SoundRow = Omit<typeof eventSound.$inferSelect, 'audio'>;
 
-function rowToOrder(r: OrderRow, newGuest = false, photoId: string | null = null): Order {
-  let items: OrderItem[] = [];
+function storedItems(raw: string): StoredOrderItem[] {
   try {
-    const parsed = JSON.parse(r.items) as unknown;
-    if (Array.isArray(parsed)) items = parsed as OrderItem[];
+    const parsed = JSON.parse(raw) as unknown;
+    if (Array.isArray(parsed)) return parsed as StoredOrderItem[];
   } catch {
     /* corrupt row → empty items, never throw at the API boundary */
   }
+  return [];
+}
+
+/** Unit snapshots are private analytics data and never ride on the working queue. */
+function publicItems(raw: string): OrderItem[] {
+  return storedItems(raw).map(({ unit: _unit, ...item }) => item);
+}
+
+function rowToOrder(r: OrderRow, newGuest = false, photoId: string | null = null): Order {
   return {
     id: r.id,
     name: r.name,
-    items,
+    items: publicItems(r.items),
     note: r.note,
     status: r.status as OrderStatus,
     createdAt: r.createdAt,
@@ -100,6 +112,24 @@ function rowToOrder(r: OrderRow, newGuest = false, photoId: string | null = null
     newGuest,
     photoId,
   };
+}
+
+export interface OrderHistoryRow {
+  id: string;
+  eventId: string;
+  name: string;
+  items: StoredOrderItem[];
+  status: OrderStatus;
+  deviceId: string | null;
+  createdAt: number;
+  updatedAt: number;
+  archivedAt: number | null;
+}
+
+export class QueueFullError extends Error {
+  constructor() {
+    super('bar queue is full');
+  }
 }
 
 function rowToSub(r: SubRow): SubscriptionRecord {
@@ -131,6 +161,39 @@ export function createDb(dbPath: string) {
   const db: BetterSQLite3Database<typeof schema> = drizzle(sqlite, { schema });
   migrate(db, { migrationsFolder: migrationsDir() });
 
+  /** Capture one stable estimate for every retained pre-analytics order, once. */
+  const backfill = { orders: 0, lines: 0, known: 0, unknown: 0 };
+  sqlite.transaction(() => {
+    for (const row of db.select().from(orders).all()) {
+      const items = storedItems(row.items);
+      let changed = false;
+      const next = items.map((item) => {
+        if (item.unit) return item;
+        changed = true;
+        backfill.lines += 1;
+        const unit = snapshotForOrderLine(item.name, undefined, 'reconstructed', row.createdAt);
+        if (unit.unitsPerServing === null) backfill.unknown += 1;
+        else backfill.known += 1;
+        return {
+          ...item,
+          unit,
+        };
+      });
+      if (changed) {
+        backfill.orders += 1;
+        db.update(orders)
+          .set({ items: JSON.stringify(next) })
+          .where(eq(orders.id, row.id))
+          .run();
+      }
+    }
+  })();
+  if (backfill.orders > 0) {
+    console.info(
+      `analytics backfill: ${backfill.orders} orders, ${backfill.lines} lines, ${backfill.known} known, ${backfill.unknown} unknown`,
+    );
+  }
+
   /**
    * One order by id **within an event**, or undefined.
    *
@@ -142,7 +205,7 @@ export function createDb(dbPath: string) {
     db
       .select()
       .from(orders)
-      .where(and(eq(orders.eventId, eventId), eq(orders.id, id)))
+      .where(and(eq(orders.eventId, eventId), eq(orders.id, id), isNull(orders.archivedAt)))
       .get();
 
   /**
@@ -210,23 +273,28 @@ export function createDb(dbPath: string) {
 
     createOrder(
       eventId: string,
-      input: { name: string; items: OrderItem[]; note: string; deviceId?: string },
+      input: { name: string; items: StoredOrderItem[]; note: string; deviceId?: string },
     ): Order {
-      // The cap is per event, so one busy party can't evict another's queue.
+      // The cap is per active queue, so retained history never crowds out tonight.
       const total =
-        db.select({ n: count() }).from(orders).where(eq(orders.eventId, eventId)).get()?.n ?? 0;
+        db
+          .select({ n: count() })
+          .from(orders)
+          .where(and(eq(orders.eventId, eventId), isNull(orders.archivedAt)))
+          .get()?.n ?? 0;
       if (total >= LIMITS.maxOrders) {
-        // Eviction candidate: finished orders first, then the oldest. Without the
-        // status term, flooding the endpoint would delete the live queue before
-        // touching rows nobody cares about any more.
+        // Hide the oldest finished row from the queue, but preserve its analytics.
         const evict = db
           .select({ id: orders.id })
           .from(orders)
-          .where(eq(orders.eventId, eventId))
-          .orderBy(sql`(${orders.status} = 'done') DESC`, asc(orders.createdAt), sql`rowid ASC`)
+          .where(
+            and(eq(orders.eventId, eventId), eq(orders.status, 'done'), isNull(orders.archivedAt)),
+          )
+          .orderBy(asc(orders.createdAt), sql`rowid ASC`)
           .limit(1)
           .get();
-        if (evict) db.delete(orders).where(eq(orders.id, evict.id)).run();
+        if (!evict) throw new QueueFullError();
+        db.update(orders).set({ archivedAt: now() }).where(eq(orders.id, evict.id)).run();
       }
       const ts = now();
       const id = genId();
@@ -393,7 +461,7 @@ export function createDb(dbPath: string) {
       return db
         .select()
         .from(orders)
-        .where(eq(orders.eventId, eventId))
+        .where(and(eq(orders.eventId, eventId), isNull(orders.archivedAt)))
         .orderBy(
           sql`(${orders.bumpedAt} IS NOT NULL) DESC`,
           desc(orders.bumpedAt),
@@ -453,10 +521,10 @@ export function createDb(dbPath: string) {
     setItemProgress(eventId: string, id: string, index: number, made: number): Order | null {
       const row = getRow(eventId, id);
       if (!row) return null;
-      const order = rowToOrder(row);
-      const item = order.items[index];
+      const items = storedItems(row.items);
+      const item = items[index];
       if (!item) return null;
-      const next = order.items.map((it, i) =>
+      const next = items.map((it, i) =>
         i === index ? { ...it, made: Math.max(0, Math.min(Math.floor(made), it.qty)) } : it,
       );
       db.update(orders)
@@ -478,9 +546,30 @@ export function createDb(dbPath: string) {
     clearOrders(eventId: string, which: ClearWhich): void {
       const scope =
         which === 'all'
-          ? eq(orders.eventId, eventId)
-          : and(eq(orders.eventId, eventId), eq(orders.status, 'done'));
-      db.delete(orders).where(scope).run();
+          ? and(eq(orders.eventId, eventId), isNull(orders.archivedAt))
+          : and(eq(orders.eventId, eventId), eq(orders.status, 'done'), isNull(orders.archivedAt));
+      db.update(orders).set({ archivedAt: now() }).where(scope).run();
+    },
+
+    /** Every retained order, active or archived, with private unit snapshots intact. */
+    listOrderHistory(eventId: string): OrderHistoryRow[] {
+      return db
+        .select()
+        .from(orders)
+        .where(eq(orders.eventId, eventId))
+        .orderBy(asc(orders.createdAt), sql`rowid ASC`)
+        .all()
+        .map((row) => ({
+          id: row.id,
+          eventId: row.eventId,
+          name: row.name,
+          items: storedItems(row.items),
+          status: row.status as OrderStatus,
+          deviceId: row.deviceId,
+          createdAt: row.createdAt,
+          updatedAt: row.updatedAt,
+          archivedAt: row.archivedAt,
+        }));
     },
 
     /** The anonymous device that placed an order, for routing "your drink" pushes. */
@@ -657,6 +746,51 @@ export function createDb(dbPath: string) {
           set: { inStock: sql`excluded.in_stock` },
         })
         .run();
+    },
+
+    listAlcoholOverrides(userId: string): AlcoholOverrides {
+      const abv = Object.fromEntries(
+        db
+          .select({ ingredient: stock.ingredient, abv: stock.abvOverride })
+          .from(stock)
+          .where(eq(stock.userId, userId))
+          .all()
+          .flatMap((row) => (row.abv === null ? [] : [[row.ingredient, row.abv]])),
+      );
+      const volumes: Record<string, Record<string, number>> = {};
+      for (const row of db
+        .select()
+        .from(recipeMeasureOverride)
+        .where(eq(recipeMeasureOverride.userId, userId))
+        .all()) {
+        (volumes[row.recipeId] ??= {})[row.ingredient] = row.volumeMl;
+      }
+      return { abv, volumes };
+    },
+
+    /** Replace explicit assumptions; omitted values reset to catalogue defaults. */
+    setAlcoholOverrides(userId: string, overrides: AlcoholOverrides): void {
+      sqlite.transaction(() => {
+        db.update(stock).set({ abvOverride: null }).where(eq(stock.userId, userId)).run();
+        for (const [ingredient, abv] of Object.entries(overrides.abv)) {
+          db.update(stock)
+            .set({ abvOverride: abv })
+            .where(and(eq(stock.userId, userId), eq(stock.ingredient, ingredient)))
+            .run();
+        }
+
+        db.delete(recipeMeasureOverride).where(eq(recipeMeasureOverride.userId, userId)).run();
+        const rows = Object.entries(overrides.volumes).flatMap(([recipeId, measures]) =>
+          Object.entries(measures).map(([ingredient, volumeMl]) => ({
+            userId,
+            recipeId,
+            ingredient,
+            volumeMl,
+            updatedAt: now(),
+          })),
+        );
+        if (rows.length > 0) db.insert(recipeMeasureOverride).values(rows).run();
+      })();
     },
 
     // ---- the short list ----
@@ -1048,6 +1182,7 @@ export const setItemProgress: Db['setItemProgress'] = (eventId, id, index, made)
   d().setItemProgress(eventId, id, index, made);
 export const deleteOrder: Db['deleteOrder'] = (eventId, id) => d().deleteOrder(eventId, id);
 export const clearOrders: Db['clearOrders'] = (eventId, which) => d().clearOrders(eventId, which);
+export const listOrderHistory: Db['listOrderHistory'] = (eventId) => d().listOrderHistory(eventId);
 export const orderDeviceId: Db['orderDeviceId'] = (eventId, id) => d().orderDeviceId(eventId, id);
 
 export const createEvent: Db['createEvent'] = (e) => d().createEvent(e);
@@ -1075,6 +1210,10 @@ export const eventsForHost: Db['eventsForHost'] = (hostUserId) => d().eventsForH
 export const listStock: Db['listStock'] = (userId) => d().listStock(userId);
 export const setInStock: Db['setInStock'] = (userId, ingredient, inStock) =>
   d().setInStock(userId, ingredient, inStock);
+export const listAlcoholOverrides: Db['listAlcoholOverrides'] = (userId) =>
+  d().listAlcoholOverrides(userId);
+export const setAlcoholOverrides: Db['setAlcoholOverrides'] = (userId, overrides) =>
+  d().setAlcoholOverrides(userId, overrides);
 export const listEventMenu: Db['listEventMenu'] = (eventId) => d().listEventMenu(eventId);
 export const setEventMenu: Db['setEventMenu'] = (eventId, ids) => d().setEventMenu(eventId, ids);
 

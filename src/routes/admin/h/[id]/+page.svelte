@@ -23,6 +23,7 @@
   import { adoptApprovedSession, session } from '$lib/stores/session.svelte';
   import { rememberEvent } from '$lib/party';
   import AppBar from '$lib/components/AppBar.svelte';
+  import AlcoholProfile from '$lib/components/AlcoholProfile.svelte';
   import Cupboard from '$lib/components/Cupboard.svelte';
   import Gate from '$lib/components/Gate.svelte';
   import PartyRow from '$lib/components/PartyRow.svelte';
@@ -37,6 +38,7 @@
   let error = $state('');
   let notice = $state('');
   let cupboardOpen = $state(false);
+  let alcoholProfileOpen = $state(false);
 
   let newPartyName = $state('');
   let newPartyDate = $state('');
@@ -167,6 +169,20 @@
         </section>
 
         <section class="panel">
+          <h2>Their party insights</h2>
+          <p>Private order, service and estimated-unit history for this host.</p>
+          <a class="btn" href="/insights?hostId={h.id}">View their history</a>
+        </section>
+
+        <section class="panel">
+          <h2>Their unit assumptions</h2>
+          <p>Adjust stocked bottle strengths and measured pours for their future orders.</p>
+          <button class="btn" type="button" onclick={() => (alcoholProfileOpen = true)}>
+            Bottle strengths and pours
+          </button>
+        </section>
+
+        <section class="panel">
           <h2>Their parties</h2>
           {#each theirs as party (party.id)}
             <PartyRow {party} by="host" busy={Boolean(busy)} onwork={work} onopen={openParty} />
@@ -271,5 +287,18 @@
     }}
   >
     <Cupboard userId={host.id} onsaved={() => (notice = `Saved ${host?.name}'s cupboard.`)} />
+  </WorkSheet>
+{/if}
+
+{#if alcoholProfileOpen && host}
+  <WorkSheet
+    title="Their unit assumptions"
+    subtitle={host.name}
+    onclose={() => (alcoholProfileOpen = false)}
+  >
+    <AlcoholProfile
+      userId={host.id}
+      onsaved={() => (notice = `Saved ${host?.name}'s unit assumptions.`)}
+    />
   </WorkSheet>
 {/if}

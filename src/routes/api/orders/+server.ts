@@ -4,10 +4,18 @@ import {
   cleanStr,
   party,
   recipeGuideForOrderLine,
+  snapshotForOrderLine,
   type OrderCreatedResponse,
   type OrderListResponse,
 } from '$lib/shared';
-import { createOrder, eventById, listOrders, now } from '$lib/server/db';
+import {
+  createOrder,
+  eventById,
+  listAlcoholOverrides,
+  listOrders,
+  now,
+  QueueFullError,
+} from '$lib/server/db';
 import { offeredOrderNames } from '$lib/server/menu';
 import { newOrderPush } from '$lib/server/notify';
 import { pushToRole } from '$lib/server/push';
@@ -100,11 +108,22 @@ export async function POST(event: RequestEvent) {
   const unavailable = items.find((item) => !offered.has(item.name));
   if (unavailable) return fail(422, `${unavailable.name} is not on this party's menu`);
 
+  const alcohol = listAlcoholOverrides(found.hostUserId);
   const guidedItems = items.map((item) => {
     const guide = recipeGuideForOrderLine(item.name);
-    return guide ? { ...item, guide } : item;
+    return {
+      ...item,
+      ...(guide ? { guide } : {}),
+      unit: snapshotForOrderLine(item.name, alcohol),
+    };
   });
-  const order = createOrder(eventId, { name, items: guidedItems, note, deviceId });
+  let order;
+  try {
+    order = createOrder(eventId, { name, items: guidedItems, note, deviceId });
+  } catch (error) {
+    if (error instanceof QueueFullError) return fail(503, 'the bar queue is full');
+    throw error;
+  }
   void pushToRole('bartender', newOrderPush(order)); // fire-and-forget
   return json({ ok: true, id: order.id, order } satisfies OrderCreatedResponse);
 }

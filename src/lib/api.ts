@@ -16,6 +16,9 @@ import type {
   PartySettings,
   PartySounds,
   SoundCue,
+  PartyAnalytics,
+  PartyAnalyticsSummary,
+  AlcoholOverrides,
 } from '$lib/shared';
 import { currentEventId } from './party';
 
@@ -294,6 +297,15 @@ export interface Party {
  */
 export const myParties = () => req<{ ok: true; events: Party[] }>('/events');
 
+/** Private party history. Admin may narrow the summary list to one host. */
+export const analyticsHistory = (hostId?: string) =>
+  req<{ ok: true; parties: PartyAnalyticsSummary[] }>(
+    `/analytics${hostId ? `?hostId=${encodeURIComponent(hostId)}` : ''}`,
+  );
+
+export const partyAnalytics = (eventId: string) =>
+  req<{ ok: true; analytics: PartyAnalytics }>(`/events/${eventId}/analytics`);
+
 /**
  * One party, for a screen that is *about* one party.
  *
@@ -346,6 +358,31 @@ export const saveStock = (userId: string, stock: string[]) =>
   req<{ ok: true; stock: string[]; makeable: Pourable[] }>(`/hosts/${userId}/stock`, {
     method: 'PUT',
     body: JSON.stringify({ stock }),
+  });
+
+export interface AlcoholProfileView {
+  overrides: AlcoholOverrides;
+  ingredients: {
+    ingredient: string;
+    defaultAbv: number;
+    source: string;
+    inStock: boolean;
+  }[];
+  recipes: {
+    id: string;
+    name: string;
+    makeable: boolean;
+    components: { ingredient: string; defaultVolumeMl: number }[];
+  }[];
+}
+
+export const getAlcoholProfile = (userId: string) =>
+  req<{ ok: true } & AlcoholProfileView>(`/hosts/${userId}/alcohol-profile`);
+
+export const saveAlcoholProfile = (userId: string, overrides: AlcoholOverrides) =>
+  req<{ ok: true } & AlcoholProfileView>(`/hosts/${userId}/alcohol-profile`, {
+    method: 'PUT',
+    body: JSON.stringify(overrides),
   });
 
 /**

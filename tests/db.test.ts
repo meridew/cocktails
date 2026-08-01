@@ -10,7 +10,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { LIMITS, type PushSubscriptionJSON } from '$lib/shared';
-import { createDb, type Db } from '$lib/server/db';
+import { createDb, QueueFullError, type Db } from '$lib/server/db';
 import { user } from '$lib/server/schema.auth';
 
 let db: Db;
@@ -122,6 +122,7 @@ describe('schema', () => {
       'handoff',
       'created_at',
       'updated_at',
+      'archived_at',
     ]);
     // user_id was added for an accounts feature that never happened.
     assert.ok(!names('orders').includes('user_id'), 'dead column');
@@ -223,7 +224,7 @@ describe('orders', () => {
     );
   });
 
-  test('clearOrders removes done rows, or everything', () => {
+  test('clearOrders archives done rows, or everything', () => {
     const done = newOrder('Done');
     newOrder('Pending');
     db.setOrderStatus(ev, done.id, 'done');
@@ -233,9 +234,12 @@ describe('orders', () => {
       db.listOrders(ev).map((o) => o.name),
       ['Pending'],
     );
+    assert.equal(db.listOrderHistory(ev).length, 2, 'clearing must preserve retained analytics');
+    assert.ok(db.listOrderHistory(ev).find((order) => order.id === done.id)?.archivedAt);
 
     db.clearOrders(ev, 'all');
     assert.equal(db.listOrders(ev).length, 0);
+    assert.equal(db.listOrderHistory(ev).length, 2);
   });
 
   test('orderDeviceId returns the placing device, or null when anonymous', () => {
@@ -262,30 +266,73 @@ describe('orders', () => {
       names.includes('StillWaiting'),
       'a live order must not be evicted while done rows exist',
     );
+    assert.equal(db.listOrderHistory(ev).length, LIMITS.maxOrders + 1);
   });
 
-  test('the order cap evicts to stay at the limit', () => {
+  test('the order cap rejects a new order when every active row is unfinished', () => {
     for (let i = 0; i < LIMITS.maxOrders; i++) {
       db.createOrder(ev, { name: `G${i}`, items: [{ name: 'Mojito', qty: 1 }], note: '' });
     }
     const before = db.listOrders(ev);
     assert.equal(before.length, LIMITS.maxOrders);
 
-    const fresh = db.createOrder(ev, {
-      name: 'Latest',
-      items: [{ name: 'Wine', qty: 1 }],
-      note: '',
-    });
-    const remaining = db.listOrders(ev);
-    assert.equal(remaining.length, LIMITS.maxOrders, 'must not exceed the cap');
-    assert.ok(
-      remaining.some((o) => o.id === fresh.id),
-      'the new order must be present',
+    assert.throws(
+      () =>
+        db.createOrder(ev, {
+          name: 'Latest',
+          items: [{ name: 'Wine', qty: 1 }],
+          note: '',
+        }),
+      QueueFullError,
     );
+    assert.deepEqual(
+      db.listOrders(ev).map((order) => order.id),
+      before.map((order) => order.id),
+    );
+  });
+
+  test('individual deletion is a hard delete and party deletion cascades retained history', () => {
+    const mistaken = newOrder('Mistake');
+    assert.equal(db.deleteOrder(ev, mistaken.id), true);
+    assert.ok(!db.listOrderHistory(ev).some((order) => order.id === mistaken.id));
+
+    newOrder('Retained');
+    db.clearOrders(ev, 'all');
+    assert.equal(db.listOrderHistory(ev).length, 1);
+    db.deleteEvent(ev);
+    assert.equal(db.listOrderHistory(ev).length, 0);
+  });
+});
+
+describe('analytics migration', () => {
+  test('startup reconstructs old lines once and leaves the snapshot immutable', () => {
+    const path = tempDbPath();
+    const first = openTempDb(path);
+    const owner = makeUser(first, 'legacy-host');
+    const party = first.createEvent({ hostUserId: owner, name: 'Legacy' }).id;
+    first.raw
+      .prepare(
+        `INSERT INTO orders (id,event_id,name,items,note,status,created_at,updated_at)
+         VALUES ('legacy-order',?,'Guest','[{"name":"Mojito","qty":1}]','','done',1234,1234)`,
+      )
+      .run(party);
+    first.raw.close();
+
+    const migrated = openTempDb(path);
+    const snapshot = migrated.listOrderHistory(party)[0]?.items[0]?.unit;
+    assert.equal(snapshot?.basis, 'reconstructed');
+    assert.equal(snapshot?.calculatedAt, 1234);
+    const serialized = migrated.raw
+      .prepare(`SELECT items FROM orders WHERE id = 'legacy-order'`)
+      .pluck()
+      .get();
+    migrated.raw.close();
+
+    const reopened = openTempDb(path);
     assert.equal(
-      before.filter((o) => !remaining.some((a) => a.id === o.id)).length,
-      1,
-      'exactly one prior order should have been evicted',
+      reopened.raw.prepare(`SELECT items FROM orders WHERE id = 'legacy-order'`).pluck().get(),
+      serialized,
+      'a second startup must not rewrite a retained snapshot',
     );
   });
 });

@@ -20,6 +20,7 @@
   import { makeable, OPTIONAL_CATEGORIES, platform } from '$lib/shared';
   import { session } from '$lib/stores/session.svelte';
   import AppBar from '$lib/components/AppBar.svelte';
+  import AlcoholProfile from '$lib/components/AlcoholProfile.svelte';
   import Cupboard from '$lib/components/Cupboard.svelte';
   import Gate from '$lib/components/Gate.svelte';
   import WorkSheet from '$lib/components/WorkSheet.svelte';
@@ -30,6 +31,7 @@
 
   /** The tick list is a screen of its own now, not a panel on this one. */
   let cupboardOpen = $state(false);
+  let alcoholProfileOpen = $state(false);
   /** What they've got in, so the card can say it without opening anything. */
   let stock = $state<string[] | null>(null);
   const pourable = $derived(stock ? makeable(stock, { ignore: OPTIONAL_CATEGORIES }).length : 0);
@@ -120,6 +122,20 @@
         </section>
 
         <section class="panel">
+          <h2>Party insights</h2>
+          <p>Private order and service estimates across your current and previous parties.</p>
+          <a class="btn" href="/insights">View party history</a>
+        </section>
+
+        <section class="panel">
+          <h2>Unit assumptions</h2>
+          <p>Record the strengths and measured pours your bar actually uses for future orders.</p>
+          <button class="btn" type="button" onclick={() => (alcoholProfileOpen = true)}>
+            Bottle strengths and pours
+          </button>
+        </section>
+
+        <section class="panel">
           <h2>Your parties</h2>
           {#if parties.length === 0}
             <p class="empty">
@@ -148,6 +164,7 @@
                   -->
                   <a class="btn btn-go" href="/e/{party.id}">Have a drink</a>
                   <a class="btn" href="/host/{party.id}">Watch</a>
+                  <a class="btn" href="/insights/{party.id}">Insights</a>
                   <button class="btn" type="button" onclick={() => copyLink(party)}>
                     Guest link
                   </button>
@@ -172,5 +189,11 @@
         notice = 'Saved.';
       }}
     />
+  </WorkSheet>
+{/if}
+
+{#if alcoholProfileOpen && me}
+  <WorkSheet title="Unit assumptions" onclose={() => (alcoholProfileOpen = false)}>
+    <AlcoholProfile userId={me.id} onsaved={() => (notice = 'Unit assumptions saved.')} />
   </WorkSheet>
 {/if}

@@ -268,6 +268,12 @@
         </section>
 
         <section class="panel">
+          <h2>Party insights</h2>
+          <p>Private totals for orders, service progress and estimated alcohol units.</p>
+          <a class="btn" href="/insights/{eventId}">Open insights</a>
+        </section>
+
+        <section class="panel">
           <h2>What's happening</h2>
           <!-- Watching, not working. Every row here is a statement, not a button. -->
           {#each waiting as order (order.id)}

@@ -9,7 +9,7 @@
  * argument to each column is the real name, so an existing database needs no
  * rewriting and the app code reads naturally.
  */
-import { sqliteTable, text, integer, primaryKey } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, text, integer, real, primaryKey } from 'drizzle-orm/sqlite-core';
 import { user } from './schema.auth';
 
 // Better Auth's own tables, re-exported so drizzle-kit sees one schema and the
@@ -119,8 +119,25 @@ export const stock = sqliteTable(
       .references(() => user.id, { onDelete: 'cascade' }),
     ingredient: text('ingredient').notNull(),
     inStock: integer('in_stock', { mode: 'boolean' }).notNull().default(true),
+    /** The bottle's actual label strength; null uses the versioned catalogue default. */
+    abvOverride: real('abv_override'),
   },
   (t) => [primaryKey({ columns: [t.userId, t.ingredient] })],
+);
+
+/** A host's recipe-specific house pour, keyed by alcoholic component. */
+export const recipeMeasureOverride = sqliteTable(
+  'recipe_measure_override',
+  {
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    recipeId: text('recipe_id').notNull(),
+    ingredient: text('ingredient').notNull(),
+    volumeMl: real('volume_ml').notNull(),
+    updatedAt: integer('updated_at').notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.recipeId, t.ingredient] })],
 );
 
 /**
@@ -225,6 +242,8 @@ export const orders = sqliteTable('orders', {
   deviceId: text('device_id'),
   bumpedAt: integer('bumped_at'),
   handoff: text('handoff'),
+  /** Hidden from the working queue but retained for private party analytics. */
+  archivedAt: integer('archived_at'),
   createdAt: integer('created_at').notNull(),
   updatedAt: integer('updated_at').notNull(),
 });

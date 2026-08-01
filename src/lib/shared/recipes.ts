@@ -52,7 +52,7 @@ export interface RecipeSpec {
   measures: { ingredient: string; amount: string }[];
   /** Short original instructions written for the bar screen, not copied source prose. */
   steps: string[];
-  source: { label: string; url?: string };
+  source: { label: string; url?: string; reviewedAt?: string };
 }
 
 export const CATEGORY_ORDER = data.categoryOrder as Category[];
