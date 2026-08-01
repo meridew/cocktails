@@ -4,10 +4,10 @@ Things deliberately deferred — revisit before they block a phase.
 
 > ## Start with [`HANDOFF-2026-08-01.md`](HANDOFF-2026-08-01.md)
 >
-> The active code hazards from that handoff are resolved in the current worktree:
+> The active code hazards from that handoff were deployed in `f8ee626` on 1 Aug 2026:
 > order mutations retain party scope, and the worker is push-only with a one-time
-> legacy-cache evacuation. They are **not live until explicitly deployed**. Mac SSH,
-> outbound-email configuration and offsite backups remain external blockers.
+> legacy-cache evacuation. Mac SSH, outbound-email configuration and offsite backups
+> remain external blockers.
 
 ## 📍 Where the session of 31 Jul 2026 (evening) left things
 
@@ -45,7 +45,7 @@ the others and only the third is fixed in code:
    HTTP cache, so a stale document came back looking like a fresh one and was written
    into Cache Storage as current. Fixed in `hooks.server.ts` (`b16deb9`).
 
-**Resolved in the current worktree:** the worker is push-only. It installs without
+**Resolved and deployed in `f8ee626`:** the worker is push-only. It installs without
 fetching the app shell, never intercepts page requests, and deletes the old
 `cocktails-*` caches. Finding one of those caches triggers one final reload for the
 legacy client; later deploys return to the polite update prompt.
