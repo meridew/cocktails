@@ -45,6 +45,9 @@ const draw = (order: Order, expanded: boolean) =>
   render(OrderCard, {
     props: {
       order,
+      // The avatar needs to know which party, so it can fetch a face the guard will
+      // hand over. Nothing here has a photo, so it renders initials and never fetches.
+      eventId: 'test-party',
       busy: false,
       expanded,
       ontoggle: noop,

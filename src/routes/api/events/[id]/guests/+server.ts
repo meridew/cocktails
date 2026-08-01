@@ -40,6 +40,17 @@ export async function POST(event: RequestEvent) {
   if (!name || !deviceId) return fail(422, 'name and deviceId required');
 
   joinParty(found.id, deviceId, name);
+
+  /**
+   * **Exactly `{ ok: true }`, and `tests/guests.test.ts` holds it to that.**
+   *
+   * Selfies were nearly bolted on here — the join would answer "have I got your
+   * photo already?" so a returning device knew whether to upload. It was one boolean
+   * about a picture and said nothing about admission, and it still had to go: the
+   * value of this response is that it is *empty*, and a rule with one exception is a
+   * rule somebody argues with next time. The device tracks which parties it has sent
+   * its picture to instead — see `photo.ts`.
+   */
   return json({ ok: true });
 }
 

@@ -155,6 +155,37 @@ export const joinParty = (eventId: string, name: string, deviceId: string) =>
     body: JSON.stringify({ name, deviceId }),
   });
 
+/**
+ * Send the picture itself — only when a join said this party hasn't got it.
+ *
+ * Split from joining because joining happens on every menu load. Uploading an
+ * unchanged image each time would be the point of hashing it thrown away.
+ */
+export const putGuestPhoto = (
+  eventId: string,
+  deviceId: string,
+  photo: string | null,
+  photoId: string | null,
+) =>
+  req<{ ok: true }>(`/events/${eventId}/guests/photo`, {
+    method: 'PUT',
+    body: JSON.stringify({ deviceId, photo, photoId }),
+  });
+
+/**
+ * One face, by content hash, for the bar.
+ *
+ * Returns a data URL rather than bytes: a bar session is a bearer token, which an
+ * `<img src>` cannot send, so the alternative was making these public behind an
+ * unguessable URL. They are photographs of somebody's friends — the guard stays and
+ * `Avatar.svelte` fetches them properly, once each, because a content hash can never
+ * come back a different picture.
+ */
+export const guestPhoto = (eventId: string, photoId: string) =>
+  req<{ ok: true; photo: string }>(
+    `/events/${eventId}/guests/photo?id=${encodeURIComponent(photoId)}`,
+  ).then((r) => r.photo);
+
 /** What's on tonight. Public: id and name of every live party, and nothing else. */
 export const liveParties = () =>
   req<{ ok: true; parties: { id: string; name: string }[] }>('/parties');

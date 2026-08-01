@@ -22,9 +22,13 @@
     pushSupported,
   } from '$lib/stores/push.svelte';
   import { resetChoice } from '$lib/stores/notifyConsent.svelte';
-  import { signOutOfAccount } from '$lib/api';
+  import { putGuestPhoto, signOutOfAccount } from '$lib/api';
   import { refreshActor, session } from '$lib/stores/session.svelte';
+  import { currentEventId } from '$lib/party';
+  import { getDeviceId } from '$lib/device';
+  import { photoId as hashOf, rememberPhotoSent } from '$lib/photo';
   import InstallButton from '$lib/components/InstallButton.svelte';
+  import PhotoPicker from '$lib/components/PhotoPicker.svelte';
 
   let { onclose }: { onclose: () => void } = $props();
 
@@ -51,6 +55,25 @@
     await refreshActor();
     onclose();
     await goto('/', { replaceState: true });
+  }
+
+  /**
+   * Push a changed photo to the party this device is at, straight away.
+   *
+   * Without this it would take until the next menu load for the bar to see it, and
+   * "I've just added my photo, why doesn't it show" is a reasonable thing to think.
+   * Nothing to do if this device isn't at a party — the picture is still saved
+   * locally and goes out on the next join.
+   */
+  async function onPhotoChange(photo: string | null): Promise<void> {
+    const eventId = currentEventId();
+    if (!eventId) return;
+    const id = photo ? await hashOf(photo) : null;
+    await putGuestPhoto(eventId, getDeviceId(), photo, id)
+      .then(() => rememberPhotoSent(eventId, id))
+      .catch(() => {
+        /* offline — the local copy stands and the next join carries it */
+      });
   }
 
   let busy = $state(false);
@@ -138,6 +161,27 @@
           : 'Turn this on to hear when your drink is ready.'}
       </p>
     {/if}
+
+    <!--
+      **The way back in for everyone who said no.**
+
+      The photo is asked for exactly once, on the way into a party, and there is no
+      second prompt — nobody should be nagged for their face. So this is where it
+      lives afterwards: change it, add one late, or take it back.
+
+      It sits on the device rather than on one party, so a picture taken at Owain's is
+      offered at Sam's without being asked for again. Removing it here stops it being
+      offered anywhere; parties that already have a copy keep it until the next join
+      clears them, which is the honest tradeoff of not holding a list of every bar
+      this phone has ever visited.
+    -->
+    <div class="settings-account">
+      <p class="settings-note">Your photo</p>
+      <PhotoPicker onchange={onPhotoChange} />
+      <p class="settings-note">
+        Optional, and only the bar sees it — it helps them find you when your drink's ready.
+      </p>
+    </div>
 
     {#if me}
       <div class="settings-account">

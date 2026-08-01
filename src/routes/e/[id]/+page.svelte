@@ -29,7 +29,10 @@
   import { goto } from '$app/navigation';
   import { onDestroy, onMount } from 'svelte';
   import { DRINKS, type Drink } from '$lib/data';
-  import { eventMenu, joinParty, type EventMenu, type MenuItem } from '$lib/api';
+  import { eventMenu, joinParty, putGuestPhoto, type EventMenu, type MenuItem } from '$lib/api';
+  import { photoSentTo, rememberPhotoSent, savedPhoto, savedPhotoId } from '$lib/photo';
+  import { setArriving } from '$lib/stores/arrival.svelte';
+  import PhotoPicker from '$lib/components/PhotoPicker.svelte';
   import { emojiFor, groupByBase } from '$lib/menu';
   import { can, party as partyScope } from '$lib/shared';
   import { hydrateSession, session } from '$lib/stores/session.svelte';
@@ -102,13 +105,33 @@
     joining = true;
     try {
       saveName(trimmed);
-      await joinParty(data.eventId, trimmed, getDeviceId());
+      const device = getDeviceId();
+      await joinParty(data.eventId, trimmed, device);
+
+      /**
+       * Send the picture only if this party hasn't got *this* picture.
+       *
+       * Joining runs on every menu load, so an unconditional upload would push the
+       * same few kilobytes every time somebody reopened the app. The device keeps a
+       * note of what it last gave each party — see `photoSentTo` for why that
+       * bookkeeping is here rather than in the join's answer.
+       */
+      const carried = savedPhoto();
+      const carriedId = savedPhotoId();
+      if (carried && carriedId && photoSentTo(data.eventId) !== carriedId) {
+        await putGuestPhoto(data.eventId, device, carried, carriedId)
+          .then(() => rememberPhotoSent(data.eventId, carriedId))
+          .catch(() => {
+            /* a face is a nice-to-have; never let it fail an arrival */
+          });
+      }
     } catch {
       // Offline, or a party that has gone. Never a dead end: the order they
       // eventually send creates the guest row anyway, from the same name.
     } finally {
       joining = false;
       askingName = false;
+      setArriving(false);
     }
   }
 
@@ -211,7 +234,12 @@
     // Known already → join quietly. Never met → ask, once, before the menu.
     const known = getSavedName();
     if (known) void join(known);
-    else askingName = true;
+    else {
+      askingName = true;
+      // Hold the notification card back until they've said who they are — see
+      // `arrival.svelte.ts`. Two asks at once was already happening before selfies.
+      setArriving(true);
+    }
 
     // Deliberately not awaited: the house list renders immediately and is replaced
     // when the real one lands, rather than the whole page waiting on a request to
@@ -364,7 +392,18 @@
              may not have let them in yet, and they must not be able to tell. -->
         <section class="panel arrive">
           <h2>Who's this?</h2>
+          <!--
+            **The photo is asked for here, not in a card of its own.** A name and a
+            face answer the same question for the same reason, and this sentence
+            already justifies the face better than it justifies the name — a bartender
+            holding a Negroni and looking for "Steve" is exactly the problem.
+
+            Optional, and it says so: the bar falls back to initials, which still tell
+            Steve from Sarah in a list.
+          -->
           <p>So the bar knows whose drink is whose.</p>
+          <PhotoPicker />
+          <p class="arrive-optional">A photo is optional — it only ever goes to the bar.</p>
           <form
             onsubmit={(e) => {
               e.preventDefault();

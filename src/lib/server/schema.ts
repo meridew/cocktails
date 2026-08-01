@@ -133,6 +133,29 @@ export const eventGuest = sqliteTable(
     createdAt: integer('created_at').notNull(),
     /** When somebody let them in — null while pending. */
     admittedAt: integer('admitted_at'),
+    /**
+     * An optional selfie, so the bar can put a face to a name.
+     *
+     * **A base64 WebP, in the row.** It is the first binary this app has stored, and
+     * a blob in SQLite is the smallest way to do it: one process, one file, no bucket
+     * to configure, and it cascades away with the party for free. The client crops and
+     * resizes to 256px before sending, which lands at three to eight kilobytes — two
+     * hundred guests is under two megabytes.
+     *
+     * Null is the ordinary case, not a failure: the photo is optional and the bar
+     * falls back to initials.
+     */
+    photo: text('photo'),
+    /**
+     * A content hash of `photo`, or null.
+     *
+     * It does two jobs. It is the URL the bar fetches the image by, and because it
+     * changes only when the picture does, that URL can be cached forever — which
+     * matters when the bar re-polls every four seconds and would otherwise be handed
+     * the same faces over and over. And it lets a returning guest's device ask "have
+     * you got this one already?" without uploading anything.
+     */
+    photoId: text('photo_id'),
   },
   (t) => [primaryKey({ columns: [t.eventId, t.deviceId] })],
 );

@@ -12,9 +12,11 @@
    */
   import { HANDOFFS, HANDOFF_META, STATUS_META, orderProgress } from '$lib/shared';
   import type { Handoff, Order, OrderStatus } from '$lib/shared';
+  import Avatar from '$lib/components/Avatar.svelte';
 
   let {
     order,
+    eventId,
     busy,
     expanded,
     ontoggle,
@@ -25,6 +27,8 @@
     onadmit,
   }: {
     order: Order;
+    /** Which party, so the avatar can fetch a face the guard will hand over. */
+    eventId: string;
     busy: boolean;
     expanded: boolean;
     ontoggle: () => void;
@@ -102,6 +106,17 @@
     >
       <span class="ord-head">
         {#if bumped}<span class="ord-flag" title="Bumped to the front">⤒</span>{/if}
+        <!--
+          **A face, then the name.** "Steve" is not enough to hand a Negroni to
+          somebody across a kitchen, which is the whole reason this exists. Falls back
+          to initials on a colour picked from the name, so a guest who took no photo is
+          still distinguishable at a glance rather than being a generic head.
+
+          32px: this row already carries a name, up to two pills, an age and two
+          buttons, and it took real work to stop it crushing. Anything larger pushes
+          the name into ellipsis on a 390px phone.
+        -->
+        <Avatar name={order.name} {eventId} photoId={order.photoId ?? null} size={32} />
         <span class="ord-who">{order.name}</span>
         <!--
           "Not in", not "new".

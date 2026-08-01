@@ -408,6 +408,7 @@
       {#each visible as order (order.id)}
         <OrderCard
           {order}
+          {eventId}
           busy={busy.has(order.id)}
           expanded={openId === order.id}
           ontoggle={() => (openId = openId === order.id ? null : order.id)}

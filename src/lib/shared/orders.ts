@@ -139,6 +139,15 @@ export interface Order {
    * device placed it.
    */
   newGuest?: boolean;
+  /**
+   * The content hash of this guest's selfie, or null if they haven't taken one.
+   *
+   * **A hash, not the picture.** The bar re-polls every four seconds; inlining even a
+   * six-kilobyte avatar per order would be a hundred kilobytes of identical bytes a
+   * minute. `Avatar.svelte` fetches each hash once and keeps it, which it can only do
+   * because the hash is of the *content* — the URL can never mean a different face.
+   */
+  photoId?: string | null;
 }
 
 /** Drinks poured vs ordered, for a progress readout on a multi-drink order. */

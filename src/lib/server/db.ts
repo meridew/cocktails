@@ -73,7 +73,7 @@ type OrderRow = typeof orders.$inferSelect;
 export type EventGuestRow = typeof eventGuest.$inferSelect;
 type SubRow = typeof subscriptions.$inferSelect;
 
-function rowToOrder(r: OrderRow, newGuest = false): Order {
+function rowToOrder(r: OrderRow, newGuest = false, photoId: string | null = null): Order {
   let items: OrderItem[] = [];
   try {
     const parsed = JSON.parse(r.items) as unknown;
@@ -92,6 +92,7 @@ function rowToOrder(r: OrderRow, newGuest = false): Order {
     bumpedAt: r.bumpedAt,
     handoff: isHandoff(r.handoff) ? r.handoff : null,
     newGuest,
+    photoId,
   };
 }
 
@@ -169,6 +170,23 @@ export function createDb(dbPath: string) {
         .where(and(eq(eventGuest.eventId, eventId), ne(eventGuest.status, 'admitted')))
         .all()
         .map((r) => r.deviceId),
+    );
+
+  /**
+   * Which device has which face, as hashes rather than pictures.
+   *
+   * The hash goes out with the queue and the picture does not: the bar re-polls every
+   * four seconds, and inlining even a 6KB avatar per order would be a hundred
+   * kilobytes of identical bytes a minute. `Avatar.svelte` fetches each hash once.
+   */
+  const photoIds = (eventId: string): Map<string, string> =>
+    new Map(
+      db
+        .select({ deviceId: eventGuest.deviceId, photoId: eventGuest.photoId })
+        .from(eventGuest)
+        .where(eq(eventGuest.eventId, eventId))
+        .all()
+        .flatMap((r) => (r.photoId ? [[r.deviceId, r.photoId] as [string, string]] : [])),
     );
 
   return {
@@ -287,6 +305,43 @@ export function createDb(dbPath: string) {
         .all();
     },
 
+    /**
+     * Attach a face to a guest, or take it away with `(null, null)`.
+     *
+     * Deliberately **not** part of `joinParty`. Joining happens on every menu load,
+     * and re-sending a picture that has not changed on every one of those would be
+     * the whole point of hashing it thrown away. The device asks first — see
+     * `guestNeedsPhoto` — and only sends when the answer is yes.
+     */
+    setGuestPhoto(
+      eventId: string,
+      deviceId: string,
+      photo: string | null,
+      photoId: string | null,
+    ): void {
+      db.update(eventGuest)
+        .set({ photo, photoId })
+        .where(and(eq(eventGuest.eventId, eventId), eq(eventGuest.deviceId, deviceId)))
+        .run();
+    },
+
+    /**
+     * One stored picture, by its content hash.
+     *
+     * Scoped to the party, so a hash learned at one bar cannot be replayed at
+     * another — the hash is derived from the image and two people who happened to
+     * upload the same picture would otherwise share a row across tenancies.
+     */
+    photoByHash(eventId: string, photoId: string): string | null {
+      return (
+        db
+          .select({ photo: eventGuest.photo })
+          .from(eventGuest)
+          .where(and(eq(eventGuest.eventId, eventId), eq(eventGuest.photoId, photoId)))
+          .get()?.photo ?? null
+      );
+    },
+
     setGuestStatus(eventId: string, deviceId: string, status: 'admitted' | 'blocked'): void {
       db.update(eventGuest)
         .set({ status, admittedAt: status === 'admitted' ? now() : null })
@@ -328,6 +383,7 @@ export function createDb(dbPath: string) {
      */
     listOrders(eventId: string): Order[] {
       const unadmitted = unadmittedDevices(eventId);
+      const faces = photoIds(eventId);
       return db
         .select()
         .from(orders)
@@ -339,7 +395,13 @@ export function createDb(dbPath: string) {
           sql`rowid ASC`,
         )
         .all()
-        .map((r) => rowToOrder(r, r.deviceId !== null && unadmitted.has(r.deviceId)));
+        .map((r) =>
+          rowToOrder(
+            r,
+            r.deviceId !== null && unadmitted.has(r.deviceId),
+            (r.deviceId && faces.get(r.deviceId)) || null,
+          ),
+        );
     },
 
     /**
@@ -902,6 +964,10 @@ export const joinParty: Db['joinParty'] = (eventId, deviceId, name) =>
   d().joinParty(eventId, deviceId, name);
 export const guestAt: Db['guestAt'] = (eventId, deviceId) => d().guestAt(eventId, deviceId);
 export const listGuests: Db['listGuests'] = (eventId) => d().listGuests(eventId);
+export const setGuestPhoto: Db['setGuestPhoto'] = (eventId, deviceId, photo, photoId) =>
+  d().setGuestPhoto(eventId, deviceId, photo, photoId);
+export const photoByHash: Db['photoByHash'] = (eventId, photoId) =>
+  d().photoByHash(eventId, photoId);
 export const setGuestStatus: Db['setGuestStatus'] = (eventId, deviceId, status) =>
   d().setGuestStatus(eventId, deviceId, status);
 export const admitAllPending: Db['admitAllPending'] = (eventId) => d().admitAllPending(eventId);

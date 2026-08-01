@@ -20,11 +20,21 @@
   import { dialog } from '$lib/dialog';
   import { enablePush, needsInstallFirst, pushSupported } from '$lib/stores/push.svelte';
   import { notifyConsent, recordChoice } from '$lib/stores/notifyConsent.svelte';
+  import { arrival } from '$lib/stores/arrival.svelte';
   import InstallButton from '$lib/components/InstallButton.svelte';
 
   let busy = $state(false);
   let installNeeded = $derived(needsInstallFirst());
-  let show = $derived(notifyConsent.shouldAsk && (pushSupported() || installNeeded));
+  /**
+   * **Waits for the arrival panel.** This card is in the root layout and used to ask
+   * only "have we asked before, and could the browser still prompt" — nothing about
+   * what else was on screen. A guest opening a party link for the first time got the
+   * inline "Who's this?" *and* this modal over it: two decisions before seeing a
+   * drink. See `arrival.svelte.ts`.
+   */
+  let show = $derived(
+    notifyConsent.shouldAsk && !arrival.arriving && (pushSupported() || installNeeded),
+  );
 
   async function accept() {
     if (busy) return;

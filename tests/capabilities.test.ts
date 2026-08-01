@@ -102,6 +102,16 @@ const GOVERNED: Record<string, Requirement> = {
   // gets you nothing until somebody admits you.
   'POST /api/events/[id]/guests': 'public',
   'PATCH /api/events/[id]/guests': 'guests:admit',
+  /**
+   * Public for the same reason joining is: a guest has no account and no token, and
+   * the device id is a soft handle rather than an identity. Setting a picture against
+   * an invented device is the same risk as inventing a name, which this app has always
+   * taken — and the real control is downstream, where a human looks at every face
+   * before pouring.
+   */
+  'PUT /api/events/[id]/guests/photo': 'public',
+  /** Reading one back is not public: these are photographs of somebody's friends. */
+  'GET /api/events/[id]/guests/photo': 'orders:read',
   // What's on tonight. Names and ids of live parties, and nothing else — see the
   // endpoint for what that publishes and what it deliberately doesn't.
   'GET /api/parties': 'public',
