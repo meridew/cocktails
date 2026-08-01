@@ -163,6 +163,15 @@ describe('one cupboard, every party the host has', () => {
 });
 
 describe('the menu is generated, not filtered', () => {
+  test('a stocked Strawberry Daiquiri reaches the guest menu', async () => {
+    const host = await person('stock-strawberry-daiquiri');
+    const party = partyFor(host.id, 'Strawberry party');
+    const stock = ['White Rum', 'Lime Juice', 'Simple Syrup', 'Strawberry Purée'];
+
+    assert.equal((await putStock(host.id, stock, asAccount(host))).status, 200);
+    assert.ok(names(await readMenu(party)).includes('Strawberry Daiquiri'));
+  });
+
   test('a sugar-free Monster tick puts Gin & Monster on the guest menu', async () => {
     const host = await person('stock-monster');
     const party = partyFor(host.id, 'Monster party');

@@ -36,10 +36,10 @@ import {
 const NEGRONI = { base: 'Gin', needs: ['Campari', 'Sweet Vermouth'], method: 'Stirred' };
 
 describe('the data itself', () => {
-  test('287 recipes and the eleven-step category order survived the port', () => {
-    // 270 came over from the legacy app; the other 17 are later additions for
+  test('288 recipes and the eleven-step category order survived the port', () => {
+    // 270 came over from the legacy app; the other 18 are later additions for
     // drinks a real party cupboard implies, which the ported set lacked.
-    assert.equal(RECIPES.length, 287);
+    assert.equal(RECIPES.length, 288);
     assert.deepEqual(CATEGORY_ORDER, [
       'liquor',
       'citrus',
@@ -164,6 +164,11 @@ describe('reachable — the interactive walk', () => {
 });
 
 describe('makeable — the host’s cupboard', () => {
+  test('the Strawberry Daiquiri is unlocked by its four cupboard ingredients', () => {
+    const stock = ['White Rum', 'Lime Juice', 'Simple Syrup', 'Strawberry Purée'];
+    assert.ok(makeable(stock).some((r) => r.name === 'Strawberry Daiquiri'));
+  });
+
   test('gin and Monster make a Gin & Monster', () => {
     const stock = ['Gin', 'Monster Ultra (Zero Sugar)'];
     assert.ok(makeable(stock).some((r) => r.name === 'Gin & Monster'));

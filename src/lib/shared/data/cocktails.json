@@ -857,6 +857,17 @@
       "method": "Shaken"
     },
     {
+      "id": "strawberry-daiquiri",
+      "name": "Strawberry Daiquiri",
+      "base": "White Rum",
+      "ingredients": ["Lime Juice", "Simple Syrup", "Strawberry Purée", "Blended"],
+      "garnish": "Strawberry & lime wheel",
+      "ice": "Blended with ice",
+      "glass": "Hurricane / coupe",
+      "blurb": "Ripe strawberry, bright lime and rum in a frosty summer classic.",
+      "method": "Blended"
+    },
+    {
       "id": "mojito",
       "name": "Mojito",
       "base": "White Rum",
