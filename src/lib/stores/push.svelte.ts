@@ -1,44 +1,52 @@
-/**
- * Web Push, as one state machine per role.
- *
- * Keyed to the anonymous device id — no login required. Web Push covers browsers
- * and installed PWAs; the native app will use APNs/FCM instead (the server's
- * subscription model already carries a `transport`), so everything here degrades
- * to 'unsupported' where PushManager is absent, e.g. inside the iOS WebView.
- *
- * The state is resolved from the *actual* subscription rather than from
- * `Notification.permission`: permission being granted says nothing about whether
- * this device is registered with the API for a given role, and inferring it from
- * permission made the UI claim "🔔 On" when no subscription existed.
- */
-import type { SubscriberRole } from '$lib/shared';
+/** Web Push registration, reconciliation, diagnostics and self-test. */
+import type { NotificationDeviceStatus, NotificationTestStatus, SubscriberRole } from '$lib/shared';
 import { getDeviceId } from '$lib/device';
 import { storage } from '$lib/storage';
-import { pushKey, subscribePush, unsubscribePush } from '$lib/api';
+import {
+  pushEndpointStatus,
+  pushKey,
+  pushTestStatus,
+  replacePushSubscription,
+  sendPushTest,
+  subscribePush,
+  unsubscribePush,
+} from '$lib/api';
 import { overrides } from '$lib/devOverrides';
 
-export type PushState =
-  /** not registered yet, but could be */
-  | 'idle'
-  /** a request is in flight */
-  | 'working'
-  /** registered with the API for this role */
-  | 'on'
-  /** the user refused the browser prompt */
-  | 'denied'
-  /** this browser/WebView has no Push API */
-  | 'unsupported'
-  /** the server has no VAPID keys configured */
-  | 'disabled'
-  /** something failed; the button stays available to retry */
-  | 'error';
+export type PushState = 'idle' | 'working' | 'on' | 'denied' | 'unsupported' | 'disabled' | 'error';
 
-/** Roles this device believes it registered, so state survives a reload. */
+export interface PushDiagnostics {
+  permission: NotificationPermission | 'unavailable';
+  localSubscription: boolean;
+  server: NotificationDeviceStatus | null;
+  platform: 'ios' | 'android' | 'web';
+}
+
+interface StoredRegistration {
+  endpointId: string;
+  managementToken: string;
+  endpoint: string;
+  deviceId: string;
+  roles: SubscriberRole[];
+  vapidKey: string;
+  pendingRefresh: boolean;
+}
+
 const ROLES_KEY = 'push_roles';
-
+const DB_NAME = 'cocktails-push';
+const DB_STORE = 'registration';
+const DB_KEY = 'current';
 const states = $state<Record<SubscriberRole, PushState>>({ guest: 'idle', bartender: 'idle' });
+let memoryRegistration: StoredRegistration | null = null;
+let lifecycleInstalled = false;
+let registrationQueue: Promise<void> = Promise.resolve();
 
 export const pushState = (role: SubscriberRole): PushState => states[role];
+
+function browserPushManager(registration: ServiceWorkerRegistration): PushManager {
+  const direct = (window as unknown as { pushManager?: PushManager }).pushManager;
+  return direct ?? registration.pushManager;
+}
 
 export function pushSupported(): boolean {
   const forced = overrides().push;
@@ -47,48 +55,37 @@ export function pushSupported(): boolean {
     typeof navigator !== 'undefined' &&
     'serviceWorker' in navigator &&
     typeof window !== 'undefined' &&
-    'PushManager' in window &&
+    ('PushManager' in window || 'pushManager' in window) &&
     'Notification' in window
   );
 }
 
-/** Running as an installed app rather than in a browser tab. */
 function isInstalled(): boolean {
   const forced = overrides().installed;
   if (forced !== undefined) return forced;
   if (typeof window === 'undefined') return false;
   return (
     window.matchMedia?.('(display-mode: standalone)').matches === true ||
-    // iOS predates the standard and still reports it here only.
     (navigator as unknown as { standalone?: boolean }).standalone === true
   );
 }
 
-/**
- * iOS supports Web Push *only* for apps added to the Home Screen — a normal Safari
- * tab has no PushManager at all. So on iPhone the honest answer to "can we notify
- * you" is "install it first", and offering a prompt that cannot appear would just
- * look broken.
- */
-export function needsInstallFirst(): boolean {
-  const platform = overrides().platform;
-  if (typeof navigator === 'undefined' && !platform) return false;
-  const ua = typeof navigator === 'undefined' ? '' : navigator.userAgent;
-  const isIOS = platform
-    ? platform === 'ios'
-    : /iPad|iPhone|iPod/.test(ua) ||
-      // iPadOS reports itself as a Mac; the touch points give it away.
-      (/Macintosh/.test(ua) && (navigator.maxTouchPoints ?? 0) > 1);
-  return isIOS && !isInstalled() && !pushSupported();
+function currentPlatform(): 'ios' | 'android' | 'web' {
+  const forced = overrides().platform;
+  if (forced === 'ios' || forced === 'android') return forced;
+  if (typeof navigator === 'undefined') return 'web';
+  const ua = navigator.userAgent;
+  if (/Android/i.test(ua)) return 'android';
+  if (/iPad|iPhone|iPod/i.test(ua) || (/Macintosh/i.test(ua) && navigator.maxTouchPoints > 1)) {
+    return 'ios';
+  }
+  return 'web';
 }
 
-/**
- * Whether the browser will actually show a prompt if we ask.
- *
- * `denied` is terminal — the permission cannot be requested again from script, and
- * the only way back is the browser's own site settings. That's why we never ask
- * speculatively; see the opt-in card.
- */
+export function needsInstallFirst(): boolean {
+  return currentPlatform() === 'ios' && !isInstalled() && !pushSupported();
+}
+
 export function permissionState(): NotificationPermission | 'unavailable' {
   const forced = overrides().permission;
   if (forced) return forced;
@@ -98,7 +95,9 @@ export function permissionState(): NotificationPermission | 'unavailable' {
 
 function rememberedRoles(): SubscriberRole[] {
   const raw = storage.readJSON<unknown>(ROLES_KEY, []);
-  return Array.isArray(raw) ? (raw as SubscriberRole[]) : [];
+  return Array.isArray(raw)
+    ? raw.filter((role): role is SubscriberRole => role === 'guest' || role === 'bartender')
+    : [];
 }
 
 function rememberRole(role: SubscriberRole): void {
@@ -107,7 +106,42 @@ function rememberRole(role: SubscriberRole): void {
   storage.writeJSON(ROLES_KEY, [...roles]);
 }
 
-/** VAPID public keys are base64url; the Push API wants an ArrayBuffer-backed view. */
+function openRegistrationDb(): Promise<IDBDatabase | null> {
+  if (typeof indexedDB === 'undefined') return Promise.resolve(null);
+  return new Promise((resolve) => {
+    const request = indexedDB.open(DB_NAME, 1);
+    request.onupgradeneeded = () => {
+      if (!request.result.objectStoreNames.contains(DB_STORE)) {
+        request.result.createObjectStore(DB_STORE);
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => resolve(null);
+  });
+}
+
+async function readRegistration(): Promise<StoredRegistration | null> {
+  const db = await openRegistrationDb();
+  if (!db) return memoryRegistration;
+  return new Promise((resolve) => {
+    const request = db.transaction(DB_STORE).objectStore(DB_STORE).get(DB_KEY);
+    request.onsuccess = () => resolve((request.result as StoredRegistration | undefined) ?? null);
+    request.onerror = () => resolve(memoryRegistration);
+  });
+}
+
+async function writeRegistration(value: StoredRegistration | null): Promise<void> {
+  memoryRegistration = value;
+  const db = await openRegistrationDb();
+  if (!db) return;
+  await new Promise<void>((resolve) => {
+    const store = db.transaction(DB_STORE, 'readwrite').objectStore(DB_STORE);
+    const request = value ? store.put(value, DB_KEY) : store.delete(DB_KEY);
+    request.onsuccess = () => resolve();
+    request.onerror = () => resolve();
+  });
+}
+
 function urlBase64ToUint8Array(base64: string): Uint8Array<ArrayBuffer> {
   const padding = '='.repeat((4 - (base64.length % 4)) % 4);
   const b64 = (base64 + padding).replace(/-/g, '+').replace(/_/g, '/');
@@ -117,124 +151,178 @@ function urlBase64ToUint8Array(base64: string): Uint8Array<ArrayBuffer> {
   return arr;
 }
 
-/**
- * True when an existing subscription was created with a different VAPID key.
- * After a key rotation the old subscription still looks healthy but the server
- * can no longer send to it, so it must be replaced rather than reused.
- */
 function keyMismatch(sub: PushSubscription, serverKey: string): boolean {
   const current = sub.options.applicationServerKey;
   if (!current) return true;
   const expected = urlBase64ToUint8Array(serverKey);
   const actual = new Uint8Array(current);
-  if (actual.length !== expected.length) return true;
-  return actual.some((byte, i) => byte !== expected[i]);
+  return actual.length !== expected.length || actual.some((byte, i) => byte !== expected[i]);
 }
 
-/** Register a subscription with the API for this device + role. */
-async function register(sub: PushSubscription, role: SubscriberRole): Promise<void> {
-  await subscribePush({ deviceId: getDeviceId(), role, subscription: sub.toJSON() });
+async function registerOnce(
+  sub: PushSubscription,
+  role: SubscriberRole,
+  vapidKey: string,
+): Promise<void> {
+  const previous = await readRegistration();
+  const common = { deviceId: getDeviceId(), role, subscription: sub.toJSON() };
+  const response =
+    previous && (previous.pendingRefresh || previous.endpoint !== sub.endpoint)
+      ? await replacePushSubscription({
+          ...common,
+          endpointId: previous.endpointId,
+          managementToken: previous.managementToken,
+        })
+      : await subscribePush(common);
+  const roles = new Set(previous?.roles ?? rememberedRoles());
+  roles.add(role);
+  await writeRegistration({
+    endpointId: response.endpointId,
+    managementToken: response.managementToken,
+    endpoint: sub.endpoint,
+    deviceId: getDeviceId(),
+    roles: [...roles],
+    vapidKey,
+    pendingRefresh: false,
+  });
   rememberRole(role);
 }
 
-/**
- * Reconcile the stored belief with reality, without prompting.
- *
- * If this device previously registered for `role` and still holds a usable
- * subscription, re-register it (the upsert is idempotent) so a pruned or
- * rotated server row heals itself on the next visit.
- */
+/** Token rotation is sequential even when guest and bartender reconciliation race. */
+async function register(
+  sub: PushSubscription,
+  role: SubscriberRole,
+  vapidKey: string,
+): Promise<void> {
+  const work = registrationQueue.then(() => registerOnce(sub, role, vapidKey));
+  registrationQueue = work.catch(() => {});
+  return work;
+}
+
+async function reconcileRememberedRoles(): Promise<void> {
+  for (const role of rememberedRoles()) await refreshPushState(role);
+}
+
+function installLifecycleReconciliation(): void {
+  if (lifecycleInstalled || typeof document === 'undefined' || !('serviceWorker' in navigator)) {
+    return;
+  }
+  lifecycleInstalled = true;
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') void reconcileRememberedRoles();
+  });
+  if (typeof navigator.serviceWorker.addEventListener === 'function') {
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      void reconcileRememberedRoles();
+    });
+  }
+}
+
 export async function refreshPushState(role: SubscriberRole): Promise<PushState> {
+  installLifecycleReconciliation();
   if (!pushSupported()) return (states[role] = 'unsupported');
   try {
     const info = await pushKey();
     if (!info.enabled || !info.key) return (states[role] = 'disabled');
     if (Notification.permission === 'denied') return (states[role] = 'denied');
-
-    const reg = await navigator.serviceWorker.ready;
-    const sub = await reg.pushManager.getSubscription();
+    const registration = await navigator.serviceWorker.ready;
+    const sub = await browserPushManager(registration).getSubscription();
     if (!sub || keyMismatch(sub, info.key)) return (states[role] = 'idle');
     if (!rememberedRoles().includes(role)) return (states[role] = 'idle');
-
-    await register(sub, role);
+    await register(sub, role, info.key);
     return (states[role] = 'on');
   } catch {
     return (states[role] = 'idle');
   }
 }
 
-/**
- * Ask permission if needed, then subscribe this device for `role`.
- * The API attaches the staff session automatically, so a signed-in bartender is
- * honoured and anyone else is downgraded to 'guest' server-side.
- */
 export async function enablePush(role: SubscriberRole): Promise<PushState> {
+  installLifecycleReconciliation();
   if (!pushSupported()) return (states[role] = 'unsupported');
   states[role] = 'working';
   try {
     const info = await pushKey();
     if (!info.enabled || !info.key) return (states[role] = 'disabled');
-
     const permission = await Notification.requestPermission();
     if (permission !== 'granted') return (states[role] = 'denied');
-
-    const reg = await navigator.serviceWorker.ready;
-    let sub = await reg.pushManager.getSubscription();
-    // Drop a subscription minted under a different VAPID key — reusing it would
-    // silently never deliver again.
+    const registration = await navigator.serviceWorker.ready;
+    const manager = browserPushManager(registration);
+    let sub = await manager.getSubscription();
     if (sub && keyMismatch(sub, info.key)) {
       await sub.unsubscribe().catch(() => {});
       sub = null;
     }
-    sub ??= await reg.pushManager.subscribe({
+    sub ??= await manager.subscribe({
       userVisibleOnly: true,
       applicationServerKey: urlBase64ToUint8Array(info.key),
     });
-
-    await register(sub, role);
+    await register(sub, role, info.key);
     return (states[role] = 'on');
   } catch {
     return (states[role] = 'error');
   }
 }
 
-/**
- * Turn notifications off for this device, everywhere.
- *
- * Drops the browser subscription *and* the server's rows. It deliberately does not
- * try to revoke the permission — browsers don't allow that — so turning it back on
- * later is one tap with no second prompt.
- */
 export async function disablePush(): Promise<void> {
-  const deviceId = getDeviceId();
+  const stored = await readRegistration();
+  try {
+    if (stored) await unsubscribePush(stored.endpointId, stored.managementToken);
+  } catch {
+    /* the provider will invalidate the endpoint after local unsubscribe */
+  }
   try {
     if (pushSupported()) {
-      const reg = await navigator.serviceWorker.ready;
-      const sub = await reg.pushManager.getSubscription();
-      await sub?.unsubscribe().catch(() => {});
+      const registration = await navigator.serviceWorker.ready;
+      await (
+        await browserPushManager(registration).getSubscription()
+      )
+        ?.unsubscribe()
+        .catch(() => {});
     }
   } catch {
-    /* the local subscription is best-effort; the server rows are what matter */
+    /* local cleanup is best effort */
   }
-  try {
-    await unsubscribePush(deviceId);
-  } catch {
-    /* offline → the rows outlive us, but nothing is sent while unsubscribed */
-  }
+  await writeRegistration(null);
   storage.remove(ROLES_KEY);
   states.guest = 'idle';
   states.bartender = 'idle';
 }
 
-/**
- * Subscribe a role *without* prompting, for when permission is already granted.
- *
- * This is what makes one opt-in apply everywhere: a guest who said yes at the start
- * and later signs in to the bar should just start receiving order alerts, not meet a
- * second consent step for a permission they already gave.
- */
 export async function enableIfPermitted(role: SubscriberRole): Promise<PushState> {
   if (!pushSupported()) return (states[role] = 'unsupported');
   if (permissionState() !== 'granted') return states[role];
   return enablePush(role);
+}
+
+export async function notificationDiagnostics(): Promise<PushDiagnostics> {
+  const stored = await readRegistration();
+  let localSubscription = false;
+  if (pushSupported()) {
+    const registration = await navigator.serviceWorker.ready;
+    localSubscription = Boolean(await browserPushManager(registration).getSubscription());
+  }
+  let server: NotificationDeviceStatus | null = null;
+  if (stored) {
+    server = await pushEndpointStatus(stored.endpointId, stored.managementToken).catch(() => null);
+  }
+  return { permission: permissionState(), localSubscription, server, platform: currentPlatform() };
+}
+
+export async function runNotificationTest(): Promise<NotificationTestStatus> {
+  const stored = await readRegistration();
+  if (!stored) throw new Error('Turn notifications on before testing this device.');
+  const test = await sendPushTest(stored.endpointId, stored.managementToken);
+  let latest = await pushTestStatus(test.testId, test.statusToken);
+  for (let attempt = 0; attempt < 15; attempt += 1) {
+    if (
+      latest.status === 'displayed' ||
+      latest.status === 'clicked' ||
+      latest.status === 'failed'
+    ) {
+      return latest;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 1_000));
+    latest = await pushTestStatus(test.testId, test.statusToken);
+  }
+  return latest;
 }

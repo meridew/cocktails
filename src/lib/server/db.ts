@@ -50,6 +50,9 @@ import {
   eventMenu,
   eventSound,
   orders,
+  notificationControl,
+  pushAudience,
+  pushEndpoint,
   recipeMeasureOverride,
   staff,
   staffSessions,
@@ -57,6 +60,12 @@ import {
   subscriptions,
 } from './schema';
 import { user } from './schema.auth';
+import {
+  endpointHash,
+  hashCapability,
+  newCapability,
+  sealSubscription,
+} from './notification-security';
 
 export const now = (): number => Date.now();
 export const genId = (): string => randomBytes(6).toString('hex');
@@ -195,6 +204,83 @@ export function createDb(dbPath: string) {
   }
 
   /**
+   * Preserve legacy guest subscriptions, but never the old global bartender role.
+   * A bar device recreates a correctly party-scoped audience when it next opens
+   * its authenticated bar. Endpoint hashes make this safe to run on every boot.
+   */
+  const pushBackfill = { guests: 0, endpoints: 0, bartendersCleared: 0 };
+  sqlite.transaction(() => {
+    db.insert(notificationControl)
+      .values({ id: 1, mode: 'shadow', updatedAt: now(), updatedBy: null })
+      .onConflictDoNothing()
+      .run();
+
+    pushBackfill.bartendersCleared = db
+      .delete(subscriptions)
+      .where(eq(subscriptions.role, 'bartender'))
+      .run().changes;
+
+    for (const legacy of db
+      .select()
+      .from(subscriptions)
+      .where(eq(subscriptions.role, 'guest'))
+      .all()) {
+      let subscription: PushSubscriptionJSON;
+      try {
+        subscription = JSON.parse(legacy.subscription) as PushSubscriptionJSON;
+        if (!subscription.endpoint || !subscription.keys?.p256dh || !subscription.keys.auth)
+          continue;
+      } catch {
+        continue;
+      }
+      const hash = endpointHash(subscription.endpoint);
+      let endpoint = db
+        .select({ id: pushEndpoint.id })
+        .from(pushEndpoint)
+        .where(eq(pushEndpoint.endpointHash, hash))
+        .get();
+      if (!endpoint) {
+        const id = genId();
+        db.insert(pushEndpoint)
+          .values({
+            id,
+            deviceId: legacy.deviceId,
+            endpointHash: hash,
+            subscriptionCiphertext: sealSubscription(subscription),
+            transport: legacy.transport,
+            platform: legacy.platform,
+            managementTokenHash: hashCapability(newCapability()),
+            createdAt: legacy.createdAt,
+            lastSeenAt: legacy.createdAt,
+          })
+          .run();
+        endpoint = { id };
+        pushBackfill.endpoints += 1;
+      }
+      db.insert(pushAudience)
+        .values({
+          endpointId: endpoint.id,
+          audienceKey: 'guest',
+          role: 'guest',
+          eventId: null,
+          staffId: null,
+          sessionTokenHash: null,
+          expiresAt: null,
+          createdAt: legacy.createdAt,
+          lastSeenAt: legacy.createdAt,
+        })
+        .onConflictDoNothing()
+        .run();
+      pushBackfill.guests += 1;
+    }
+  })();
+  if (pushBackfill.endpoints > 0 || pushBackfill.bartendersCleared > 0) {
+    console.info(
+      `push migration: ${pushBackfill.endpoints} endpoints, ${pushBackfill.guests} guest audiences, ${pushBackfill.bartendersCleared} legacy bartender audiences cleared`,
+    );
+  }
+
+  /**
    * One order by id **within an event**, or undefined.
    *
    * The event is part of the lookup rather than checked afterwards, so an id
@@ -270,6 +356,11 @@ export function createDb(dbPath: string) {
      * SQLite file would be a writer-contention bug waiting to happen.
      */
     orm: db,
+
+    /** Share the same SQLite transaction across otherwise separate domain calls. */
+    transaction<T>(work: () => T): T {
+      return sqlite.transaction(work)();
+    },
 
     createOrder(
       eventId: string,
@@ -1107,12 +1198,18 @@ export function createDb(dbPath: string) {
           ),
         )
         .run();
+      db.delete(pushAudience)
+        .where(
+          inArray(pushAudience.staffId, db.select({ id: staff.id }).from(staff).where(helpersHere)),
+        )
+        .run();
     },
 
     /** Revocation must be immediate, so drop the sessions too. */
     revokeStaff(id: string): void {
       db.update(staff).set({ status: 'revoked' }).where(eq(staff.id, id)).run();
       db.delete(staffSessions).where(eq(staffSessions.staffId, id)).run();
+      db.delete(pushAudience).where(eq(pushAudience.staffId, id)).run();
     },
 
     /** Drop abandoned requests whose claim window has passed. */
@@ -1169,6 +1266,7 @@ const d = (): Db => (singleton ??= createDb(config.dbPath));
 
 /** The shared Drizzle handle, for Better Auth's adapter. See `accounts.ts`. */
 export const orm = (): Db['orm'] => d().orm;
+export const dbTransaction = <T>(work: () => T): T => d().transaction(work);
 
 // Every one of these takes the event first. That is the whole of phase 2: the
 // scope is a required parameter, so omitting it does not compile.

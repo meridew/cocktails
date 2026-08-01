@@ -148,6 +148,7 @@
         <a class="bar-tab" aria-current="true" href="/admin">Parties <b>{parties.length}</b></a>
         <a class="bar-tab" href="/admin/hosts">Hosts <b>{hosts.length}</b></a>
         <a class="bar-tab" href="/insights">Insights</a>
+        <a class="bar-tab" href="/notification-health">Notifications</a>
       </nav>
 
       {#if loading}

@@ -1,25 +1,25 @@
 import { json, type RequestEvent } from '@sveltejs/kit';
 import {
   cleanStr,
-  type OkResponse,
+  type NotificationDeviceStatus,
+  type Platform,
+  type PushRegistrationResponse,
   type PushSubscriptionJSON,
   type SubscriberRole,
 } from '$lib/shared';
-import { deleteSubscriptionsForDevice, saveSubscription } from '$lib/server/db';
-import { sessionStaff } from '$lib/server/auth';
-import { isAllowedPushEndpoint } from '$lib/server/push';
+import { sessionStaffContext } from '$lib/server/auth';
+import { dbTransaction } from '$lib/server/db';
 import { body, fail } from '$lib/server/guards';
 import { bearer } from '$lib/server/http';
+import {
+  deleteManagedEndpoint,
+  endpointForManagement,
+  refreshManagedEndpoint,
+  registerPushEndpoint,
+} from '$lib/server/notification-store';
+import { isAllowedPushEndpoint } from '$lib/server/push';
 import { rateLimitWrites } from '$lib/server/ratelimit';
 
-/**
- * Validate a client-supplied Web Push subscription.
- *
- * Both keys are required (web-push needs p256dh to encrypt, and a missing one
- * would be stored and then fail silently at send time), and the endpoint must
- * belong to a real push service — it later becomes a request target from this
- * server, so without an allow-list it's a blind SSRF primitive.
- */
 function parseSubscription(raw: unknown): PushSubscriptionJSON | null {
   if (typeof raw !== 'object' || raw === null) return null;
   const { endpoint, keys } = raw as { endpoint?: unknown; keys?: unknown };
@@ -31,43 +31,101 @@ function parseSubscription(raw: unknown): PushSubscriptionJSON | null {
   return { endpoint, keys: { p256dh, auth } };
 }
 
-export async function POST(event: RequestEvent) {
+function platformFor(event: RequestEvent): Platform {
+  const ua = event.request.headers.get('user-agent') ?? '';
+  if (/Android/i.test(ua)) return 'android';
+  if (/iPad|iPhone|iPod/i.test(ua) || (/Macintosh/i.test(ua) && /Mobile/i.test(ua))) {
+    return 'ios';
+  }
+  return 'web';
+}
+
+async function register(event: RequestEvent, replace = false) {
   const limited = rateLimitWrites(event);
   if (limited) return limited;
-
   const b = await body(event);
   const deviceId = cleanStr(b.deviceId, 80);
-  // Only authenticated staff may register for the 'bartender' feed — otherwise
-  // anyone could enroll and receive guests' order details by push.
-  const role: SubscriberRole =
-    b.role === 'bartender' && sessionStaff(bearer(event)) ? 'bartender' : 'guest';
   const subscription = parseSubscription(b.subscription);
   if (!deviceId || !subscription) return fail(422, 'invalid subscription');
 
-  saveSubscription(deviceId, role, subscription);
-  return json({ ok: true } satisfies OkResponse);
+  if (replace) {
+    const previousId = cleanStr(b.endpointId, 80);
+    const previousToken = cleanStr(b.managementToken, 180);
+    if (!previousId || !previousToken || !endpointForManagement(previousId, previousToken)) {
+      return fail(403, 'invalid endpoint capability');
+    }
+  }
+
+  const bartender = sessionStaffContext(bearer(event));
+  const askedRole: SubscriberRole = b.role === 'bartender' ? 'bartender' : 'guest';
+  const result = dbTransaction(() => {
+    const next = registerPushEndpoint({
+      deviceId,
+      role: askedRole,
+      subscription,
+      platform: platformFor(event),
+      bartender,
+    });
+    if (replace) {
+      const previousId = cleanStr(b.endpointId, 80);
+      const previousToken = cleanStr(b.managementToken, 180);
+      if (previousId && previousId !== next.endpointId) {
+        deleteManagedEndpoint(previousId, previousToken);
+      }
+    }
+    return next;
+  });
+  return json({ ok: true, ...result } satisfies PushRegistrationResponse);
 }
 
-/**
- * Notifications off for this device, every role.
- *
- * "Off" is the absence of a subscription rather than a preference consulted before
- * sending: Web Push is `userVisibleOnly`, so anything delivered *must* be shown,
- * and filtering later would only swap our notification for the browser's own "site
- * updated in the background". The one honest way to send nothing is to have
- * nowhere to send it.
- *
- * Public and keyed on the device id, matching how subscriptions are created: the id
- * isn't secret, and the worst this allows is unsubscribing a device whose id you
- * already know — the safe direction for a mistake to go.
- */
+/** Create or idempotently reconcile an endpoint and one audience. */
+export async function POST(event: RequestEvent) {
+  return register(event);
+}
+
+/** Replace a browser-rotated subscription, authorised by the old endpoint token. */
+export async function PUT(event: RequestEvent) {
+  return register(event, true);
+}
+
+/** Refresh endpoint freshness without resending subscription key material. */
+export async function PATCH(event: RequestEvent) {
+  const limited = rateLimitWrites(event);
+  if (limited) return limited;
+  const b = await body(event);
+  const endpointId = cleanStr(b.endpointId, 80);
+  const token = cleanStr(b.managementToken, 180);
+  if (!endpointId || !token || !refreshManagedEndpoint(endpointId, token)) {
+    return fail(403, 'invalid endpoint capability');
+  }
+  return json({ ok: true });
+}
+
+/** Remove only the endpoint named by its unguessable management capability. */
 export async function DELETE(event: RequestEvent) {
   const limited = rateLimitWrites(event);
   if (limited) return limited;
-
   const b = await body(event);
-  const deviceId = cleanStr(b.deviceId, 80);
-  if (!deviceId) return fail(422, 'deviceId required');
-  deleteSubscriptionsForDevice(deviceId);
-  return json({ ok: true } satisfies OkResponse);
+  const endpointId = cleanStr(b.endpointId, 80);
+  const token = cleanStr(b.managementToken, 180);
+  if (!endpointId || !token || !deleteManagedEndpoint(endpointId, token)) {
+    return fail(403, 'invalid endpoint capability');
+  }
+  return json({ ok: true });
+}
+
+/** Capability-protected server registration diagnostic for this exact endpoint. */
+export async function GET(event: RequestEvent) {
+  const endpointId = cleanStr(event.url.searchParams.get('endpointId'), 80);
+  const token = cleanStr(event.request.headers.get('x-push-management-token'), 180);
+  const endpoint = endpointForManagement(endpointId, token);
+  if (!endpoint) return fail(403, 'invalid endpoint capability');
+  return json({
+    ok: true,
+    registered: endpoint.invalidatedAt === null,
+    platform: endpoint.platform as Platform,
+    lastSeenAt: endpoint.lastSeenAt,
+    lastAcceptedAt: endpoint.lastAcceptedAt,
+    invalidatedAt: endpoint.invalidatedAt,
+  } satisfies NotificationDeviceStatus & { ok: true });
 }

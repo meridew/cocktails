@@ -80,6 +80,8 @@ export type Capability =
   | 'orders:delete'
   | 'orders:clear'
   | 'analytics:read'
+  | 'notifications:read'
+  | 'notifications:control'
   // Deciding who else gets behind the bar.
   | 'staff:read'
   | 'staff:approve'
@@ -110,6 +112,8 @@ export const CAPABILITIES: readonly Capability[] = [
   'orders:delete',
   'orders:clear',
   'analytics:read',
+  'notifications:read',
+  'notifications:control',
   'staff:read',
   'staff:approve',
   'staff:revoke',
@@ -136,6 +140,8 @@ export const SCOPE_OF: Record<Capability, Scope['kind']> = {
   'orders:delete': 'party',
   'orders:clear': 'party',
   'analytics:read': 'party',
+  'notifications:read': 'party',
+  'notifications:control': 'platform',
   'guests:read': 'party',
   'guests:admit': 'party',
   'staff:read': 'party',
@@ -182,7 +188,12 @@ const STAFF_AT_THIS_PARTY: readonly Capability[] = [
  * because it is a decision about their own evening, made days beforehand, not an
  * action on the night.
  */
-const OWNER_OF_THIS_PARTY: readonly Capability[] = ['orders:read', 'analytics:read', 'menu:curate'];
+const OWNER_OF_THIS_PARTY: readonly Capability[] = [
+  'orders:read',
+  'analytics:read',
+  'notifications:read',
+  'menu:curate',
+];
 
 // ---- the question -----------------------------------------------------------
 

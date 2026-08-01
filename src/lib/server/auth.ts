@@ -232,12 +232,20 @@ export function noteClaimAttempt(ip: string): void {
  * `toStaff` on the way out.
  */
 export function sessionStaff(token: string | undefined): StaffRow | null {
+  return sessionStaffContext(token)?.staff ?? null;
+}
+
+/** Staff row plus the server-authored session boundary used by scoped push audiences. */
+export function sessionStaffContext(
+  token: string | undefined,
+): { staff: StaffRow; expiresAt: number; tokenHash: string } | null {
   if (!token) return null;
-  const sess = staffSession(sha256(token));
+  const tokenHash = sha256(token);
+  const sess = staffSession(tokenHash);
   if (!sess || sess.expiresAt < now()) return null;
   const row = staffByIdUnscoped(sess.staffId);
   if (!row || row.status !== 'active') return null;
-  return row;
+  return { staff: row, expiresAt: sess.expiresAt, tokenHash };
 }
 
 export function logout(token: string | undefined): void {

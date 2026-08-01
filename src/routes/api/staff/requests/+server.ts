@@ -1,9 +1,10 @@
 import { json, type RequestEvent } from '@sveltejs/kit';
 import { cleanStr, type StaffRequestCreated } from '$lib/shared';
 import { requestStaffAccess } from '$lib/server/auth';
-import { eventById } from '$lib/server/db';
+import { dbTransaction, eventById, pendingStaffForDevice } from '$lib/server/db';
 import { staffRequestPush } from '$lib/server/notify';
-import { pushToRole } from '$lib/server/push';
+import { enqueueNotification } from '$lib/server/notification-store';
+import { dispatchShadow } from '$lib/server/push';
 import { body, fail } from '$lib/server/guards';
 import { rateLimitWrites } from '$lib/server/ratelimit';
 
@@ -26,9 +27,18 @@ export async function POST(event: RequestEvent) {
   if (!name || !deviceId || !eventId) return fail(422, 'name, deviceId and eventId required');
   if (!eventById(eventId)) return fail(404, 'no such party');
 
-  const claim = requestStaffAccess({ eventId, name, deviceId });
-  // Tell the host somebody is waiting. Without this the request surfaces only as a
-  // small dot on a menu button, which is most of why waiting felt like a void.
-  void pushToRole('bartender', staffRequestPush(name));
+  const result = dbTransaction(() => {
+    const claim = requestStaffAccess({ eventId, name, deviceId });
+    const request = pendingStaffForDevice(eventId, deviceId);
+    const notification = request
+      ? enqueueNotification(
+          { kind: 'bartenders', eventId },
+          staffRequestPush(name, eventId, request.id),
+        )
+      : null;
+    return { claim, notification };
+  });
+  const { claim, notification } = result;
+  if (notification?.mode === 'shadow') dispatchShadow(notification.messageId);
   return json({ ok: true, claim } satisfies StaffRequestCreated);
 }

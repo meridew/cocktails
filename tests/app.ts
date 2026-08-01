@@ -17,6 +17,9 @@ import { handle } from '../src/hooks.server';
 
 import * as health from '../src/routes/api/health/+server';
 import * as pushKey from '../src/routes/api/push/key/+server';
+import * as pushReceipts from '../src/routes/api/push/receipts/+server';
+import * as pushTests from '../src/routes/api/push/tests/+server';
+import * as pushTestById from '../src/routes/api/push/tests/[id]/+server';
 import * as authLogout from '../src/routes/api/auth/logout/+server';
 import * as authMe from '../src/routes/api/auth/me/+server';
 import * as orders from '../src/routes/api/orders/+server';
@@ -41,7 +44,10 @@ import * as hostStock from '../src/routes/api/hosts/[id]/stock/+server';
 import * as hostAlcoholProfile from '../src/routes/api/hosts/[id]/alcohol-profile/+server';
 import * as eventById from '../src/routes/api/events/[id]/+server';
 import * as eventAnalytics from '../src/routes/api/events/[id]/analytics/+server';
+import * as eventNotificationHealth from '../src/routes/api/events/[id]/notification-health/+server';
 import * as analytics from '../src/routes/api/analytics/+server';
+import * as notificationHealth from '../src/routes/api/notification-health/+server';
+import * as notificationControl from '../src/routes/api/admin/notification-control/+server';
 import * as eventMenu from '../src/routes/api/events/[id]/menu/+server';
 import * as eventSettings from '../src/routes/api/events/[id]/settings/+server';
 import * as eventSounds from '../src/routes/api/events/[id]/sounds/+server';
@@ -58,6 +64,9 @@ type Handlers = Record<string, unknown>;
 export const ROUTES: Record<string, Handlers> = {
   '/api/health': health,
   '/api/push/key': pushKey,
+  '/api/push/receipts': pushReceipts,
+  '/api/push/tests': pushTests,
+  '/api/push/tests/[id]': pushTestById,
   '/api/auth/logout': authLogout,
   '/api/auth/me': authMe,
   '/api/orders': orders,
@@ -80,9 +89,12 @@ export const ROUTES: Record<string, Handlers> = {
   '/api/hosts/[id]/stock': hostStock,
   '/api/hosts/[id]/alcohol-profile': hostAlcoholProfile,
   '/api/analytics': analytics,
+  '/api/notification-health': notificationHealth,
+  '/api/admin/notification-control': notificationControl,
   '/api/events/[id]/bar': eventBar,
   '/api/events/[id]': eventById,
   '/api/events/[id]/analytics': eventAnalytics,
+  '/api/events/[id]/notification-health': eventNotificationHealth,
   '/api/events/[id]/menu': eventMenu,
   '/api/events/[id]/settings': eventSettings,
   '/api/events/[id]/sounds': eventSounds,

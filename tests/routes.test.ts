@@ -432,22 +432,15 @@ describe('POST /api/subscriptions', () => {
   });
 
   test('downgrades an unauthenticated bartender registration to guest', async () => {
-    const { subscriptionsForDevice } = await import('$lib/server/db');
-
     const res = await request(
       '/api/subscriptions',
       json({ deviceId: 'dev-anon', role: 'bartender', subscription: sub }),
     );
     assert.equal(res.status, 200);
-    assert.equal(
-      subscriptionsForDevice('dev-anon')[0]?.role,
-      'guest',
-      'anyone could otherwise enroll for the bar feed and see guests’ orders',
-    );
+    assert.equal(((await res.json()) as { role: string }).role, 'guest');
   });
 
   test('an expired or garbage token is also downgraded', async () => {
-    const { subscriptionsForDevice } = await import('$lib/server/db');
     const res = await request(
       '/api/subscriptions',
       json(
@@ -456,17 +449,23 @@ describe('POST /api/subscriptions', () => {
       ),
     );
     assert.equal(res.status, 200);
-    assert.equal(subscriptionsForDevice('dev-badtoken')[0]?.role, 'guest');
+    assert.equal(((await res.json()) as { role: string }).role, 'guest');
   });
 
   test('honours a bartender registration from authenticated staff', async () => {
-    const { subscriptionsForDevice } = await import('$lib/server/db');
     const res = await request(
       '/api/subscriptions',
       json({ deviceId: 'dev-staff', role: 'bartender', subscription: sub }, auth()),
     );
     assert.equal(res.status, 200);
-    assert.equal(subscriptionsForDevice('dev-staff')[0]?.role, 'bartender');
+    const registered = (await res.json()) as {
+      role: string;
+      eventId: string;
+      managementToken: string;
+    };
+    assert.equal(registered.role, 'bartender');
+    assert.equal(registered.eventId, eventId, 'the party comes from the authenticated session');
+    assert.ok(registered.managementToken.length >= 40);
   });
 });
 
@@ -484,49 +483,64 @@ describe('DELETE /api/subscriptions', () => {
   const subscribe = (body: Record<string, unknown>, headers: Record<string, string> = {}) =>
     request('/api/subscriptions', json(body, { ...ip(), ...headers }));
 
-  const unsubscribe = (deviceId: unknown) =>
+  const unsubscribe = (endpointId: unknown, managementToken: unknown) =>
     request('/api/subscriptions', {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json', ...ip() },
-      body: JSON.stringify(deviceId === undefined ? {} : { deviceId }),
+      body: JSON.stringify({ endpointId, managementToken }),
     });
 
   test('turning notifications off leaves nothing to send to', async () => {
     // "Off" is the absence of a subscription, not a preference consulted before
     // sending: Web Push is userVisibleOnly, so anything delivered *must* be shown.
-    const { subscriptionsForDevice } = await import('$lib/server/db');
-    await subscribe({ deviceId: 'dev-off', subscription: sub });
-    assert.equal(subscriptionsForDevice('dev-off').length, 1);
-
-    assert.equal((await unsubscribe('dev-off')).status, 200);
-    assert.equal(subscriptionsForDevice('dev-off').length, 0);
+    const created = await subscribe({ deviceId: 'dev-off', subscription: sub });
+    const registration = (await created.json()) as { endpointId: string; managementToken: string };
+    assert.equal(
+      (await unsubscribe(registration.endpointId, registration.managementToken)).status,
+      200,
+    );
+    const status = await request(`/api/subscriptions?endpointId=${registration.endpointId}`, {
+      headers: { 'x-push-management-token': registration.managementToken },
+    });
+    assert.equal(status.status, 403, 'the capability dies with its endpoint');
   });
 
-  test('clears every role at once — one switch means one switch', async () => {
-    const { subscriptionsForDevice } = await import('$lib/server/db');
+  test('one endpoint capability covers every audience on that endpoint', async () => {
     await subscribe({ deviceId: 'dev-both', subscription: sub });
-    await subscribe(
+    const bartender = await subscribe(
       {
         deviceId: 'dev-both',
         role: 'bartender',
-        subscription: { ...sub, endpoint: `${sub.endpoint}2` },
+        subscription: sub,
       },
       auth(),
     );
-    assert.equal(subscriptionsForDevice('dev-both').length, 2);
-
-    await unsubscribe('dev-both');
-    assert.equal(subscriptionsForDevice('dev-both').length, 0);
+    const registration = (await bartender.json()) as {
+      endpointId: string;
+      managementToken: string;
+    };
+    assert.equal(
+      (await unsubscribe(registration.endpointId, registration.managementToken)).status,
+      200,
+    );
   });
 
-  test('touches only the device asked for', async () => {
-    const { subscriptionsForDevice } = await import('$lib/server/db');
-    await subscribe({ deviceId: 'dev-keep', subscription: sub });
-    await unsubscribe('dev-someone-else');
-    assert.equal(subscriptionsForDevice('dev-keep').length, 1);
+  test('a capability cannot remove another endpoint', async () => {
+    const keep = await subscribe({ deviceId: 'dev-keep', subscription: sub });
+    const remove = await subscribe({
+      deviceId: 'dev-remove',
+      subscription: { ...sub, endpoint: `${sub.endpoint}-other` },
+    });
+    const kept = (await keep.json()) as { endpointId: string; managementToken: string };
+    const removed = (await remove.json()) as { endpointId: string; managementToken: string };
+    assert.equal((await unsubscribe(removed.endpointId, kept.managementToken)).status, 403);
+    const status = await request(`/api/subscriptions?endpointId=${kept.endpointId}`, {
+      headers: { 'x-push-management-token': kept.managementToken },
+    });
+    assert.equal(status.status, 200);
   });
 
-  test('requires a deviceId', async () => {
-    assert.equal((await unsubscribe(undefined)).status, 422);
+  test('requires an endpoint capability', async () => {
+    assert.equal((await unsubscribe(undefined, undefined)).status, 403);
   });
 });

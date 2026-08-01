@@ -45,22 +45,25 @@ one SvelteKit application. The SQLite database is created and migrated on first 
 Local configuration may go in `.env` (gitignored). Production variables are loaded
 by the Mac's launch script.
 
-| Variable                                    | Purpose                                            |
-| ------------------------------------------- | -------------------------------------------------- |
-| `DB_PATH`                                   | SQLite file; defaults to `./data/cocktails.sqlite` |
-| `ORIGIN`                                    | Public origin used in account links                |
-| `BETTER_AUTH_SECRET`                        | Account-session signing secret                     |
-| `ADMIN_EMAILS`                              | Comma-separated accounts that always remain admins |
-| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Optional Google sign-in                            |
-| `GRAPH_TENANT_ID` / `GRAPH_CLIENT_ID`       | Microsoft Graph mail application                   |
-| `GRAPH_KEY_FILE` / `GRAPH_SENDER`           | Graph certificate path and sender                  |
-| `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY`    | Web Push credentials                               |
-| `VAPID_SUBJECT`                             | Web Push contact URI                               |
-| `ALLOWED_ORIGIN`                            | Optional comma-separated native-app CORS origins   |
+| Variable                                    | Purpose                                             |
+| ------------------------------------------- | --------------------------------------------------- |
+| `DB_PATH`                                   | SQLite file; defaults to `./data/cocktails.sqlite`  |
+| `ORIGIN`                                    | Public origin used in account links                 |
+| `BETTER_AUTH_SECRET`                        | Account-session signing secret                      |
+| `ADMIN_EMAILS`                              | Comma-separated accounts that always remain admins  |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Optional Google sign-in                             |
+| `GRAPH_TENANT_ID` / `GRAPH_CLIENT_ID`       | Microsoft Graph mail application                    |
+| `GRAPH_KEY_FILE` / `GRAPH_SENDER`           | Graph certificate path and sender                   |
+| `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY`    | Web Push credentials                                |
+| `VAPID_SUBJECT`                             | Web Push contact URI                                |
+| `PUSH_DATA_KEY`                             | Optional dedicated push-subscription encryption key |
+| `ALLOWED_ORIGIN`                            | Optional comma-separated native-app CORS origins    |
 
 Missing Graph configuration writes verification links to the server log instead of
 sending them. Missing VAPID keys disables push. Production never falls back to a
-fixed account-session secret.
+fixed account-session secret. When `PUSH_DATA_KEY` is absent, sealed push subscriptions
+use key material derived from `BETTER_AUTH_SECRET`; set it explicitly before rotating
+the account secret if existing device registrations must remain readable.
 
 ## Shape
 

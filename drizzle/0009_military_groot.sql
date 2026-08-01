@@ -1,0 +1,1 @@
+ALTER TABLE `notification_daily_aggregate` ADD `no_targets` integer DEFAULT 0 NOT NULL;

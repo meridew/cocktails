@@ -9,7 +9,15 @@
  * argument to each column is the real name, so an existing database needs no
  * rewriting and the app code reads naturally.
  */
-import { sqliteTable, text, integer, real, primaryKey } from 'drizzle-orm/sqlite-core';
+import {
+  sqliteTable,
+  text,
+  integer,
+  real,
+  primaryKey,
+  index,
+  uniqueIndex,
+} from 'drizzle-orm/sqlite-core';
 import { user } from './schema.auth';
 
 // Better Auth's own tables, re-exported so drizzle-kit sees one schema and the
@@ -317,3 +325,165 @@ export const staffSessions = sqliteTable('staff_sessions', {
   expiresAt: integer('expires_at').notNull(),
   createdAt: integer('created_at').notNull(),
 });
+
+/**
+ * One browser push endpoint, shared by every audience that device belongs to.
+ *
+ * The endpoint URL and encryption keys are stored only inside the AES-GCM sealed
+ * subscription. `endpointHash` is enough to upsert, deduplicate and invalidate a
+ * subscription without turning the database or operational telemetry into a list
+ * of third-party capability URLs.
+ */
+export const pushEndpoint = sqliteTable(
+  'push_endpoint',
+  {
+    id: text('id').primaryKey(),
+    deviceId: text('device_id').notNull(),
+    endpointHash: text('endpoint_hash').notNull(),
+    subscriptionCiphertext: text('subscription_ciphertext').notNull(),
+    transport: text('transport').notNull().default('webpush'),
+    platform: text('platform').notNull().default('web'),
+    managementTokenHash: text('management_token_hash').notNull(),
+    createdAt: integer('created_at').notNull(),
+    lastSeenAt: integer('last_seen_at').notNull(),
+    lastAcceptedAt: integer('last_accepted_at'),
+    lastFailureAt: integer('last_failure_at'),
+    invalidatedAt: integer('invalidated_at'),
+    consecutiveFailures: integer('consecutive_failures').notNull().default(0),
+  },
+  (t) => [
+    uniqueIndex('push_endpoint_hash_unique').on(t.endpointHash),
+    index('push_endpoint_device_idx').on(t.deviceId),
+    index('push_endpoint_seen_idx').on(t.lastSeenAt),
+  ],
+);
+
+/**
+ * Why an endpoint should receive a push.
+ *
+ * Guest membership is device-wide. Bartender membership is always bound to the
+ * event, active staff row and staff-session expiry the server resolved while the
+ * device registered. No client-supplied event id is stored here.
+ */
+export const pushAudience = sqliteTable(
+  'push_audience',
+  {
+    endpointId: text('endpoint_id')
+      .notNull()
+      .references(() => pushEndpoint.id, { onDelete: 'cascade' }),
+    audienceKey: text('audience_key').notNull(),
+    role: text('role').notNull(),
+    eventId: text('event_id').references(() => event.id, { onDelete: 'cascade' }),
+    staffId: text('staff_id').references(() => staff.id, { onDelete: 'cascade' }),
+    sessionTokenHash: text('session_token_hash'),
+    expiresAt: integer('expires_at'),
+    createdAt: integer('created_at').notNull(),
+    lastSeenAt: integer('last_seen_at').notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.endpointId, t.audienceKey] }),
+    index('push_audience_event_role_idx').on(t.eventId, t.role, t.expiresAt),
+    index('push_audience_staff_idx').on(t.staffId),
+    index('push_audience_session_idx').on(t.sessionTokenHash),
+  ],
+);
+
+/** Persisted operational switch; row 1 is created during database startup. */
+export const notificationControl = sqliteTable('notification_control', {
+  id: integer('id').primaryKey(),
+  mode: text('mode').notNull().default('shadow'),
+  updatedAt: integer('updated_at').notNull(),
+  updatedBy: text('updated_by'),
+});
+
+/** A rendered, short-lived notification and its delivery policy. */
+export const notificationMessage = sqliteTable(
+  'notification_message',
+  {
+    id: text('id').primaryKey(),
+    eventId: text('event_id').references(() => event.id, { onDelete: 'cascade' }),
+    kind: text('kind').notNull(),
+    entityHash: text('entity_hash').notNull(),
+    title: text('title'),
+    body: text('body'),
+    url: text('url').notNull(),
+    tag: text('tag').notNull(),
+    topic: text('topic').notNull(),
+    ttlSeconds: integer('ttl_seconds').notNull(),
+    urgency: text('urgency').notNull(),
+    createdAt: integer('created_at').notNull(),
+    expiresAt: integer('expires_at').notNull(),
+    redactedAt: integer('redacted_at'),
+  },
+  (t) => [
+    index('notification_message_event_idx').on(t.eventId, t.createdAt),
+    index('notification_message_expiry_idx').on(t.expiresAt),
+  ],
+);
+
+/**
+ * One immutable recipient snapshot for one message.
+ *
+ * The encrypted subscription is discarded as soon as the delivery is terminal.
+ * Receipt tokens are capability secrets: only their hashes are retained.
+ */
+export const notificationDelivery = sqliteTable(
+  'notification_delivery',
+  {
+    id: text('id').primaryKey(),
+    messageId: text('message_id')
+      .notNull()
+      .references(() => notificationMessage.id, { onDelete: 'cascade' }),
+    endpointId: text('endpoint_id').references(() => pushEndpoint.id, { onDelete: 'set null' }),
+    endpointHash: text('endpoint_hash').notNull(),
+    subscriptionCiphertext: text('subscription_ciphertext'),
+    platform: text('platform').notNull(),
+    deliveryMode: text('delivery_mode').notNull(),
+    status: text('status').notNull(),
+    receiptTokenHash: text('receipt_token_hash').notNull(),
+    attempts: integer('attempts').notNull().default(0),
+    nextAttemptAt: integer('next_attempt_at').notNull(),
+    leaseUntil: integer('lease_until'),
+    providerStatus: integer('provider_status'),
+    failureCode: text('failure_code'),
+    createdAt: integer('created_at').notNull(),
+    firstAttemptAt: integer('first_attempt_at'),
+    acceptedAt: integer('accepted_at'),
+    receivedAt: integer('received_at'),
+    displayedAt: integer('displayed_at'),
+    clickedAt: integer('clicked_at'),
+    terminalAt: integer('terminal_at'),
+  },
+  (t) => [
+    uniqueIndex('notification_delivery_receipt_unique').on(t.receiptTokenHash),
+    index('notification_delivery_claim_idx').on(t.status, t.nextAttemptAt, t.leaseUntil),
+    index('notification_delivery_message_idx').on(t.messageId),
+    index('notification_delivery_endpoint_idx').on(t.endpointId),
+    index('notification_delivery_created_idx').on(t.createdAt),
+  ],
+);
+
+/** Privacy-safe party totals retained until their party is deleted. */
+export const notificationDailyAggregate = sqliteTable(
+  'notification_daily_aggregate',
+  {
+    eventId: text('event_id')
+      .notNull()
+      .references(() => event.id, { onDelete: 'cascade' }),
+    day: text('day').notNull(),
+    platform: text('platform').notNull(),
+    kind: text('kind').notNull(),
+    targeted: integer('targeted').notNull().default(0),
+    noTargets: integer('no_targets').notNull().default(0),
+    accepted: integer('accepted').notNull().default(0),
+    permanentFailures: integer('permanent_failures').notNull().default(0),
+    expired: integer('expired').notNull().default(0),
+    received: integer('received').notNull().default(0),
+    displayed: integer('displayed').notNull().default(0),
+    clicked: integer('clicked').notNull().default(0),
+    retries: integer('retries').notNull().default(0),
+    acceptanceLatencyMs: integer('acceptance_latency_ms').notNull().default(0),
+    receiptLatencyMs: integer('receipt_latency_ms').notNull().default(0),
+  },
+  (t) => [primaryKey({ columns: [t.eventId, t.day, t.platform, t.kind] })],
+);

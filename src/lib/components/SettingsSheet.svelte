@@ -13,14 +13,19 @@
    */
   import { goto } from '$app/navigation';
   import { version } from '$app/environment';
+  import { onMount } from 'svelte';
+  import { RefreshCw, Send } from '@lucide/svelte';
   import { dialog } from '$lib/dialog';
   import {
     disablePush,
     enablePush,
     needsInstallFirst,
     permissionState,
+    notificationDiagnostics,
     pushState,
     pushSupported,
+    runNotificationTest,
+    type PushDiagnostics,
   } from '$lib/stores/push.svelte';
   import { resetChoice } from '$lib/stores/notifyConsent.svelte';
   import { putGuestPhoto, signOutOfAccount } from '$lib/api';
@@ -103,6 +108,46 @@
   let bartender = $derived(pushState('bartender'));
   /** On if this device is registered for anything at all. */
   let on = $derived(guest === 'on' || bartender === 'on');
+  let diagnostics = $state<PushDiagnostics | null>(null);
+  let checking = $state(false);
+  let testing = $state(false);
+  let testResult = $state('');
+
+  async function checkDevice(): Promise<void> {
+    checking = true;
+    diagnostics = await notificationDiagnostics().catch(() => null);
+    checking = false;
+  }
+
+  async function testDevice(): Promise<void> {
+    if (testing) return;
+    testing = true;
+    testResult = 'Sending test…';
+    try {
+      const result = await runNotificationTest();
+      testResult =
+        result.status === 'displayed' || result.status === 'clicked'
+          ? 'Displayed on this device.'
+          : result.status === 'accepted'
+            ? 'Accepted by the push service; display is not confirmed.'
+            : result.status === 'received'
+              ? 'Received by the app; display is not confirmed.'
+              : result.status === 'queued'
+                ? 'Still queued. Check again in a moment.'
+                : result.status === 'expired'
+                  ? 'The test expired before provider acceptance.'
+                  : 'The provider rejected this test.';
+      await checkDevice();
+    } catch (error) {
+      testResult = (error as Error).message;
+    } finally {
+      testing = false;
+    }
+  }
+
+  onMount(() => {
+    if (on) void checkDevice();
+  });
 
   /**
    * Why the switch can't be used, or null when it can. Being specific matters:
@@ -184,6 +229,54 @@
       </p>
     {/if}
 
+    {#if on}
+      <section class="notification-diagnostics" aria-labelledby="notification-device-title">
+        <div class="diagnostic-heading">
+          <h4 id="notification-device-title">This device</h4>
+          <button
+            type="button"
+            class="icon-action"
+            aria-label="Refresh notification diagnostics"
+            title="Refresh diagnostics"
+            disabled={checking}
+            onclick={checkDevice}
+          >
+            <span class:spin={checking}><RefreshCw size={18} /></span>
+          </button>
+        </div>
+        <dl>
+          <div>
+            <dt>Permission</dt>
+            <dd>{diagnostics?.permission ?? 'Checking…'}</dd>
+          </div>
+          <div>
+            <dt>Browser subscription</dt>
+            <dd>
+              {diagnostics ? (diagnostics.localSubscription ? 'Present' : 'Missing') : 'Checking…'}
+            </dd>
+          </div>
+          <div>
+            <dt>Server registration</dt>
+            <dd>
+              {diagnostics ? (diagnostics.server?.registered ? 'Present' : 'Missing') : 'Checking…'}
+            </dd>
+          </div>
+        </dl>
+        <button type="button" class="notification-test" disabled={testing} onclick={testDevice}>
+          <Send size={17} />
+          <span>{testing ? 'Testing…' : 'Send test notification'}</span>
+        </button>
+        {#if testResult}<p class="settings-note" aria-live="polite">{testResult}</p>{/if}
+        <p class="settings-note">
+          {diagnostics?.platform === 'ios'
+            ? 'If alerts are missing, check iPhone Settings → Notifications, Focus and Scheduled Summary for this Home Screen app.'
+            : diagnostics?.platform === 'android'
+              ? 'If alerts are missing, check the site notification channel and remove battery restrictions for your browser.'
+              : 'If alerts are missing, check this site in your browser and operating-system notification settings.'}
+        </p>
+      </section>
+    {/if}
+
     <!--
       **The way back in for everyone who said no.**
 
@@ -227,6 +320,10 @@
         ? "You won't hear anything your host recorded."
         : 'Short clips your host recorded, if they made any.'}
     </p>
+    <p class="settings-note">
+      Party sounds play only while the app is open. They cannot override silent mode, Focus,
+      notification summaries or Android notification-channel settings.
+    </p>
 
     <div class="settings-account">
       <p class="settings-note">Your photo</p>
@@ -265,3 +362,74 @@
     <button type="button" class="barmenu-close" onclick={onclose}>Close</button>
   </div>
 </div>
+
+<style>
+  .notification-diagnostics {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 2px solid var(--ink, #111);
+  }
+
+  .diagnostic-heading,
+  .notification-diagnostics dl > div,
+  .notification-test {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+
+  .diagnostic-heading h4 {
+    margin: 0;
+    font-size: 1rem;
+  }
+
+  .icon-action {
+    display: grid;
+    width: 2.25rem;
+    height: 2.25rem;
+    place-items: center;
+    border: 2px solid currentColor;
+    background: transparent;
+  }
+
+  .notification-diagnostics dl {
+    margin: 0.75rem 0;
+  }
+
+  .notification-diagnostics dl > div {
+    min-height: 2rem;
+    border-bottom: 1px solid color-mix(in srgb, currentColor 24%, transparent);
+  }
+
+  .notification-diagnostics dt,
+  .notification-diagnostics dd {
+    margin: 0;
+    font-size: 0.82rem;
+  }
+
+  .notification-diagnostics dd {
+    font-weight: 700;
+    text-align: right;
+  }
+
+  .notification-test {
+    width: 100%;
+    min-height: 2.75rem;
+    justify-content: center;
+    border: 2px solid currentColor;
+    background: var(--yellow, #ffd84d);
+    font: inherit;
+    font-weight: 700;
+  }
+
+  .spin {
+    animation: spin 0.8s linear infinite;
+  }
+
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+</style>

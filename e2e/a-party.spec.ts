@@ -204,6 +204,23 @@ test('a host stocks up, Dan opens the bar, a guest orders and a helper pours it'
   await dan.getByLabel('Host').selectOption({ label: hostName });
   await expect(dan.locator('.history-row', { hasText: partyName })).toBeVisible();
 
+  // ---- private, honest notification operations --------------------------
+  await host.goto(`/notification-health/${id}`);
+  await expect(host.getByRole('heading', { name: 'Delivery activity' })).toBeVisible();
+  await expect(host.getByText('Provider accepted', { exact: true })).toBeVisible();
+  await expect(host.getByText(/missing receipt remains unknown/i)).toBeVisible();
+
+  await host.goto('/notification-health');
+  await expect(host.locator('.health-row', { hasText: partyName })).toBeVisible();
+
+  await dan.goto('/notification-health');
+  await dan.getByLabel('Host').selectOption({ label: hostName });
+  await expect(dan.locator('.health-row', { hasText: partyName })).toBeVisible();
+  await dan.getByRole('button', { name: 'Paused' }).click();
+  await expect(dan.getByRole('button', { name: 'Paused' })).toHaveAttribute('aria-pressed', 'true');
+  await dan.getByRole('button', { name: 'Shadow' }).click();
+  await expect(dan.getByRole('button', { name: 'Shadow' })).toHaveAttribute('aria-pressed', 'true');
+
   // The dense table changes shape on a phone, but it must remain readable without
   // making the whole page wider than the viewport.
   await host.setViewportSize({ width: 390, height: 844 });
@@ -214,4 +231,10 @@ test('a host stocks up, Dan opens the bar, a guest orders and a helper pours it'
   );
   await host.getByRole('button', { name: 'Show drink breakdown for Priya' }).click();
   await expect(host.locator('.drink-breakdown')).toBeVisible();
+
+  await host.goto(`/notification-health/${id}`);
+  await expect(host.getByRole('heading', { name: 'Delivery activity' })).toBeVisible();
+  expect(await host.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
+    true,
+  );
 });

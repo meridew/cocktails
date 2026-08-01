@@ -1,8 +1,9 @@
 import { json, type RequestEvent } from '@sveltejs/kit';
 import { isHandoff, isOrderStatus, type Handoff, party } from '$lib/shared';
-import { deleteOrder, orderDeviceId, setOrderStatus } from '$lib/server/db';
+import { dbTransaction, deleteOrder, orderDeviceId, setOrderStatus } from '$lib/server/db';
 import { guestStatusPush } from '$lib/server/notify';
-import { pushToDevice } from '$lib/server/push';
+import { enqueueNotification } from '$lib/server/notification-store';
+import { dispatchShadow } from '$lib/server/push';
 import { body, denied, fail, requireCapability } from '$lib/server/guards';
 import { requirePartyInScope } from '$lib/server/scope';
 
@@ -16,19 +17,23 @@ export async function PATCH(event: RequestEvent) {
 
   const b = await body(event);
   if (!isOrderStatus(b.status)) return fail(422, 'bad status');
+  const status = b.status;
   // Optional, and anything unrecognised is dropped rather than rejected — an old
   // client that knows nothing about handoffs must keep working.
   const handoff: Handoff | undefined = isHandoff(b.handoff) ? b.handoff : undefined;
 
-  const updated = setOrderStatus(eventId, event.params.id!, b.status, handoff);
+  const result = dbTransaction(() => {
+    const updated = setOrderStatus(eventId, event.params.id!, status, handoff);
+    if (!updated) return { updated: null, notification: null };
+    const payload = guestStatusPush(updated, eventId);
+    const device = payload ? orderDeviceId(eventId, updated.id) : null;
+    const notification =
+      payload && device ? enqueueNotification({ kind: 'device', deviceId: device }, payload) : null;
+    return { updated, notification };
+  });
+  const { updated, notification } = result;
   if (!updated) return fail(404, 'not found');
-
-  // Notify the guest on the moments that matter (making, then ready).
-  const payload = guestStatusPush(updated);
-  if (payload) {
-    const device = orderDeviceId(eventId, updated.id);
-    if (device) void pushToDevice(device, payload); // fire-and-forget
-  }
+  if (notification?.mode === 'shadow') dispatchShadow(notification.messageId);
   return json({ ok: true, order: updated });
 }
 

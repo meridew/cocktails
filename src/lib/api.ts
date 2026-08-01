@@ -19,6 +19,13 @@ import type {
   PartyAnalytics,
   PartyAnalyticsSummary,
   AlcoholOverrides,
+  NotificationDeviceStatus,
+  NotificationTestResponse,
+  NotificationTestStatus,
+  PushRegistrationResponse,
+  NotificationHealthResponse,
+  NotificationMode,
+  NotificationPartyHealthResponse,
 } from '$lib/shared';
 import { currentEventId } from './party';
 
@@ -587,8 +594,59 @@ export const subscribePush = (body: {
   deviceId: string;
   role: SubscriberRole;
   subscription: unknown;
-}) => req<OkResponse>('/subscriptions', { method: 'POST', body: JSON.stringify(body) });
+}) =>
+  req<PushRegistrationResponse>('/subscriptions', { method: 'POST', body: JSON.stringify(body) });
 
-/** Turn this device off entirely — every role. See the route for why it's a delete. */
-export const unsubscribePush = (deviceId: string) =>
-  req<OkResponse>('/subscriptions', { method: 'DELETE', body: JSON.stringify({ deviceId }) });
+export const replacePushSubscription = (body: {
+  deviceId: string;
+  role: SubscriberRole;
+  subscription: unknown;
+  endpointId: string;
+  managementToken: string;
+}) =>
+  req<PushRegistrationResponse>('/subscriptions', { method: 'PUT', body: JSON.stringify(body) });
+
+export const refreshPushEndpoint = (endpointId: string, managementToken: string) =>
+  req<OkResponse>('/subscriptions', {
+    method: 'PATCH',
+    body: JSON.stringify({ endpointId, managementToken }),
+  });
+
+export const unsubscribePush = (endpointId: string, managementToken: string) =>
+  req<OkResponse>('/subscriptions', {
+    method: 'DELETE',
+    body: JSON.stringify({ endpointId, managementToken }),
+  });
+
+export const pushEndpointStatus = (endpointId: string, managementToken: string) =>
+  req<{ ok: true } & NotificationDeviceStatus>(
+    `/subscriptions?endpointId=${encodeURIComponent(endpointId)}`,
+    { headers: { 'x-push-management-token': managementToken } },
+  );
+
+export const sendPushTest = (endpointId: string, managementToken: string) =>
+  req<NotificationTestResponse>('/push/tests', {
+    method: 'POST',
+    body: JSON.stringify({ endpointId, managementToken }),
+  });
+
+export const pushTestStatus = (testId: string, statusToken: string) =>
+  req<NotificationTestStatus>(`/push/tests/${encodeURIComponent(testId)}`, {
+    headers: { 'x-push-test-token': statusToken },
+  });
+
+export const notificationHealth = (hostId?: string) =>
+  req<NotificationHealthResponse>(
+    `/notification-health${hostId ? `?hostId=${encodeURIComponent(hostId)}` : ''}`,
+  );
+
+export const partyNotificationHealth = (eventId: string) =>
+  req<NotificationPartyHealthResponse>(
+    `/events/${encodeURIComponent(eventId)}/notification-health`,
+  );
+
+export const setNotificationDeliveryMode = (mode: NotificationMode) =>
+  req<{ ok: true; mode: NotificationMode }>('/admin/notification-control', {
+    method: 'PUT',
+    body: JSON.stringify({ mode }),
+  });

@@ -75,6 +75,8 @@ export function resolveAdminEmails(env: NodeJS.ProcessEnv = process.env): string
 }
 
 /** Runtime configuration, all overridable by environment variables. */
+const AUTH_SECRET = resolveAuthSecret(ENV);
+
 export const config = {
   /** CORS origin(s) allowed to call the API. */
   allowedOrigin: resolveAllowedOrigin(ENV),
@@ -86,7 +88,7 @@ export const config = {
    * the host actually clicks, not the port the server binds.
    */
   accounts: {
-    secret: resolveAuthSecret(ENV),
+    secret: AUTH_SECRET,
     origin: (ENV.ORIGIN || 'http://localhost:5173').replace(/\/$/, ''),
     /**
      * Sign in with Google. Both halves present → the button appears; either
@@ -132,5 +134,11 @@ export const config = {
     subject: ENV.VAPID_SUBJECT || 'mailto:bar@meridew.com',
     publicKey: ENV.VAPID_PUBLIC_KEY ?? '',
     privateKey: ENV.VAPID_PRIVATE_KEY ?? '',
+    /**
+     * AES-GCM key material for sealed push subscriptions. A dedicated value is
+     * preferred; deriving from the account secret keeps existing deployments
+     * forward-compatible without introducing an insecure checked-in fallback.
+     */
+    dataKey: (ENV.PUSH_DATA_KEY ?? '').trim() || AUTH_SECRET,
   },
 } as const;

@@ -21,6 +21,7 @@ const order = (over: Partial<Order> = {}): Order => ({
   updatedAt: 0,
   ...over,
 });
+const EVENT = 'event-1';
 
 /** Language that only makes sense if the guest is walking to the bar. */
 const IMPLIES_COLLECTION = /come|grab|fetch|collect|pick .*up|at the bar/i;
@@ -73,26 +74,26 @@ describe('guestStatusPush', () => {
   test('pushes on the two moments a guest cares about, and no others', () => {
     const silent: OrderStatus[] = ['pending', 'done'];
     for (const status of silent) {
-      assert.equal(guestStatusPush(order({ status })), null, status);
+      assert.equal(guestStatusPush(order({ status }), EVENT), null, status);
     }
-    assert.ok(guestStatusPush(order({ status: 'making' })));
-    assert.ok(guestStatusPush(order({ status: 'serving' })));
+    assert.ok(guestStatusPush(order({ status: 'making' }), EVENT));
+    assert.ok(guestStatusPush(order({ status: 'serving' }), EVENT));
   });
 
   test('the serving push carries the handoff wording through', () => {
-    const push = guestStatusPush(order({ status: 'serving', handoff: 'deliver' }));
+    const push = guestStatusPush(order({ status: 'serving', handoff: 'deliver' }), EVENT);
     assert.equal(push?.body, readyCopy(order({ handoff: 'deliver' })).body);
   });
 
   test('collapses per order, so a flurry of updates cannot stack up', () => {
     // Same tag → a later notification replaces the earlier one on the device.
-    assert.equal(guestStatusPush(order({ status: 'making' }))?.tag, 'ord1');
-    assert.equal(guestStatusPush(order({ status: 'serving' }))?.tag, 'ord1');
+    assert.equal(guestStatusPush(order({ status: 'making' }), EVENT)?.tag, 'ord1');
+    assert.equal(guestStatusPush(order({ status: 'serving' }), EVENT)?.tag, 'ord1');
   });
 
   test('sends the guest to the app, not to bartender mode', () => {
-    assert.equal(guestStatusPush(order({ status: 'making' }))?.url, '/');
-    assert.equal(guestStatusPush(order({ status: 'serving' }))?.url, '/');
+    assert.equal(guestStatusPush(order({ status: 'making' }), EVENT)?.url, `/e/${EVENT}`);
+    assert.equal(guestStatusPush(order({ status: 'serving' }), EVENT)?.url, `/e/${EVENT}`);
   });
 });
 
@@ -105,28 +106,32 @@ describe('newOrderPush', () => {
           { name: 'Wine', qty: 1 },
         ],
       }),
+      EVENT,
     );
     assert.match(push.body, /Priya/);
     assert.match(push.body, /2× Mojito/);
     assert.match(push.body, /1× Wine/);
-    assert.equal(push.url, '/?bartender');
+    assert.equal(push.url, `/bar/${EVENT}`);
   });
 });
 
 describe('staffDecisionPush', () => {
   test('an approval says they are in and links to the bar', () => {
-    const push = staffDecisionPush(true);
+    const push = staffDecisionPush(true, EVENT, 'staff-1');
     assert.match(push.body, /approved/i);
-    assert.equal(push.url, '/?bartender');
+    assert.equal(push.url, `/bar/${EVENT}`);
   });
 
   test('a decline says so plainly and offers the way forward', () => {
-    const push = staffDecisionPush(false);
+    const push = staffDecisionPush(false, EVENT, 'staff-1');
     assert.match(push.body, /didn’t approve/i);
     assert.match(push.body, /ask again/i);
   });
 
   test('both share a tag, so a decision replaces rather than repeats', () => {
-    assert.equal(staffDecisionPush(true).tag, staffDecisionPush(false).tag);
+    assert.equal(
+      staffDecisionPush(true, EVENT, 'staff-1').tag,
+      staffDecisionPush(false, EVENT, 'staff-1').tag,
+    );
   });
 });

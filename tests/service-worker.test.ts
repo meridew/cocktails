@@ -17,11 +17,23 @@ describe('service worker update safety', () => {
 
 describe('push alert resilience', () => {
   test('alerts again when a later state replaces the same order notification', () => {
-    expect(source).toContain('renotify: Boolean(data.tag)');
+    expect(source).toContain('renotify: declarative?.renotify ?? Boolean(tag)');
   });
 
   test('asks supporting phones for a short vibration without forcing silence', () => {
     expect(source).toContain('vibrate: [180, 80, 180]');
     expect(source).not.toContain('silent: true');
+  });
+
+  test('parses declarative payloads while retaining the legacy fallback', () => {
+    expect(source).toContain('raw.notification');
+    expect(source).toContain("raw.title ?? '🍸 Cocktails'");
+    expect(source).toContain("postReceipt(data, 'displayed')");
+  });
+
+  test('repairs guest subscription rotation and defers authenticated bartender scope', () => {
+    expect(source).toContain("addEventListener('pushsubscriptionchange'");
+    expect(source).toContain("stored.roles.filter((item) => item === 'guest')");
+    expect(source).toContain("pendingRefresh: stored.roles.includes('bartender')");
   });
 });

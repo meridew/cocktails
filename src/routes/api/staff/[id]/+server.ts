@@ -1,8 +1,9 @@
 import { json, type RequestEvent } from '@sveltejs/kit';
 import { type OkResponse, party } from '$lib/shared';
-import { deleteStaff, staffInEvent } from '$lib/server/db';
+import { dbTransaction, deleteStaff, staffInEvent } from '$lib/server/db';
 import { staffDecisionPush } from '$lib/server/notify';
-import { pushToDevice } from '$lib/server/push';
+import { enqueueNotification } from '$lib/server/notification-store';
+import { dispatchShadow } from '$lib/server/push';
 import { denied, fail, requireCapability } from '$lib/server/guards';
 import { requirePartyInScope } from '$lib/server/scope';
 
@@ -26,11 +27,17 @@ export async function DELETE(event: RequestEvent) {
   // used to need protecting holds an account whose access doesn't come from a row
   // in it. Removing every staff row at a party now locks nobody out of anything.
 
-  deleteStaff(target.id);
-  // Only a *pending* row was waiting on an answer; removing an established helper
-  // isn't a decision they asked for, so it shouldn't ping them.
-  if (target.status === 'pending' && target.deviceId) {
-    void pushToDevice(target.deviceId, staffDecisionPush(false));
-  }
+  const notification = dbTransaction(() => {
+    deleteStaff(target.id);
+    // Only a pending row was waiting on an answer. Snapshot its recipient in the
+    // same transaction before the request disappears from the party.
+    return target.status === 'pending' && target.deviceId
+      ? enqueueNotification(
+          { kind: 'device', deviceId: target.deviceId },
+          staffDecisionPush(false, eventId, target.id),
+        )
+      : null;
+  });
+  if (notification?.mode === 'shadow') dispatchShadow(notification.messageId);
   return json({ ok: true } satisfies OkResponse);
 }

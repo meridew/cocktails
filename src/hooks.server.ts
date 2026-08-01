@@ -9,6 +9,7 @@
  */
 import type { Handle, HandleServerError } from '@sveltejs/kit';
 import { config } from '$lib/server/config';
+import { ensureNotificationWorker } from '$lib/server/push';
 
 /**
  * **Nothing is seeded at boot any more**, and the absence is deliberate.
@@ -58,14 +59,16 @@ function corsHeaders(origin: string | null): Record<string, string> {
   if (!origin || !originAllowed(origin)) return {};
   return {
     'access-control-allow-origin': origin,
-    'access-control-allow-methods': 'GET,POST,PATCH,DELETE,OPTIONS',
-    'access-control-allow-headers': 'Content-Type, Authorization',
+    'access-control-allow-methods': 'GET,POST,PUT,PATCH,DELETE,OPTIONS',
+    'access-control-allow-headers':
+      'Content-Type, Authorization, X-Push-Management-Token, X-Push-Receipt-Token, X-Push-Test-Token',
     'access-control-max-age': '86400',
     vary: 'origin',
   };
 }
 
 export const handle: Handle = async ({ event, resolve }) => {
+  ensureNotificationWorker();
   const { pathname } = event.url;
   const isApi = pathname.startsWith('/api/');
   const origin = event.request.headers.get('origin');

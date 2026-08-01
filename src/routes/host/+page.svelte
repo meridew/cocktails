@@ -128,6 +128,12 @@
         </section>
 
         <section class="panel">
+          <h2>Notification health</h2>
+          <p>Private provider acceptance, device receipts and retry health for your parties.</p>
+          <a class="btn" href="/notification-health">View notification health</a>
+        </section>
+
+        <section class="panel">
           <h2>Unit assumptions</h2>
           <p>Record the strengths and measured pours your bar actually uses for future orders.</p>
           <button class="btn" type="button" onclick={() => (alcoholProfileOpen = true)}>
@@ -165,6 +171,7 @@
                   <a class="btn btn-go" href="/e/{party.id}">Have a drink</a>
                   <a class="btn" href="/host/{party.id}">Watch</a>
                   <a class="btn" href="/insights/{party.id}">Insights</a>
+                  <a class="btn" href="/notification-health/{party.id}">Notifications</a>
                   <button class="btn" type="button" onclick={() => copyLink(party)}>
                     Guest link
                   </button>

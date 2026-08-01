@@ -51,6 +51,11 @@ type Requirement =
 const GOVERNED: Record<string, Requirement> = {
   'GET /api/health': 'public',
   'GET /api/push/key': 'public',
+  // These use per-endpoint or per-delivery capability secrets rather than an
+  // account/staff actor; they are public in the actor matrix, not unprotected.
+  'POST /api/push/receipts': 'public',
+  'POST /api/push/tests': 'public',
+  'GET /api/push/tests/[id]': 'public',
   // Logging out asks for nothing: refusing an expired token would strand a client
   // holding it. "Who am I" answers "nobody" rather than refusing.
   'POST /api/auth/logout': 'public',
@@ -76,6 +81,9 @@ const GOVERNED: Record<string, Requirement> = {
   'POST /api/staff/[id]/revoke': 'staff:revoke',
 
   'POST /api/subscriptions': 'public', // keyed to an anonymous device id
+  'GET /api/subscriptions': 'public',
+  'PUT /api/subscriptions': 'public',
+  'PATCH /api/subscriptions': 'public',
   'DELETE /api/subscriptions': 'public',
 
   // Scoped to a *person*, not a party — which is the whole of the phase 0 fix.
@@ -92,9 +100,13 @@ const GOVERNED: Record<string, Requirement> = {
 
   'GET /api/events': 'session',
   'GET /api/analytics': 'session',
+  'GET /api/notification-health': 'session',
+  'GET /api/admin/notification-control': 'notifications:control',
+  'PUT /api/admin/notification-control': 'notifications:control',
   'POST /api/events': 'party:create',
   'GET /api/events/[id]': 'orders:read',
   'GET /api/events/[id]/analytics': 'analytics:read',
+  'GET /api/events/[id]/notification-health': 'notifications:read',
   // As above: open and close are separate capabilities, chosen by the body.
   'PATCH /api/events/[id]': 'party:edit',
   'DELETE /api/events/[id]': 'party:delete',

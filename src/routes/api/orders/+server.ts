@@ -10,6 +10,7 @@ import {
 } from '$lib/shared';
 import {
   createOrder,
+  dbTransaction,
   eventById,
   listAlcoholOverrides,
   listOrders,
@@ -18,7 +19,8 @@ import {
 } from '$lib/server/db';
 import { offeredOrderNames } from '$lib/server/menu';
 import { newOrderPush } from '$lib/server/notify';
-import { pushToRole } from '$lib/server/push';
+import { enqueueNotification, type EnqueuedNotification } from '$lib/server/notification-store';
+import { dispatchShadow } from '$lib/server/push';
 import { body, denied, fail, requireCapability } from '$lib/server/guards';
 import { requirePartyInScope } from '$lib/server/scope';
 import { rateLimitWrites } from '$lib/server/ratelimit';
@@ -118,12 +120,22 @@ export async function POST(event: RequestEvent) {
     };
   });
   let order;
+  let notification: EnqueuedNotification | null = null;
   try {
-    order = createOrder(eventId, { name, items: guidedItems, note, deviceId });
+    const created = dbTransaction(() => {
+      const next = createOrder(eventId, { name, items: guidedItems, note, deviceId });
+      const queued = enqueueNotification(
+        { kind: 'bartenders', eventId },
+        newOrderPush(next, eventId),
+      );
+      return { order: next, notification: queued };
+    });
+    order = created.order;
+    notification = created.notification;
   } catch (error) {
     if (error instanceof QueueFullError) return fail(503, 'the bar queue is full');
     throw error;
   }
-  void pushToRole('bartender', newOrderPush(order)); // fire-and-forget
+  if (notification?.mode === 'shadow') dispatchShadow(notification.messageId);
   return json({ ok: true, id: order.id, order } satisfies OrderCreatedResponse);
 }

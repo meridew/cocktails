@@ -22,3 +22,4 @@ export * from './sanitise';
 export * from './party';
 export * from './alcohol';
 export * from './analytics';
+export * from './notifications';
