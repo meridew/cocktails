@@ -21,6 +21,9 @@ import { join } from 'node:path';
 const read = (name: string): string =>
   readFileSync(join(process.cwd(), 'src', 'lib', name), 'utf8');
 
+const readSource = (...parts: string[]): string =>
+  readFileSync(join(process.cwd(), 'src', ...parts), 'utf8');
+
 const stripComments = (css: string): string => css.replace(/\/\*[\s\S]*?\*\//g, '');
 
 /** Every class name mentioned anywhere on a left-hand side. */
@@ -203,5 +206,55 @@ describe('app.css stays out of neo.css’s way', () => {
     for (const core of ['cocktail', 'appbar', 'menu', 'order', 'sheet']) {
       assert.ok(neo.has(core), `neo.css should still define .${core}`);
     }
+  });
+});
+
+describe('operational dashboards share the real theme vocabulary', () => {
+  const dashboards = [
+    ['routes', 'insights', '+page.svelte'],
+    ['routes', 'insights', '[eventId]', '+page.svelte'],
+    ['routes', 'notification-health', '+page.svelte'],
+    ['routes', 'notification-health', '[eventId]', '+page.svelte'],
+  ];
+  const relatedSurfaces = [
+    ...dashboards,
+    ['lib', 'components', 'AlcoholProfile.svelte'],
+    ['lib', 'components', 'SettingsSheet.svelte'],
+  ];
+
+  test('does not reference palette aliases the theme never defines', () => {
+    const unsupported = /var\(--(?:ink|muted|pink|yellow)(?:[,)]|\s)/g;
+    const offenders = relatedSurfaces.flatMap((parts) => {
+      const matches = readSource(...parts).match(unsupported) ?? [];
+      return matches.map((match) => `${parts.join('/')}: ${match}`);
+    });
+
+    assert.deepEqual(
+      offenders,
+      [],
+      'Use neo.css theme tokens such as --line, --text-soft and --accent; an undefined ' +
+        'custom property makes the entire CSS declaration disappear.',
+    );
+  });
+
+  test('uses one shared width and metric-strip implementation', () => {
+    for (const parts of dashboards) {
+      const source = readSource(...parts);
+      assert.match(source, /class="deck dashboard-deck"/, `${parts.join('/')} should be wide`);
+      assert.match(
+        source,
+        /class="dashboard-metrics"/,
+        `${parts.join('/')} should use the shared metric strip`,
+      );
+      assert.doesNotMatch(
+        source,
+        /\.dashboard-metrics\s*\{/,
+        `${parts.join('/')} must not redefine the shared metric strip`,
+      );
+    }
+
+    const app = read('app.css');
+    assert.match(app, /\.dashboard-deck > \*/);
+    assert.match(app, /\.dashboard-metrics\s*\{/);
   });
 });

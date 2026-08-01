@@ -190,6 +190,8 @@ test('a host stocks up, Dan opens the bar, a guest orders and a helper pours it'
   // ---- private insights, from both account roles -------------------------
   await host.goto(`/insights/${id}`);
   await expect(host.getByRole('heading', { name: 'Guest totals' })).toBeVisible();
+  await expect(host.locator('.dashboard-metrics')).toHaveCSS('display', 'grid');
+  await expect(host.locator('.dashboard-metrics')).toHaveCSS('border-top-width', '3px');
   await expect(host.getByRole('button', { name: 'Served' })).toHaveClass(/active/);
   await expect(host.locator('.guest-row', { hasText: 'Priya' })).toContainText('2');
   await host.getByRole('button', { name: 'Ordered' }).click();
@@ -199,6 +201,10 @@ test('a host stocks up, Dan opens the bar, a guest orders and a helper pours it'
 
   await host.goto('/insights');
   await expect(host.locator('.history-row', { hasText: partyName })).toBeVisible();
+  await expect(host.locator('.history-row', { hasText: partyName })).toHaveCSS(
+    'border-bottom-width',
+    '1px',
+  );
 
   await dan.goto('/insights');
   await dan.getByLabel('Host').selectOption({ label: hostName });
@@ -207,6 +213,9 @@ test('a host stocks up, Dan opens the bar, a guest orders and a helper pours it'
   // ---- private, honest notification operations --------------------------
   await host.goto(`/notification-health/${id}`);
   await expect(host.getByRole('heading', { name: 'Delivery activity' })).toBeVisible();
+  await expect(host.locator('.dashboard-metrics')).toHaveCSS('display', 'grid');
+  await expect(host.locator('.dashboard-metrics')).toHaveCSS('border-top-width', '3px');
+  await expect(host.locator('.latency-band')).toHaveCSS('border-top-width', '2px');
   await expect(host.getByText('Provider accepted', { exact: true })).toBeVisible();
   await expect(host.getByText(/missing receipt remains unknown/i)).toBeVisible();
 
@@ -224,6 +233,18 @@ test('a host stocks up, Dan opens the bar, a guest orders and a helper pours it'
   // The dense table changes shape on a phone, but it must remain readable without
   // making the whole page wider than the viewport.
   await host.setViewportSize({ width: 390, height: 844 });
+  await host.goto('/notification-health');
+  const mobileHealthRow = host.locator('.health-row', { hasText: partyName });
+  await expect(mobileHealthRow).toBeVisible();
+  expect(
+    await mobileHealthRow
+      .locator('[data-label="Targets"]')
+      .evaluate((element) => getComputedStyle(element, '::before').content),
+  ).toBe('"Targets"');
+  expect(await host.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
+    true,
+  );
+
   await host.goto(`/insights/${id}`);
   await expect(host.getByRole('heading', { name: 'Guest totals' })).toBeVisible();
   expect(await host.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(

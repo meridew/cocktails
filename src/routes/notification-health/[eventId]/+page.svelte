@@ -35,11 +35,11 @@
 
 <div class="workshell detail-shell">
   <AppBar {up} title={summary?.eventName ?? 'Notification health'} />
-  <main class="deck">
+  <main class="deck dashboard-deck">
     <Gate what="party notification health">
       {#if error}<p class="says says-bad" role="alert">{error}</p>{/if}
       {#if summary}
-        <section class="metric-band" aria-label="Party notification totals">
+        <section class="dashboard-metrics" aria-label="Party notification totals">
           <div><b>{summary.totals.targeted}</b><span>Targets</span></div>
           <div>
             <b>{percent(summary.totals.accepted, summary.totals.targeted)}</b><span
@@ -105,14 +105,14 @@
   .latency-band {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
-    border-block: 2px solid var(--ink);
+    border-block: 2px solid var(--line);
     margin: 1rem 0;
   }
   .latency-band > div {
     display: grid;
     gap: 0.35rem;
     padding: 0.8rem;
-    border-right: 1px solid var(--ink);
+    border-right: 1px solid var(--line);
   }
   .latency-band > div:last-child {
     border-right: 0;
@@ -132,7 +132,7 @@
     gap: 0.75rem;
     align-items: center;
     min-height: 3.4rem;
-    border-bottom: 1px solid color-mix(in srgb, var(--ink) 22%, transparent);
+    border-bottom: 1px solid color-mix(in srgb, var(--line) 22%, transparent);
     font-size: 0.82rem;
   }
   .activity-row > span:first-child {
@@ -145,13 +145,13 @@
   }
   .bar {
     height: 0.65rem;
-    background: color-mix(in srgb, var(--ink) 14%, transparent);
+    background: color-mix(in srgb, var(--line) 14%, transparent);
   }
   .bar i {
     display: block;
     height: 100%;
     min-width: 2px;
-    background: var(--pink);
+    background: var(--accent);
   }
   .health-note {
     max-width: 58rem;

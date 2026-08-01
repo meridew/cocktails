@@ -1314,6 +1314,107 @@ a.bt-gate-alt {
   max-width: 760px;
 }
 
+/* Operational dashboards carry dense tables, filters and four-up totals. Giving
+   each page its own width and metric-strip CSS made them drift, and one pair shipped
+   without the strip styles at all. These are shared layout primitives rather than
+   page decoration, so their behaviour belongs here. */
+.dashboard-deck > * {
+  max-width: 1120px;
+}
+
+.dashboard-select {
+  min-height: 44px;
+  border: 3px solid var(--line);
+  background: var(--surface);
+  color: var(--text);
+  padding: 6px 10px;
+  font: inherit;
+}
+
+.dashboard-segments {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  margin: 0;
+  padding: 0;
+  border: 3px solid var(--line);
+}
+
+.dashboard-segments legend {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.dashboard-segments button {
+  min-height: 44px;
+  border: 0;
+  border-left: 2px solid var(--line);
+  background: var(--seg-bg);
+  color: var(--seg-text);
+  padding: 6px 12px;
+  font: inherit;
+  font-weight: 900;
+}
+
+.dashboard-segments button:first-of-type {
+  border-left: 0;
+}
+
+.dashboard-segments button[aria-pressed='true'],
+.dashboard-segments button.active {
+  background: var(--seg-on-bg);
+  color: var(--seg-on-text);
+}
+
+.dashboard-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border-block: 3px solid var(--line);
+  margin-bottom: 18px;
+}
+
+.dashboard-metrics > div {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+  padding: 12px;
+  border-right: 2px solid var(--line);
+}
+
+.dashboard-metrics > div:last-child {
+  border-right: 0;
+}
+
+.dashboard-metrics b {
+  font-size: 1.65rem;
+  line-height: 1;
+  overflow-wrap: anywhere;
+}
+
+.dashboard-metrics span {
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+@media (max-width: 700px) {
+  .dashboard-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dashboard-metrics > div:nth-child(2) {
+    border-right: 0;
+  }
+
+  .dashboard-metrics > div:nth-child(-n + 2) {
+    border-bottom: 2px solid var(--line);
+  }
+}
+
 /*
  * Vertically centred too — the front door only.
  *

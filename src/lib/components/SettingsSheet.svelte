@@ -367,7 +367,7 @@
   .notification-diagnostics {
     margin-top: 1rem;
     padding-top: 1rem;
-    border-top: 2px solid var(--ink, #111);
+    border-top: 2px solid var(--line);
   }
 
   .diagnostic-heading,
@@ -418,7 +418,7 @@
     min-height: 2.75rem;
     justify-content: center;
     border: 2px solid currentColor;
-    background: var(--yellow, #ffd84d);
+    background: var(--send-bg);
     font: inherit;
     font-weight: 700;
   }

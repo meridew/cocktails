@@ -89,13 +89,14 @@
 
 <div class="workshell insights-shell">
   <AppBar {up} title="Party insights" />
-  <main class="deck">
+  <main class="deck dashboard-deck">
     <Gate what="party insights">
       <section class="insights-tools" aria-label="History filters">
         {#if isAdmin}
           <label>
             <span>Host</span>
             <select
+              class="dashboard-select"
               value={hostId}
               onchange={(event) => {
                 hostId = event.currentTarget.value;
@@ -109,7 +110,7 @@
         {/if}
         <label>
           <span>Status</span>
-          <select bind:value={status}>
+          <select class="dashboard-select" bind:value={status}>
             <option value="all">All parties</option>
             <option value="draft">Draft</option>
             <option value="live">Live</option>
@@ -118,7 +119,7 @@
         </label>
       </section>
 
-      <section class="metric-band" aria-label="Party history totals">
+      <section class="dashboard-metrics" aria-label="Party history totals">
         <div><b>{totals.parties}</b><span>Parties</span></div>
         <div><b>{totals.attendees}</b><span>Attendees</span></div>
         <div><b>{totals.drinks}</b><span>Drinks served</span></div>
@@ -188,38 +189,6 @@
     min-width: min(220px, 100%);
     font-weight: 800;
   }
-  .insights-tools select {
-    min-height: 44px;
-    border: 3px solid var(--ink);
-    background: #fff;
-    padding: 6px 10px;
-    font: inherit;
-  }
-  .metric-band {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    border-block: 3px solid var(--ink);
-    margin-bottom: 18px;
-  }
-  .metric-band div {
-    padding: 12px;
-    display: grid;
-    gap: 2px;
-    border-right: 2px solid var(--ink);
-    min-width: 0;
-  }
-  .metric-band div:last-child {
-    border-right: 0;
-  }
-  .metric-band b {
-    font-size: 1.65rem;
-    line-height: 1;
-    overflow-wrap: anywhere;
-  }
-  .metric-band span {
-    font-size: 0.78rem;
-    font-weight: 800;
-  }
   .history-table {
     display: grid;
     gap: 0;
@@ -233,14 +202,14 @@
   }
   .history-head {
     padding: 6px 8px;
-    border-bottom: 3px solid var(--ink);
+    border-bottom: 3px solid var(--line);
     font-size: 0.76rem;
     font-weight: 900;
     text-transform: uppercase;
   }
   .history-row {
     padding: 10px 8px;
-    border-bottom: 1px solid color-mix(in srgb, var(--ink) 35%, transparent);
+    border-bottom: 1px solid color-mix(in srgb, var(--line) 35%, transparent);
   }
   .party-cell {
     display: grid;
@@ -252,22 +221,13 @@
     text-overflow: ellipsis;
   }
   .party-cell small {
-    color: var(--muted);
+    color: var(--text-soft);
   }
   .history-row .btn {
     min-width: 0;
     padding-inline: 10px;
   }
   @media (max-width: 700px) {
-    .metric-band {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-    .metric-band div:nth-child(2) {
-      border-right: 0;
-    }
-    .metric-band div:nth-child(-n + 2) {
-      border-bottom: 2px solid var(--ink);
-    }
     .history-head {
       display: none;
     }

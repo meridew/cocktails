@@ -77,14 +77,14 @@
 
 <div class="workshell insights-shell">
   <AppBar up={historyUp} title={analytics?.party.name ?? 'Party insights'} />
-  <main class="deck">
+  <main class="deck dashboard-deck">
     <Gate what="party insights">
       {#if loading}
         <p class="empty">One moment…</p>
       {:else if error || !analytics}
         <p class="says says-bad" role="status">{error || 'No analytics found.'}</p>
       {:else}
-        <section class="metric-band" aria-label="Party totals">
+        <section class="dashboard-metrics" aria-label="Party totals">
           <div><b>{analytics.totals.attendeeCount}</b><span>Attendees</span></div>
           <div><b>{analytics.totals.orderedDrinks}</b><span>Drinks ordered</span></div>
           <div><b>{analytics.totals.servedDrinks}</b><span>Drinks served</span></div>
@@ -100,7 +100,7 @@
               <p class="row-note">Estimated from recorded house pours and bottle strengths.</p>
             </div>
             <div class="controls">
-              <div class="segments" aria-label="Order or served totals">
+              <div class="dashboard-segments" aria-label="Order or served totals">
                 <button
                   class:active={mode === 'ordered'}
                   type="button"
@@ -114,7 +114,7 @@
               </div>
               <label>
                 <span class="sr-only">Sort guest totals</span>
-                <select bind:value={sort}>
+                <select class="dashboard-select" bind:value={sort}>
                   <option value="units">Est. units</option>
                   <option value="drinks">Drinks</option>
                   <option value="name">Name</option>
@@ -232,31 +232,6 @@
     background: var(--bg);
     min-height: 100dvh;
   }
-  .metric-band {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    border-block: 3px solid var(--ink);
-    margin-bottom: 18px;
-  }
-  .metric-band div {
-    padding: 12px;
-    display: grid;
-    gap: 2px;
-    border-right: 2px solid var(--ink);
-    min-width: 0;
-  }
-  .metric-band div:last-child {
-    border-right: 0;
-  }
-  .metric-band b {
-    font-size: 1.65rem;
-    line-height: 1;
-    overflow-wrap: anywhere;
-  }
-  .metric-band span {
-    font-size: 0.78rem;
-    font-weight: 800;
-  }
   .section-line {
     display: flex;
     justify-content: space-between;
@@ -273,33 +248,6 @@
     gap: 8px;
     align-items: center;
     flex-wrap: wrap;
-  }
-  .segments {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    border: 3px solid var(--ink);
-  }
-  .segments button {
-    border: 0;
-    background: #fff;
-    min-height: 38px;
-    padding: 5px 10px;
-    font: inherit;
-    font-weight: 900;
-  }
-  .segments button + button {
-    border-left: 2px solid var(--ink);
-  }
-  .segments button.active {
-    background: var(--ink);
-    color: #fff;
-  }
-  .controls select {
-    min-height: 44px;
-    border: 3px solid var(--ink);
-    background: #fff;
-    padding: 5px 8px;
-    font: inherit;
   }
   .coverage {
     background: #fff;
@@ -318,7 +266,7 @@
     align-items: center;
   }
   .guest-head {
-    border-bottom: 3px solid var(--ink);
+    border-bottom: 3px solid var(--line);
     padding: 6px;
     font-size: 0.75rem;
     font-weight: 900;
@@ -326,7 +274,7 @@
   }
   .guest-row {
     padding: 9px 6px;
-    border-bottom: 1px solid color-mix(in srgb, var(--ink) 35%, transparent);
+    border-bottom: 1px solid color-mix(in srgb, var(--line) 35%, transparent);
   }
   .guest-name {
     display: flex;
@@ -337,7 +285,7 @@
   .guest-name small {
     min-width: 22px;
     font-weight: 900;
-    color: var(--muted);
+    color: var(--text-soft);
   }
   .guest-name b {
     overflow: hidden;
@@ -351,13 +299,13 @@
   .icon-btn {
     width: 36px;
     height: 36px;
-    border: 3px solid var(--ink);
+    border: 3px solid var(--line);
     background: #fff;
     font: 900 1.2rem/1 sans-serif;
   }
   .drink-breakdown {
     margin: 0 6px 8px 36px;
-    border-left: 3px solid var(--ink);
+    border-left: 3px solid var(--line);
     padding-left: 12px;
   }
   .drink-breakdown div,
@@ -366,7 +314,7 @@
     justify-content: space-between;
     gap: 14px;
     padding: 7px 0;
-    border-bottom: 1px solid color-mix(in srgb, var(--ink) 25%, transparent);
+    border-bottom: 1px solid color-mix(in srgb, var(--line) 25%, transparent);
   }
   .drink-breakdown span:first-child,
   .detail-row span {
@@ -374,7 +322,7 @@
   }
   .drink-breakdown small,
   .detail-row small {
-    color: var(--muted);
+    color: var(--text-soft);
   }
   .detail-grid {
     display: grid;
@@ -396,7 +344,7 @@
     min-width: 3px;
     height: 13px;
     background: #ff4f87;
-    border: 1px solid var(--ink);
+    border: 1px solid var(--line);
   }
   .estimate-note {
     font-size: 0.8rem;
@@ -404,15 +352,6 @@
     text-align: center;
   }
   @media (max-width: 700px) {
-    .metric-band {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-    .metric-band div:nth-child(2) {
-      border-right: 0;
-    }
-    .metric-band div:nth-child(-n + 2) {
-      border-bottom: 2px solid var(--ink);
-    }
     .section-line {
       align-items: stretch;
       flex-direction: column;

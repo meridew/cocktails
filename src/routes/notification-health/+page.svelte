@@ -90,13 +90,14 @@
 
 <div class="workshell health-shell">
   <AppBar {up} title="Notification health" />
-  <main class="deck">
+  <main class="deck dashboard-deck">
     <Gate what="notification health">
       <section class="health-tools" aria-label="Notification controls">
         {#if isAdmin}
           <label>
             <span>Host</span>
             <select
+              class="dashboard-select"
               value={hostId}
               onchange={(event) => {
                 hostId = event.currentTarget.value;
@@ -107,7 +108,7 @@
               {#each hosts as host (host.id)}<option value={host.id}>{host.name}</option>{/each}
             </select>
           </label>
-          <fieldset disabled={busy}>
+          <fieldset class="dashboard-segments" disabled={busy}>
             <legend>Delivery mode</legend>
             {#each ['shadow', 'live', 'paused'] as choice}
               <button
@@ -126,7 +127,7 @@
       {#if !enabled || problem}<p class="says says-bad" role="alert">{problem}</p>{/if}
       {#if error}<p class="says says-bad" role="alert">{error}</p>{/if}
 
-      <section class="metric-band" aria-label="Notification totals">
+      <section class="dashboard-metrics" aria-label="Notification totals">
         <div><b>{totals.targeted}</b><span>Targets</span></div>
         <div><b>{percent(totals.accepted, totals.targeted)}</b><span>Provider accepted</span></div>
         <div><b>{percent(totals.displayed, totals.accepted)}</b><span>Display receipts</span></div>
@@ -146,11 +147,15 @@
           {#each parties as party (party.eventId)}
             <div class="health-row">
               <span class="party-name"><b>{party.eventName}</b><small>{party.status}</small></span>
-              <span>{party.totals.targeted}</span>
-              <span>{percent(party.totals.accepted, party.totals.targeted)}</span>
-              <span>{percent(party.totals.displayed, party.totals.accepted)}</span>
-              <span>{party.totals.permanentFailures}</span>
-              <span>{when(party.oldestQueuedAt)}</span>
+              <span data-label="Targets">{party.totals.targeted}</span>
+              <span data-label="Accepted"
+                >{percent(party.totals.accepted, party.totals.targeted)}</span
+              >
+              <span data-label="Displayed"
+                >{percent(party.totals.displayed, party.totals.accepted)}</span
+              >
+              <span data-label="Failures">{party.totals.permanentFailures}</span>
+              <span data-label="Oldest queued">{when(party.oldestQueuedAt)}</span>
               <a class="btn" href="/notification-health/{party.eventId}">Open</a>
             </div>
           {:else}
@@ -185,40 +190,6 @@
     gap: 0.35rem;
     font-weight: 700;
   }
-  .health-tools select {
-    min-height: 2.7rem;
-    border: 2px solid var(--ink);
-    background: white;
-    padding: 0 0.65rem;
-    font: inherit;
-  }
-  fieldset {
-    display: flex;
-    margin: 0;
-    padding: 0;
-    border: 2px solid var(--ink);
-  }
-  legend {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-  }
-  fieldset button {
-    min-height: 2.7rem;
-    border: 0;
-    border-right: 2px solid var(--ink);
-    background: white;
-    padding: 0 0.85rem;
-    font: inherit;
-    font-weight: 700;
-  }
-  fieldset button:last-child {
-    border-right: 0;
-  }
-  fieldset button[aria-pressed='true'] {
-    background: var(--yellow);
-  }
   .health-table {
     margin-top: 1rem;
   }
@@ -232,7 +203,7 @@
     gap: 0.65rem;
     align-items: center;
     padding: 0.7rem 0;
-    border-bottom: 1px solid color-mix(in srgb, var(--ink) 22%, transparent);
+    border-bottom: 1px solid color-mix(in srgb, var(--line) 22%, transparent);
   }
   .health-head {
     font-size: 0.75rem;
@@ -260,6 +231,14 @@
     }
     .health-row > span:not(.party-name)::before {
       content: attr(data-label);
+      font-size: 0.72rem;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+    .health-row > span:not(.party-name) {
+      display: flex;
+      justify-content: space-between;
+      gap: 1rem;
     }
     .health-row .btn {
       grid-column: 1 / -1;

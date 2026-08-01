@@ -291,14 +291,14 @@
     gap: 10px;
     align-items: center;
     padding: 10px 0;
-    border-bottom: 1px solid color-mix(in srgb, var(--ink) 30%, transparent);
+    border-bottom: 1px solid color-mix(in srgb, var(--line) 30%, transparent);
   }
   .profile-name {
     display: grid;
     min-width: 0;
   }
   .profile-name small {
-    color: var(--muted);
+    color: var(--text-soft);
     overflow-wrap: anywhere;
   }
   .profile-row label,
@@ -313,13 +313,13 @@
   .component-row input {
     width: 82px;
     min-height: 42px;
-    border: 3px solid var(--ink);
+    border: 3px solid var(--line);
     padding: 5px 7px;
     font: inherit;
   }
   .recipe-row {
     padding: 12px 0;
-    border-bottom: 2px solid var(--ink);
+    border-bottom: 2px solid var(--line);
   }
   .recipe-row h3 {
     margin: 0 0 5px;
